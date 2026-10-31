@@ -1,8 +1,8 @@
 // LLM judge for "expected" checks: did the answer do what the customer says a correct answer does?
 
-import Anthropic from '@anthropic-ai/sdk';
+import { createLlm, DEFAULT_MODEL } from './core/llm.mjs';
 
-export const DEFAULT_JUDGE_MODEL = 'claude-opus-5-5';
+export const DEFAULT_JUDGE_MODEL = DEFAULT_MODEL;
 
 const SYSTEM = `You check one answer from a company's AI product against that company's own definition of a correct answer.
 Judge only against the expected behaviour you are given, not against your own preferences.
@@ -24,31 +24,19 @@ const VERDICT_SCHEMA = {
 };
 
 export function createJudge({ client, model = DEFAULT_JUDGE_MODEL } = {}) {
-  const anthropic = client ?? new Anthropic();
+  const llm = createLlm({ client, model });
 
   return async function judge({ input, expected, output }) {
-    const response = await anthropic.beta.messages.create({
-      model,
-      max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium', format: { type: 'json_schema', schema: VERDICT_SCHEMA } },
+    const res = await llm.json({
       system: SYSTEM,
-      messages: [{
-        role: 'user',
-        content: `<expected_behaviour>\n${expected}\n</expected_behaviour>\n\n<user_message>\n${input}\n</user_message>\n\n<answer>\n${output}\n</answer>`,
-      }],
+      schema: VERDICT_SCHEMA,
+      prompt: `<expected_behaviour>\n${expected}\n</expected_behaviour>\n\n<user_message>\n${input}\n</user_message>\n\n<answer>\n${output}\n</answer>`,
     });
-
-    if (response.stop_reason === 'refusal') {
+    if (!res.ok && res.reason === 'refusal') {
       return { status: 'needs_review', reason: 'The judge model declined to grade this case; a person must review it.' };
     }
-    if (response.stop_reason === 'max_tokens') {
-      return { status: 'needs_review', reason: 'The judge ran out of output tokens; a person must review it.' };
-    }
-    const text = response.content.filter(b => b.type === 'text').map(b => b.text).join('');
-    const parsed = JSON.parse(text);
-    return { status: parsed.verdict, reason: parsed.reason, fix: parsed.verdict === 'fail' ? parsed.fix : undefined };
+    if (!res.ok) return { status: 'needs_review', reason: 'The judge ran out of output tokens; a person must review it.' };
+    const v = res.data;
+    return { status: v.verdict, reason: v.reason, fix: v.verdict === 'fail' ? v.fix : undefined };
   };
 }
