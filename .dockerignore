@@ -1,0 +1,15 @@
+# Keep secrets, local data and dev-only files out of the image build context.
+.git
+.env
+.env.*
+node_modules
+data
+runs
+test
+docs
+examples
+*.db
+*.db-wal
+*.db-shm
+Dockerfile
+.dockerignore
