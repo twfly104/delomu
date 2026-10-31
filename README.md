@@ -17,6 +17,8 @@ The previous Delomu Verify code was moved, untouched, to `Desktop\delomu-verify-
 | v3 | Enterprise and partner server: orgs, roles, API keys, OIDC single sign-on, audit export, review UI, Docker self-hosting | [docs/v3.md](docs/v3.md) |
 | v4 | Knowledge library: consented, de-identified test cases, integration templates and failure patterns reused across deployments | [docs/v4.md](docs/v4.md) |
 
+中文使用指南：[docs/使用指南.md](docs/使用指南.md)。
+
 [CONTRACT.md](CONTRACT.md) has the architecture, file ownership and the interfaces between versions.
 
 ## Setup
