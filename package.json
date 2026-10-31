@@ -1,0 +1,20 @@
+{
+  "name": "delomu",
+  "version": "0.1.0",
+  "description": "Delomu v0: build a customer test set from past cases, run their AI against it, and produce an acceptance report.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "delomu": "bin/delomu.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node bin/delomu.mjs tests examples/acme-support && node bin/delomu.mjs run examples/acme-support --no-judge"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  }
+}

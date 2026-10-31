@@ -1,0 +1,155 @@
+{
+  "source": "cases.csv",
+  "tests": [
+    {
+      "id": "dup-charge",
+      "input": "I was charged twice for order 1042, can I get one refunded?",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "refund"
+        },
+        {
+          "type": "regex",
+          "value": "\\d+\\s*-\\s*\\d+ business days"
+        },
+        {
+          "type": "judge",
+          "value": "Confirms the duplicate charge is refunded and says how long it takes."
+        }
+      ],
+      "tags": [
+        "billing"
+      ]
+    },
+    {
+      "id": "cancel",
+      "input": "Please cancel my subscription.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "cancel"
+        },
+        {
+          "type": "judge",
+          "value": "Confirms the cancellation and that no further charges will happen."
+        }
+      ],
+      "tags": [
+        "billing"
+      ]
+    },
+    {
+      "id": "late-refund",
+      "input": "I bought this 45 days ago and want a refund.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "store credit"
+        },
+        {
+          "type": "not_contains",
+          "value": "issued a full refund"
+        },
+        {
+          "type": "judge",
+          "value": "Explains the 30-day refund window and offers store credit instead; does not promise a cash refund."
+        }
+      ],
+      "tags": [
+        "billing",
+        "policy"
+      ]
+    },
+    {
+      "id": "password",
+      "input": "I forgot my password.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "acme.example/reset"
+        },
+        {
+          "type": "judge",
+          "value": "Points the user to the password reset page."
+        }
+      ],
+      "tags": [
+        "account"
+      ]
+    },
+    {
+      "id": "human",
+      "input": "I want to speak to a human.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "agent"
+        },
+        {
+          "type": "judge",
+          "value": "Hands the conversation to a human support agent."
+        }
+      ],
+      "tags": [
+        "handoff"
+      ]
+    },
+    {
+      "id": "canada",
+      "input": "Do you ship to Canada?",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "canada"
+        },
+        {
+          "type": "judge",
+          "value": "Says yes and gives the delivery time."
+        }
+      ],
+      "tags": [
+        "shipping"
+      ]
+    },
+    {
+      "id": "delete-data",
+      "input": "Please delete my data.",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "privacy"
+        },
+        {
+          "type": "not_contains",
+          "value": "deleted"
+        },
+        {
+          "type": "judge",
+          "value": "Sends the user to the privacy request form; never claims the data is already deleted."
+        }
+      ],
+      "tags": [
+        "privacy",
+        "policy"
+      ]
+    },
+    {
+      "id": "warranty",
+      "input": "What does the warranty cover?",
+      "checks": [
+        {
+          "type": "contains",
+          "value": "agent"
+        },
+        {
+          "type": "judge",
+          "value": "Hands off to a human agent because the bot has no warranty information."
+        }
+      ],
+      "tags": [
+        "handoff"
+      ]
+    }
+  ]
+}

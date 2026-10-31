@@ -1,0 +1,10 @@
+{
+  "customer": "Acme (demo)",
+  "name": "support-agent-rollout",
+  "target": { "type": "command", "command": "node ../mock-bot.mjs" },
+  "acceptance": { "minPassRate": 0.9 },
+  "decisions": [
+    { "date": "2026-10-31", "decision": "Accept at a 90% pass rate", "reason": "Agreed with the customer at kickoff." },
+    { "date": "2026-10-31", "decision": "Refunds after 30 days get store credit, not cash", "reason": "Customer's written refund policy, section 2." }
+  ]
+}
