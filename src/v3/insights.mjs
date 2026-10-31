@@ -6,6 +6,7 @@ import path from 'node:path';
 import { paths } from '../deployment.mjs';
 import { listDrafts } from '../core/drafts.mjs';
 import { readAudit } from '../core/audit.mjs';
+import { listScans } from '../v1/risk.mjs';
 
 export const STEPS = [
   { key: 'mapping', label: 'Data mapping' },
@@ -74,9 +75,10 @@ export function currentStep(steps) {
 }
 
 // The single most useful thing to do next, as { text, action } where action names a control on the page.
-export function nextAction(steps, { pending, runs, inputs }) {
+export function nextAction(steps, { pending, runs, inputs, scans = 1 }) {
   if (pending) return { text: `${pending} draft${pending > 1 ? 's' : ''} from the agent ${pending > 1 ? 'are' : 'is'} waiting for your decision.`, action: 'review' };
   const step = currentStep(steps);
+  if (inputs && !scans) return { text: 'Run a risk scan: the agent reads the customer’s policies, writes the messages most likely to make the AI break them, and checks every answer.', action: 'scan' };
   if (step.key === 'mapping' && !inputs) return { text: "Upload the customer's policies, API docs and a ticket export so the agent can start.", action: 'inputs' };
   if (['mapping', 'integration', 'cases'].includes(step.key) && step.state === 'todo') return { text: `Ask the agent to draft the ${step.label.toLowerCase()}.`, action: 'agent', task: step.key };
   if (step.key === 'fixes' && !runs) return { text: 'Run the test set against the customer’s AI.', action: 'run' };
@@ -92,11 +94,12 @@ export function overview(dir, config) {
   const inputs = inputFiles(dir);
   const steps = stepStates(dir, { drafts, runs, config });
   const pending = drafts.filter(d => d.status === 'pending');
+  const scans = listScans(dir);
   return {
-    drafts, pending, runs, inputs, steps,
+    drafts, pending, runs, inputs, steps, scans,
     latest: runs.at(-1) ?? null,
     current: currentStep(steps),
-    next: nextAction(steps, { pending: pending.length, runs: runs.length, inputs: inputs.length }),
+    next: nextAction(steps, { pending: pending.length, runs: runs.length, inputs: inputs.length, scans: scans.length }),
     // Reads of customer material are kept in the audit log but are noise in a feed.
     activity: readAudit(dir).filter(e => !e.action.startsWith('input.read') && !e.action.startsWith('input.denied')).slice(-8).reverse(),
   };

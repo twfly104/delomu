@@ -156,6 +156,27 @@ details.history .note{font-style:italic}
 .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
 .errorpage{max-width:520px;margin:12vh auto 0;text-align:center}
 .errorpage h1{margin:12px 0 8px}
+.scan-head{display:flex;align-items:flex-start;gap:16px;padding:20px;flex-wrap:wrap}
+.scan-head .big{font-size:22px;font-weight:600;letter-spacing:-0.02em}
+.scan-head .meta{margin-top:6px;color:var(--text-2)}
+.scan-head form{margin-left:auto}
+.rule-head{display:flex;gap:12px;align-items:flex-start;padding:16px;border-bottom:1px solid var(--line)}
+.rule-head .what{flex:1;min-width:0}
+.rule-head h3{font-size:15px}
+.rule-head .tags{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.clause{margin-top:8px;padding:8px 12px;background:var(--sunken);border-radius:var(--r-sm);color:var(--text-2);font-size:13px}
+.clause cite{font-style:normal;font-weight:600;color:var(--text);margin-right:6px}
+.harm{margin-top:8px;font-size:13px;color:var(--text-2)}.harm b{color:var(--text);font-weight:600}
+.probe{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.probe:last-child{border-bottom:0}
+.probe .cap{font-size:12px;color:var(--text-3);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bubble{padding:9px 12px;border-radius:10px;background:var(--sunken);line-height:1.5}
+.bubble.ai{background:var(--surface);border:1px solid var(--line)}
+.probe.broken .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
+.verdict-line{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;font-size:13px}
+.verdict-line .fix{color:var(--text-2)}
+.tactic{font-size:12px;color:var(--text-3);font-style:italic}.tactic::before{content:"· ";font-style:normal}
+@media (max-width:760px){.probe{grid-template-columns:1fr}}
 @media (max-width:1000px){.grid-2{grid-template-columns:1fr}}
 @media (max-width:860px){
   .app{grid-template-columns:1fr;background:none}
@@ -335,7 +356,7 @@ ${notice(error)}
 // The shared header of every deployment page: title, actions and the six-step track.
 function deploymentHeader({ org, name, config, ov, tab, can, csrf }) {
   const base = depPath(org, name);
-  const tabs = [['overview', 'Overview', base], ['runs', 'Runs', `${base}/runs`, ov.runs.length], ['drafts', 'Review', `${base}/drafts`, ov.pending.length, true], ['inputs', 'Customer material', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
+  const tabs = [['overview', 'Overview', base], ['scan', 'Risk scan', `${base}/scan`, ov.scans.length ? ov.scans[0].summary.broken : 0, true], ['runs', 'Runs', `${base}/runs`, ov.runs.length], ['drafts', 'Review', `${base}/drafts`, ov.pending.length, true], ['inputs', 'Customer material', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
   const agentForm = can.write ? `<form method="post" action="${esc(base)}/agent" class="actions" style="margin:0">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><label class="sr" for="task">Agent task</label>
 <select id="task" name="task" style="width:auto">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
@@ -395,6 +416,7 @@ ${failing.length ? `<div class="panel-head" style="border-top:1px solid var(--li
   const nextBtn = {
     review: `<a class="btn primary" href="${esc(base)}/drafts">${icon('inbox')}Review drafts</a>`,
     inputs: `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add customer material</a>`,
+    scan: `<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Open risk scan</a>`,
   }[ov.next.action] ?? '';
   const feed = ov.activity.length ? `<ul class="feed">${ov.activity.map(e => {
     const agent = e.actor === 'agent';
@@ -478,4 +500,45 @@ ${audits.map(a => `<tr><td class="strong">${esc(a.name)}</td><td class="num">${a
 <div class="scroll"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Target</th><th class="hide-sm">IP</th></tr></thead><tbody>
 ${events.map(e => `<tr><td class="nowrap"><span title="${esc(fmtDate(e.ts))}">${esc(ago(e.ts, now))}</span></td><td>${actor(e.actor)}</td><td>${esc(e.action.replace(/[._]/g, ' '))}</td><td class="muted">${esc(e.target)}</td><td class="hide-sm subtle mono">${esc(e.ip)}</td></tr>`).join('\n')}
 </tbody></table></div></section>` });
+}
+
+const SEVERITY = { high: ['bad', 'High risk'], medium: ['warn', 'Medium risk'], low: ['plain', 'Low risk'] };
+
+export function riskScanPage(args) {
+  const { org, name, ov, csrf, can, now } = args;
+  const base = depPath(org, name);
+  const scan = ov.scans[0];
+  const runForm = can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<button class="btn primary" data-busy="Scanning… about a minute">${icon('shield')}${scan ? 'Scan again' : 'Run risk scan'}</button></form>` : '';
+  if (!scan) {
+    return deploymentShell({ ...args, tab: 'scan', title: 'Risk scan' }, `<section class="panel"><div class="emptystate" style="padding:40px 16px">
+<span class="strong" style="font-size:15px">Find what the customer’s AI would get wrong, before launch</span>
+<p style="max-width:60ch;margin:6px auto 18px">The agent reads the customer’s own policies, writes the messages most likely to make an AI break each rule, sends them to the AI and judges every answer against the exact clause.</p>
+${ov.inputs.length ? runForm : `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add the customer’s policies first</a>`}</div></section>`);
+  }
+  const s = scan.summary;
+  const order = { high: 0, medium: 1, low: 2 };
+  const isBroken = r => r.probes.some(p => p.status === 'broken');
+  const rules = [...scan.rules].sort((a, b) => (isBroken(b) - isBroken(a)) || order[a.severity] - order[b.severity]);
+  const ruleCard = rule => {
+    const bad = rule.probes.filter(p => p.status === 'broken').length;
+    const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
+    return `<section class="panel"><div class="rule-head">
+<div class="what"><h3>${esc(rule.rule)}</h3>
+<p class="clause"><cite>${esc(rule.clause)}</cite>“${esc(rule.quote)}”</p>
+<p class="harm"><b>If broken:</b> ${esc(rule.harm)}</p></div>
+<div class="tags">${bad ? `<span class="badge bad">Broken ${bad}/${rule.probes.length}</span>` : '<span class="badge good">Kept</span>'}<span class="badge ${cls}">${esc(label)}</span></div></div>
+${rule.probes.map(p => `<div class="probe ${esc(p.status)}">
+<div><p class="cap">Customer writes <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
+<div><p class="cap">Their AI answers</p><div class="bubble ai">${esc(p.answer || '—')}</div></div>
+<p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
+<span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p></div>`).join('')}</section>`;
+  };
+  const draft = scan.draftId && ov.drafts.find(d => d.id === scan.draftId);
+  return deploymentShell({ ...args, tab: 'scan', title: 'Risk scan' }, `<section class="panel scan-head">
+<div><p class="big num">${s.broken} of ${s.rules} policy rules broken</p>
+<p class="meta num">${s.failed} of ${s.probes} probes failed${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk rule${s.highRiskBroken > 1 ? 's' : ''} broken` : ''} · written and judged by ${esc(scan.model)} in ${scan.seconds} s · ${esc(ago(scan.createdAt, now))}</p>
+<p class="subtle" style="margin-top:4px">Read from ${scan.documents.map(d => esc(d)).join(', ')}</p></div>${runForm}</section>
+${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>The agent drafted these ${draft.content.rows.length} probes for the test set, so every rule stays tested after the fixes. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
+<div class="stack" style="margin-top:16px">${rules.map(ruleCard).join('')}</div>`);
 }

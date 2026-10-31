@@ -15,7 +15,7 @@ import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, send 
 import { authenticateKey } from './keys.mjs';
 import {
   auditPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
-  newDeploymentPage, orgPage, orgPath, runsPage, settingsPage,
+  newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
 import { access, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
@@ -23,7 +23,7 @@ import { principalAllows, roleIn } from './rbac.mjs';
 import { createSession, deleteSession, getSession, randomToken, sameSecret, SESSION_COOKIE, SESSION_TTL_MS } from './sessions.mjs';
 import { OidcError } from './oidc.mjs';
 import { finishLogin, getOidcConfig, LOGIN_TTL_MS, startLogin, STATE_COOKIE } from './sso.mjs';
-import { listDeployments, registerDeployment, reportFile } from './workspace.mjs';
+import { checkTarget, listDeployments, registerDeployment, reportFile } from './workspace.mjs';
 
 const LOGIN_CSRF_COOKIE = 'delomu_login_csrf';
 // The Delomu mark (assets/brand/delomu-mark.svg), dark on light tabs and light on dark ones.
@@ -38,6 +38,7 @@ const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report'
 const NOTICES = {
   created: 'Deployment created. Add the customer’s material next, then ask the agent to draft the first step.',
   ran: 'Test run finished.',
+  scanned: 'Risk scan finished.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
 };
@@ -250,6 +251,33 @@ function routes(ctx) {
   const showOverview = (principal, params, url, error, status = 200) => html(deploymentOverviewPage({ ...workspace(principal, params, 'runs:read', url), error }), status);
 
   r.add('GET', '/orgs/:org/deployments/:name', ({ principal, params, url }) => showOverview(principal, params, url));
+  r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => html(riskScanPage(workspace(principal, params, 'runs:read', url))));
+
+  r.add('POST', '/orgs/:org/deployments/:name/scan', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const fail = message => html(riskScanPage({ ...workspace(principal, params, 'runs:read'), error: message }), 400);
+    try {
+      checkTarget(loadConfig(dir), ctx.policy);
+    } catch (e) {
+      return fail(e instanceof ApiError ? e.message : 'The deployment is not connected to an AI yet.');
+    }
+    const { riskScan } = await import('../v1/risk.mjs');
+    let result;
+    try {
+      result = await riskScan(dir, { llm: ctx.llm ?? createLlm() });
+    } catch (e) {
+      return fail(isAuthError(e)
+        ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
+        : `The scan could not finish: ${String(e.message).split(dir).join(params.name)}`);
+    }
+    if (!result.ok) return fail(`The scan found nothing to test: ${result.reason}`);
+    event(ctx, principal, org.id, 'scan.create', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
+    return new Redirect(`${depPath(org, params.name)}/scan?notice=scanned`);
+  });
+
   r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));
   r.add('GET', '/orgs/:org/deployments/:name/inputs', ({ principal, params, url }) => html(inputsPage(workspace(principal, params, 'deployments:read', url))));
   r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => html(settingsPage(workspace(principal, params, 'deployments:read', url))));

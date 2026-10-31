@@ -5,3 +5,6 @@ demo-data/
 .impeccable/review/
 .impeccable/questions/
 .impeccable/direction-round.json
+outreach/
+hackathon/video/build/
+hackathon/video/*.mp4

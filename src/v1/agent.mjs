@@ -42,7 +42,7 @@ const REFUSALS = {
 };
 
 // Keeps data from closing the wrapper tag it is placed in.
-const neutral = text => String(text).replace(/<\s*\/\s*(customer_material|run_data|document|tickets)/gi, '<\\/$1');
+export const neutral = text => String(text).replace(/<\s*\/\s*(customer_material|run_data|document|tickets)/gi, '<\\/$1');
 const attr = v => String(v).replace(/[&"<>]/g, c => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]);
 
 function failure(dir, task, reason) {
@@ -57,7 +57,7 @@ function preflight(dir, llm) {
 }
 
 // Reads every allowed file in inputs/ that passes `keep`; unreadable files become notes, not errors.
-function readMaterial(reader, keep = () => true) {
+export function readMaterial(reader, keep = () => true) {
   const docs = [];
   const notes = [];
   for (const rel of reader.list().filter(keep)) {
@@ -66,7 +66,7 @@ function readMaterial(reader, keep = () => true) {
   return { docs, notes };
 }
 
-function materialBlock(docs, notes = []) {
+export function materialBlock(docs, notes = []) {
   const body = docs.map(d => `<document path="${attr(d.path)}">\n${neutral(d.text)}${d.note ? `\n${d.note}` : ''}\n</document>`);
   return `<customer_material>\n${body.join('\n') || '(no documents)'}${notes.length ? `\n[delomu notes: ${neutral(notes.join('; '))}]` : ''}\n</customer_material>`;
 }

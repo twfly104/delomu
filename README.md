@@ -1,11 +1,36 @@
 # Delomu
 
+**Find what your AI will get wrong at a customer, before your customer does.**
+
 An AI forward-deployed engineer. It helps an AI startup roll its product out to a customer:
 it maps the customer's data, drafts the integration, builds a test set from the customer's own past
 cases, runs the AI against it, writes the acceptance report, and keeps watching after launch.
 An agent drafts each step; an engineer approves, edits or rejects every draft.
 
-The previous Delomu Verify code was moved, untouched, to `Desktop\delomu-verify-archive`.
+## Meta Global AI Developer Hackathon (Indie Developer track)
+
+Everything in this repository was built during the hackathon (Oct 27 – Nov 4, 2026); the git history shows each
+step. Details for judges: [hackathon/SUBMISSION.md](hackathon/SUBMISSION.md).
+
+**The risk scan** is the focus. Upload the customer's policies; Muse Spark (`muse-spark-1.3`, Meta Model API):
+
+1. reads them and lists the rules a support AI must keep, each with the exact clause and what breaks if it is not kept;
+2. writes the customer messages most likely to break each rule (day 35 of a 30-day window, "my manager approved it");
+3. Delomu sends them to the customer's AI, and Muse Spark judges every answer against the quoted clause and proposes
+   the smallest fix;
+4. the probes are drafted into the permanent test set for an engineer to approve.
+
+On the demo bot one scan takes under a minute and finds 4 of 8 rules broken.
+
+```bash
+npm install
+```
+
+```bash
+MODEL_API_KEY=your-meta-key node bin/delomu.mjs scan examples/acme-support
+```
+
+Or run the web app: `docs/v3.md` (Docker) and open the deployment's **Risk scan** tab.
 
 ## Versions
 

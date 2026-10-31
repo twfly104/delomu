@@ -9,6 +9,7 @@ import { createLlm, isAuthError } from '../core/llm.mjs';
 import { APPLIERS } from '../v1/appliers.mjs';
 import { TASKS, draftAll } from '../v1/agent.mjs';
 import { compareHours } from '../v1/hours.mjs';
+import { riskScan } from '../v1/risk.mjs';
 
 for (const [kind, apply] of Object.entries(APPLIERS)) registerApplier(kind, apply);
 
@@ -35,6 +36,31 @@ function printResult(dir, task, r) {
 }
 
 export const commands = [
+  {
+    name: 'scan',
+    usage: 'scan <dir>',
+    summary: "risk scan: the agent reads the customer's policies, writes the messages most likely to break them, runs them against the AI and judges every answer",
+    async run(args, { llm } = {}) {
+      const dir = need(args[0], 'scan <dir>');
+      let r;
+      try {
+        r = await riskScan(dir, { llm: guardCredentials(llm ?? createLlm()) });
+      } catch (e) {
+        if (!(e instanceof MissingCredentials)) throw e;
+        console.error('error: no model credentials; set ANTHROPIC_API_KEY (Claude) or MODEL_API_KEY (Meta) to run a risk scan.');
+        return 2;
+      }
+      if (!r.ok) { console.log(`scan: nothing done: ${r.reason}`); return 1; }
+      const s = r.scan.summary;
+      console.log(`${s.broken} of ${s.rules} policy rules broken · ${s.failed} of ${s.probes} probes failed · ${r.scan.model} · ${r.scan.seconds}s`);
+      for (const rule of r.scan.rules) {
+        const bad = rule.probes.filter(p => p.status === 'broken').length;
+        console.log(`  ${bad ? 'BROKEN' : 'kept  '}  [${rule.severity}] ${rule.clause}: ${rule.rule}`);
+      }
+      console.log(`Probes drafted for the test set: ${r.draft.id}. Review with: delomu review ${dir} ${r.draft.id} approve|reject --by NAME`);
+      return 0;
+    },
+  },
   {
     name: 'agent',
     usage: AGENT_USAGE,
