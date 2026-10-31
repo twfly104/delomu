@@ -75,3 +75,13 @@ If you need a change in a file you do not own, do not make it: list it in your f
 - v3 `src/v3/server.mjs`: `createServer({ dataDir, deploymentsRoot, ... }) -> http.Server` (not listening), `start(port)`.
 - v4 `src/v4/library.mjs`: `scrub(text) -> { text, found }`, `harvest(dir, { libraryDir }) -> { added }`,
   `search(libraryDir, query, { limit }) -> entries`, `suggest(dir, { libraryDir }) -> draft` (a v1-style draft of kind `cases`).
+
+## Shared draft kinds
+
+| Kind | Step | Content shape | Applier owner |
+| --- | --- | --- | --- |
+| `mapping` | 1 | `{ systems: [{ name, purpose }], entities: [{ name, system, fields: [{ name, meaning, example }] }], openQuestions: [string] }` → `mapping.json` | v1 |
+| `integration` | 2 | `{ target: <delomu.json target>, notes: string }` → merged into `delomu.json` | v1 |
+| `cases` | 3 | `{ rows: [{ id, input, expected, must_include, must_not_include, regex, tags }] }` (multi-values joined with `|`) → appended to `cases.csv`, then `tests.json` rebuilt | v1 (v4's `suggest` creates drafts of this kind) |
+| `fixes` | 4 | `{ groups: [{ cause, caseIds: [string], fix, owner }] }` → `fixes.md` | v1 |
+| `launch-report` | 5 | `{ summary: string, risks: [string], decisions: [{ date, decision, reason }] }` → `launch-summary.md` + decisions merged into `delomu.json` | v1 |
