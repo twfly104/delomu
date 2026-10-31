@@ -85,3 +85,10 @@ If you need a change in a file you do not own, do not make it: list it in your f
 | `cases` | 3 | `{ rows: [{ id, input, expected, must_include, must_not_include, regex, tags }] }` (multi-values joined with `|`) → appended to `cases.csv`, then `tests.json` rebuilt | v1 (v4's `suggest` creates drafts of this kind) |
 | `fixes` | 4 | `{ groups: [{ cause, caseIds: [string], fix, owner }] }` → `fixes.md` | v1 |
 | `launch-report` | 5 | `{ summary: string, risks: [string], decisions: [{ date, decision, reason }] }` → `launch-summary.md` + decisions merged into `delomu.json` | v1 |
+
+## As built (integration notes)
+
+- v1 tasks return `{ ok, drafts, reason?, skipped? }`, not a bare draft. Code that approves shared-kind drafts outside the CLI must first import `src/commands/v1.mjs` (it registers the appliers); v3 does this for every command file.
+- v3: `createServer(options)` and `start(port, options)`; missing options fall back to `DELOMU_DATA`, `DELOMU_DEPLOYMENTS`, `DELOMU_KEY_PEPPER`. v3 owns the top-level commands `serve` and `admin`. Command targets are refused on the server unless `DELOMU_ALLOW_COMMAND_TARGETS=1`.
+- v4 also exports `forget(libraryDir, sourceHash)` and `stats(libraryDir)`; `scrub` takes `{ names, patterns }`; `search` also filters by `industry`; `suggest` returns null when nothing new matches.
+- Run ids have millisecond resolution (`2026-10-31T10-00-00-123Z`); older second-resolution ids remain valid. `results.json` is written atomically and last.
