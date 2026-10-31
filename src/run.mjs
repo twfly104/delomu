@@ -85,7 +85,8 @@ export async function runDeployment(dir, { judge, concurrency, now = new Date() 
     return { id: test.id, input: test.input, tags: test.tags, output, ms, ...graded };
   });
 
-  const runId = now.toISOString().replace(/\.\d+Z$/, 'Z').replace(/:/g, '-');
+  // Millisecond resolution so two runs in the same second do not overwrite each other.
+  const runId = now.toISOString().replace(/\.(\d{3})Z$/, '-$1Z').replace(/:/g, '-');
   const results = {
     runId,
     generatedAt: now.toISOString(),
@@ -100,8 +101,12 @@ export async function runDeployment(dir, { judge, concurrency, now = new Date() 
 
   const outDir = path.join(paths(dir).runs, runId);
   fs.mkdirSync(outDir, { recursive: true });
-  fs.writeFileSync(path.join(outDir, 'results.json'), JSON.stringify(results, null, 2) + '\n');
+  // results.json is written last and atomically: a run only counts once it exists,
+  // so a crash mid-write never leaves a half-written latest run behind.
   fs.writeFileSync(path.join(outDir, 'report.html'), renderHtml(results));
+  const tmp = path.join(outDir, 'results.json.tmp');
+  fs.writeFileSync(tmp, JSON.stringify(results, null, 2) + '\n');
+  fs.renameSync(tmp, path.join(outDir, 'results.json'));
   return { results, outDir };
 }
 
