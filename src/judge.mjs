@@ -23,10 +23,10 @@ const VERDICT_SCHEMA = {
   additionalProperties: false,
 };
 
-export function createJudge({ client, model = DEFAULT_JUDGE_MODEL } = {}) {
+export function createJudge({ client, model } = {}) {
   const llm = createLlm({ client, model });
 
-  return async function judge({ input, expected, output }) {
+  async function judge({ input, expected, output }) {
     const res = await llm.json({
       system: SYSTEM,
       schema: VERDICT_SCHEMA,
@@ -38,5 +38,7 @@ export function createJudge({ client, model = DEFAULT_JUDGE_MODEL } = {}) {
     if (!res.ok) return { status: 'needs_review', reason: 'The judge ran out of output tokens; a person must review it.' };
     const v = res.data;
     return { status: v.verdict, reason: v.reason, fix: v.verdict === 'fail' ? v.fix : undefined };
-  };
+  }
+  judge.model = `${llm.provider}:${llm.model}`;
+  return judge;
 }

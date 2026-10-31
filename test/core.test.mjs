@@ -68,3 +68,42 @@ test('llm: request shape, parsed data, refusal and max_tokens', async () => {
   assert.deepEqual(await createLlm({ client: fake({ stop_reason: 'refusal', content: [] }) }).json({ system: 's', prompt: 'p', schema }), { ok: false, reason: 'refusal' });
   assert.deepEqual(await createLlm({ client: fake({ stop_reason: 'max_tokens', content: [] }) }).json({ system: 's', prompt: 'p', schema }), { ok: false, reason: 'max_tokens' });
 });
+
+test('llm: provider choice from the environment', async () => {
+  const { pickProvider } = await import('../src/core/llm.mjs');
+  assert.equal(pickProvider({}), 'anthropic');
+  assert.equal(pickProvider({ LLAMA_API_KEY: 'x' }), 'meta');
+  assert.equal(pickProvider({ MODEL_API_KEY: 'x', ANTHROPIC_API_KEY: 'y' }), 'anthropic');
+  assert.equal(pickProvider({ ANTHROPIC_API_KEY: 'y', DELOMU_LLM_PROVIDER: 'Meta' }), 'meta');
+  assert.throws(() => pickProvider({ DELOMU_LLM_PROVIDER: 'openai' }), /must be/);
+});
+
+test('llm: Meta provider request shape, retries, refusals and auth errors', async () => {
+  const { AuthError } = await import('../src/core/llm.mjs');
+  const schema = { type: 'object', properties: { a: { type: 'string' } }, required: ['a'], additionalProperties: false };
+  const env = { MODEL_API_KEY: 'k-123' };
+  const reply = (status, body, headers = {}) => new Response(JSON.stringify(body), { status, headers });
+  const ok = content => reply(200, { choices: [{ finish_reason: 'stop', message: { content } }] });
+
+  const calls = [];
+  const queue = [reply(429, { error: { message: 'slow down' } }, { 'retry-after': '0.01' }), ok('{"a":"b"}')];
+  const fetch = async (url, init) => { calls.push({ url, init }); return queue.shift(); };
+  const llm = createLlm({ provider: 'meta', model: 'claude-opus-5-5', env, fetch });
+  assert.equal(llm.model, 'muse-spark-1.3');
+  assert.deepEqual(await llm.json({ system: 's', prompt: 'p', schema, effort: 'low' }), { ok: true, data: { a: 'b' } });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].url, 'https://api.meta.ai/v1/chat/completions');
+  assert.equal(calls[1].init.headers.authorization, 'Bearer k-123');
+  const body = JSON.parse(calls[1].init.body);
+  assert.equal(body.reasoning_effort, 'low');
+  assert.equal(body.response_format.json_schema.strict, true);
+  assert.deepEqual(body.messages.map(m => m.role), ['system', 'user']);
+
+  const once = r => createLlm({ provider: 'meta', env, fetch: async () => r });
+  assert.deepEqual(await once(reply(200, { choices: [{ finish_reason: 'content_filter', message: {} }] })).json({ system: 's', prompt: 'p', schema }), { ok: false, reason: 'refusal' });
+  assert.deepEqual(await once(reply(200, { choices: [{ finish_reason: 'length', message: { content: '{"a"' } }] })).json({ system: 's', prompt: 'p', schema }), { ok: false, reason: 'max_tokens' });
+  await assert.rejects(once(reply(401, { error: { message: 'bad key' } })).json({ system: 's', prompt: 'p', schema }), AuthError);
+  await assert.rejects(once(reply(400, { error: { message: 'bad schema' } })).json({ system: 's', prompt: 'p', schema }), /HTTP 400\): bad schema/);
+  await assert.rejects(createLlm({ provider: 'meta', env: {}, fetch }).json({ system: 's', prompt: 'p', schema }), AuthError);
+  assert.throws(() => createLlm({ provider: 'meta', model: 'muse-spark-1.3-contributor', env }), /training/);
+});

@@ -109,7 +109,7 @@ test('agent command: missing credentials exit 2 with one line and no stack', asy
   const dir = copyAcme();
   const llm = { json: async () => { throw new Error('Could not resolve authentication method. Expected either apiKey or authToken to be set.'); } };
   assert.equal(await cmd('agent').run([dir, 'all'], { llm }), 2);
-  assert.deepEqual(out.error, ['error: no Anthropic credentials; set ANTHROPIC_API_KEY to let the agent draft.']);
+  assert.deepEqual(out.error, ['error: no model credentials; set ANTHROPIC_API_KEY (Claude) or MODEL_API_KEY (Meta) to let the agent draft.']);
   assert.equal(listDrafts(dir).length, 0);
 
   const other = { json: async () => { throw new Error('socket hang up'); } };

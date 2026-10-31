@@ -53,7 +53,7 @@ export const commands = [
         results = task === 'all' ? await draftAll(dir, { llm: model, limit }) : [{ task, ...(await TASKS[task](dir, { llm: model, limit })) }];
       } catch (e) {
         if (!(e instanceof MissingCredentials)) throw e;
-        console.error('error: no Anthropic credentials; set ANTHROPIC_API_KEY to let the agent draft.');
+        console.error('error: no model credentials; set ANTHROPIC_API_KEY (Claude) or MODEL_API_KEY (Meta) to let the agent draft.');
         return 2;
       }
       for (const r of results) printResult(dir, r.task, r);

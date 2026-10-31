@@ -25,7 +25,7 @@ Node 20 or later (Node 24 for the v3 server, which uses `node:sqlite`). Run `npm
 
 | Variable | Needed for |
 | --- | --- |
-| `ANTHROPIC_API_KEY` | the v1 agent and the judge (Claude Opus 5.5). Without it, `agent` stops with a clear message and judge checks are marked "needs review". |
+| `ANTHROPIC_API_KEY` or `MODEL_API_KEY` | the v1 agent and the judge: Claude Opus 5.5, or Meta `muse-spark-1.3` (override with `DELOMU_META_MODEL`). `DELOMU_LLM_PROVIDER=anthropic|meta` picks one when both are set. Without either, `agent` stops with a clear message and judge checks are marked "needs review". Check Meta's data-retention terms before sending real customer data. |
 | `DELOMU_KEY_PEPPER` | the v3 server (16+ characters, from a secret manager) |
 | `DELOMU_LIBRARY_SALT` | v4 library harvests (16+ characters, from a secret manager) |
 | `CUSTOMER_*` | API keys of the customer's AI, referenced from `delomu.json` as `${CUSTOMER_API_KEY}`; never written into files |

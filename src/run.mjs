@@ -32,7 +32,7 @@ function safeJudge(judge) {
       return await judge(args);
     } catch (e) {
       if (e instanceof Anthropic.AuthenticationError || /api key|credentials|auth/i.test(e.message)) {
-        off = 'Judge has no Anthropic credentials; a person must review this case.';
+        off = 'Judge has no model credentials; a person must review this case.';
         return { status: 'needs_review', reason: off };
       }
       return { status: 'needs_review', reason: `Judge call failed (${e.message}); a person must review this case.` };
@@ -67,10 +67,16 @@ export async function runDeployment(dir, { judge, concurrency, now = new Date() 
   const tests = loadTests(dir);
   if (!tests.length) throw new Error('tests.json has no tests');
 
-  const judgeModel = config.judge.model ?? DEFAULT_JUDGE_MODEL;
   let judgeFn = null;
-  if (judge === undefined || judge === true) judgeFn = safeJudge(createJudge({ model: judgeModel }));
-  else if (typeof judge === 'function') judgeFn = safeJudge(judge);
+  let judgeModel = 'off';
+  if (judge === undefined || judge === true) {
+    const j = createJudge({ model: config.judge.model });
+    judgeModel = j.model;
+    judgeFn = safeJudge(j);
+  } else if (typeof judge === 'function') {
+    judgeModel = judge.model ?? config.judge.model ?? DEFAULT_JUDGE_MODEL;
+    judgeFn = safeJudge(judge);
+  }
 
   const cases = await pool(tests, concurrency ?? config.concurrency, async test => {
     const started = Date.now();
@@ -93,7 +99,7 @@ export async function runDeployment(dir, { judge, concurrency, now = new Date() 
     customer: config.customer,
     deployment: config.name,
     target: config.target.type,
-    judge: judgeFn ? judgeModel : 'off',
+    judge: judgeModel,
     decisions: config.decisions,
     summary: summarize(cases, config.acceptance.minPassRate),
     cases,
