@@ -103,7 +103,7 @@ test('deployment page lists runs with working report links; audit page shows cha
   // Viewers have no audit access.
   assert.equal((await get(`/orgs/${o.org.id}/audit`, cookie)).status, 403);
   const owner = await signIn('owner@acme.test');
-  assert.match(await (await get(`/orgs/${o.org.id}/audit`, owner.cookie)).text(), /intact/);
+  assert.match(await (await get(`/orgs/${o.org.id}/audit`, owner.cookie)).text(), /Intact/);
 });
 
 test('draft review: approve with an edit, reject, CSRF required, viewers cannot review', async () => {

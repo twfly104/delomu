@@ -1,25 +1,46 @@
-// The web UI: sign in (SSO or API key), organizations, deployments, runs with report links, draft
-// review and the audit page. Cookie sessions; every state-changing form POST checks a CSRF token.
-// Authorization goes through the same operations.mjs checks as the JSON API.
+// The web UI: sign in (SSO or API key), home, deployments, the deployment workspace (overview, runs,
+// draft review, customer material, settings), creating deployments, starting runs and agent drafts, and
+// the audit page. Cookie sessions; every state-changing form POST checks a CSRF token. Authorization goes
+// through the same operations.mjs checks as the JSON API.
 
 import fs from 'node:fs';
+import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
+import { appendAudit } from '../core/audit.mjs';
+import { createLlm, isAuthError } from '../core/llm.mjs';
+import { loadConfig } from '../deployment.mjs';
 import { accessibleOrgs, getOrgBySlug } from './accounts.mjs';
 import { recordEvent, listEvents } from './events.mjs';
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, send } from './http.mjs';
 import { authenticateKey } from './keys.mjs';
-import { auditPage, deploymentPage, deploymentsPage, draftsPage, errorPage, loginPage, orgPath, orgsPage } from './html.mjs';
-import { access, deploymentAudits, deploymentFor, draftOf, draftsOf, event, reviewDeploymentDraft } from './operations.mjs';
+import {
+  auditPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  newDeploymentPage, orgPage, orgPath, runsPage, settingsPage,
+} from './html.mjs';
+import { overview } from './insights.mjs';
+import { access, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
 import { principalAllows, roleIn } from './rbac.mjs';
 import { createSession, deleteSession, getSession, randomToken, sameSecret, SESSION_COOKIE, SESSION_TTL_MS } from './sessions.mjs';
 import { OidcError } from './oidc.mjs';
 import { finishLogin, getOidcConfig, LOGIN_TTL_MS, startLogin, STATE_COOKIE } from './sso.mjs';
-import { listDeployments, listRuns, reportFile } from './workspace.mjs';
+import { listDeployments, registerDeployment, reportFile } from './workspace.mjs';
 
 const LOGIN_CSRF_COOKIE = 'delomu_login_csrf';
-const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; frame-ancestors 'none'; base-uri 'none'";
+// The Delomu mark (assets/brand/delomu-mark.svg), dark on light tabs and light on dark ones.
+const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>path{fill:#0b0b14}@media (prefers-color-scheme:dark){path{fill:#fff}}</style><defs><mask id="m"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" style="fill:none" stroke="#000" stroke-width="5.5"/></mask></defs><path d="M8 6 H30 A26 26 0 0 1 30 58 H8 Z" mask="url(#m)"/></svg>';
+const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src '${BUSY_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
+const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.html']);
+const MAX_INPUT_BYTES = 1024 * 1024;
+const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
+const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report'];
+const NOTICES = {
+  created: 'Deployment created. Add the customer’s material next, then ask the agent to draft the first step.',
+  ran: 'Test run finished.',
+  drafted: 'The agent drafted a proposal. Review it below.',
+  uploaded: 'Files added.',
+};
 
 class Redirect {
   constructor(location, cookies = []) { this.location = location; this.cookies = cookies; }
@@ -54,10 +75,62 @@ function signIn(ctx, req, { userId, orgId, scopes, apiKeyId, email, via }) {
   return new Redirect('/', [cookie(SESSION_COOKIE, token, { maxAge: SESSION_TTL_MS / 1000, secure: ctx.secureCookies(req) })]);
 }
 
+// Reads a request body as raw bytes, for multipart uploads.
+function readRaw(req, limit) {
+  return new Promise((resolve, reject) => {
+    const tooLarge = () => new ApiError('invalid_request_error', `Upload is larger than ${limit / MAX_INPUT_BYTES} MB.`, { status: 413 });
+    if (Number(req.headers['content-length']) > limit) { req.resume(); reject(tooLarge()); return; }
+    const chunks = [];
+    let size = 0;
+    req.on('data', c => { size += c.length; if (size > limit) { req.removeAllListeners('data'); req.resume(); reject(tooLarge()); return; } chunks.push(c); });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+// A file name the deployment's inputs/ folder can hold: no folders, safe characters, an allowed type.
+export function cleanInputName(name) {
+  const base = path.basename(String(name ?? '').replace(/\\/g, '/')).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '').slice(0, 120);
+  const ext = path.extname(base).toLowerCase();
+  if (!base || !INPUT_TYPES.has(ext)) return null;
+  return base;
+}
+
 function routes(ctx) {
   const r = createRouter();
   const { db } = ctx;
-  const page = (principal, fn) => fn({ user: principal, csrf: principal.csrf });
+
+  // Sidebar data and the deployments a principal can see, with each one's progress.
+  const orgsOf = principal => accessibleOrgs(db, principal, roleIn(db, principal, principal.homeOrgId));
+  const deploymentsOf = org => listDeployments(db, ctx.deploymentsRoot, org.id).map(d => {
+    const { dir } = deploymentFor(ctx, org.id, d.name);
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* registered without a readable config; show what exists */ }
+    return { org, name: d.name, customer: config.customer, config, ov: overview(dir, config) };
+  });
+  const navFor = (principal, extra = {}) => {
+    const orgs = orgsOf(principal);
+    const pending = orgs.flatMap(deploymentsOf).reduce((n, d) => n + d.ov.pending.length, 0);
+    return { orgs, pending, ...extra };
+  };
+  const base = principal => ({ user: principal, csrf: principal.csrf, now: ctx.now() });
+
+  // Everything a deployment page needs, after checking the permission it requires.
+  function workspace(principal, params, permission, url) {
+    const { org, role } = access(ctx, principal, params.org, permission);
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* shown as not connected */ }
+    const allow = p => principalAllows(principal, role, p);
+    return {
+      ...base(principal), org, name: params.name, dir, config, ov: overview(dir, config),
+      nav: navFor(principal, { canAudit: allow('audit:read') }),
+      can: { write: allow('deployments:write'), run: allow('runs:create'), review: allow('drafts:review') },
+      flash: NOTICES[url?.searchParams.get('notice')] ?? '',
+    };
+  }
+
+  r.add('GET', '/favicon.svg', () => ({ status: 200, body: FAVICON, type: 'image/svg+xml', headers: { 'cache-control': 'public, max-age=86400' } }), { public: true });
 
   r.add('GET', '/login', ({ req }) => {
     const token = randomToken();
@@ -76,7 +149,7 @@ function routes(ctx) {
   r.add('GET', '/sso/start', async ({ req, url }) => {
     const org = getOrgBySlug(db, url.searchParams.get('org')?.trim().toLowerCase() ?? '');
     // Same answer for an unknown slug and an org without SSO, so the form does not reveal which orgs exist.
-    const noSso = () => html(loginPage({ csrf: '', error: 'No organization with that slug uses single sign-on.' }), 404);
+    const noSso = () => html(loginPage({ csrf: '', error: 'No organization with that name uses single sign-on.' }), 404);
     if (!org || !getOidcConfig(db, org.id)) return noSso();
     let target;
     let state;
@@ -119,22 +192,67 @@ function routes(ctx) {
   });
 
   r.add('GET', '/', ({ principal }) => {
-    const orgs = accessibleOrgs(db, principal, roleIn(db, principal, principal.homeOrgId));
-    return html(page(principal, p => orgsPage({ ...p, orgs })));
+    const orgs = orgsOf(principal);
+    const deployments = orgs.flatMap(org => {
+      const role = roleIn(db, principal, org.id);
+      return principalAllows(principal, role, 'deployments:read') ? deploymentsOf(org) : [];
+    });
+    const review = deployments.flatMap(d => d.ov.pending.map(draft => ({ org: d.org, name: d.name, draft })))
+      .sort((a, b) => a.draft.createdAt.localeCompare(b.draft.createdAt));
+    const homeRole = roleIn(db, principal, principal.homeOrgId);
+    const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), org: orgs.length === 1 ? orgs[0] : undefined };
+    return html(homePage({ ...base(principal), nav, deployments, review }));
   });
 
-  r.add('GET', '/orgs/:org', ({ principal, params }) => {
+  r.add('GET', '/orgs/:org', ({ principal, params, url }) => {
     const { org, role } = access(ctx, principal, params.org, 'deployments:read');
-    const deployments = listDeployments(db, ctx.deploymentsRoot, org.id);
-    return html(page(principal, p => deploymentsPage({ ...p, org, deployments, canAudit: principalAllows(principal, role, 'audit:read') })));
+    return html(orgPage({
+      ...base(principal), org, deployments: deploymentsOf(org), nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }),
+      canWrite: principalAllows(principal, role, 'deployments:write'), notice: NOTICES[url.searchParams.get('notice')],
+    }));
   });
 
-  r.add('GET', '/orgs/:org/deployments/:name', ({ principal, params }) => {
-    const { org } = access(ctx, principal, params.org, 'runs:read');
-    const { dir } = deploymentFor(ctx, org.id, params.name);
-    const pending = draftsOf(ctx, org.id, params.name, 'pending').length;
-    return html(page(principal, p => deploymentPage({ ...p, org, name: params.name, runs: listRuns(dir), pending })));
+  const newDeploymentView = (principal, params, error, values) => {
+    const { org, role } = access(ctx, principal, params.org, 'deployments:write');
+    return newDeploymentPage({ ...base(principal), org, error, values, nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }) });
+  };
+
+  r.add('GET', '/orgs/:org/new-deployment', ({ principal, params }) => html(newDeploymentView(principal, params)));
+
+  r.add('POST', '/orgs/:org/new-deployment', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const fail = message => html(newDeploymentView(principal, params, message, form), 400);
+    const pass = Number(form.pass || 90);
+    if (!(pass > 0 && pass <= 100)) return fail('Required pass rate must be between 1 and 100.');
+    let target;
+    if (form.type === 'command') {
+      if (!String(form.command ?? '').trim()) return fail('Enter the command that runs the customer’s AI.');
+      target = { type: 'command', command: String(form.command).trim() };
+    } else {
+      if (!/^https?:\/\//i.test(String(form.url ?? ''))) return fail('Enter the full endpoint URL, starting with https://.');
+      target = { type: 'http', url: String(form.url).trim(), body: { message: '{{input}}' } };
+      if (String(form.auth ?? '').trim()) target.headers = { authorization: String(form.auth).trim() };
+      if (String(form.output ?? '').trim()) target.output = String(form.output).trim();
+    }
+    const config = { customer: String(form.customer ?? '').trim() || undefined, name: String(form.name ?? ''), target, acceptance: { minPassRate: pass / 100 }, decisions: [] };
+    try {
+      const d = registerDeployment(db, ctx.deploymentsRoot, org.id, { name: String(form.name ?? ''), config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
+      event(ctx, principal, org.id, 'deployment.register', d.name, { via_web: true });
+      return new Redirect(`${depPath(org, d.name)}?notice=created`);
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status >= 500) throw e;
+      return fail(e.message);
+    }
   });
+
+  const showOverview = (principal, params, url, error, status = 200) => html(deploymentOverviewPage({ ...workspace(principal, params, 'runs:read', url), error }), status);
+
+  r.add('GET', '/orgs/:org/deployments/:name', ({ principal, params, url }) => showOverview(principal, params, url));
+  r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));
+  r.add('GET', '/orgs/:org/deployments/:name/inputs', ({ principal, params, url }) => html(inputsPage(workspace(principal, params, 'deployments:read', url))));
+  r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => html(settingsPage(workspace(principal, params, 'deployments:read', url))));
 
   r.add('GET', '/orgs/:org/deployments/:name/runs/:run/report.html', ({ principal, params }) => {
     const { org } = access(ctx, principal, params.org, 'runs:read');
@@ -143,13 +261,70 @@ function routes(ctx) {
     return { status: 200, body: fs.readFileSync(file, 'utf8'), csp: REPORT_CSP };
   });
 
-  const draftsView = (principal, params, error) => {
-    const { org, role } = access(ctx, principal, params.org, 'drafts:read');
-    const drafts = draftsOf(ctx, org.id, params.name);
-    return page(principal, p => draftsPage({ ...p, org, name: params.name, drafts, canReview: principalAllows(principal, role, 'drafts:review'), error }));
-  };
+  r.add('POST', '/orgs/:org/deployments/:name/run', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'runs:create');
+    try {
+      await startRun(ctx, principal, org.id, params.name, { judge: form.judge === '1' });
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status >= 500 || e.status === 404) throw e;
+      return showOverview(principal, params, null, e.message, e.status);
+    }
+    return new Redirect(`${depPath(org, params.name)}?notice=ran`);
+  });
 
-  r.add('GET', '/orgs/:org/deployments/:name/drafts', ({ principal, params }) => html(draftsView(principal, params)));
+  r.add('POST', '/orgs/:org/deployments/:name/agent', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    if (!AGENT_TASKS.includes(form.task)) return showOverview(principal, params, null, 'Choose what the agent should draft.', 400);
+    const { TASKS } = await import('../v1/agent.mjs');
+    let result;
+    try {
+      result = await TASKS[form.task](dir, { llm: ctx.llm ?? createLlm() });
+    } catch (e) {
+      const message = isAuthError(e)
+        ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
+        : `The agent could not finish: ${String(e.message).split(dir).join(params.name)}`;
+      return showOverview(principal, params, null, message, 400);
+    }
+    if (!result.ok) return showOverview(principal, params, null, `The agent drafted nothing: ${result.reason}`, 400);
+    event(ctx, principal, org.id, 'agent.draft', `${params.name}/${form.task}`, { drafts: result.drafts.map(d => d.id) });
+    return new Redirect(`${depPath(org, params.name)}/drafts?notice=drafted`);
+  });
+
+  r.add('POST', '/orgs/:org/deployments/:name/inputs', async ({ req, principal, params }) => {
+    const type = String(req.headers['content-type'] ?? '');
+    if (!type.startsWith('multipart/form-data')) throw new ApiError('invalid_request_error', 'Expected a file upload.');
+    const form = await new Response(await readRaw(req, MAX_UPLOAD_BYTES), { headers: { 'content-type': type } }).formData();
+    requireCsrf(principal, { csrf: form.get('csrf') });
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const files = form.getAll('files').filter(f => typeof f === 'object' && f.size > 0);
+    const fail = message => html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message }), 400);
+    if (!files.length) return fail('Choose at least one file.');
+    const ready = [];
+    for (const f of files) {
+      const name = cleanInputName(f.name);
+      if (!name) return fail(`${f.name} is not a supported type. Use Markdown, text, CSV, JSON, YAML or HTML.`);
+      if (f.size > MAX_INPUT_BYTES) return fail(`${f.name} is larger than 1 MB.`);
+      ready.push({ name, bytes: Buffer.from(await f.arrayBuffer()) });
+    }
+    const inputs = path.join(dir, 'inputs');
+    fs.mkdirSync(inputs, { recursive: true });
+    for (const { name, bytes } of ready) {
+      fs.writeFileSync(path.join(inputs, name), bytes);
+      appendAudit(dir, { actor: principal.actor, action: 'input.upload', target: name, detail: { bytes: bytes.length } }, ctx.now());
+    }
+    event(ctx, principal, org.id, 'input.upload', params.name, { files: ready.map(f => f.name) });
+    return new Redirect(`${depPath(org, params.name)}/inputs?notice=uploaded`);
+  });
+
+  const draftsView = (principal, params, url, error) => draftsPage({ ...workspace(principal, params, 'drafts:read', url), error });
+
+  r.add('GET', '/orgs/:org/deployments/:name/drafts', ({ principal, params, url }) => html(draftsView(principal, params, url)));
 
   r.add('POST', '/orgs/:org/deployments/:name/drafts/:draft/review', async ({ req, principal, params }) => {
     const form = await readForm(req, ctx.maxBodyBytes);
@@ -160,7 +335,7 @@ function routes(ctx) {
       try {
         content = JSON.parse(form.content);
       } catch {
-        return html(draftsView(principal, params, 'The edited content is not valid JSON; nothing was changed.'), 400);
+        return html(draftsView(principal, params, null, 'The edited content is not valid JSON; nothing was changed.'), 400);
       }
       // The form always posts the textarea; only a real change counts as a human edit in the audit trail.
       if (isDeepStrictEqual(content, draftOf(ctx, org.id, params.name, params.draft).content)) content = undefined;
@@ -169,23 +344,23 @@ function routes(ctx) {
       await reviewDeploymentDraft(ctx, principal, org.id, params.name, params.draft, { decision: form.decision, note: form.note ?? '', content });
     } catch (e) {
       if (!(e instanceof ApiError) || e.status >= 500 || e.status === 404) throw e;
-      return html(draftsView(principal, params, e.message), e.status);
+      return html(draftsView(principal, params, null, e.message), e.status);
     }
-    return new Redirect(`${orgPath(org)}/deployments/${encodeURIComponent(params.name)}/drafts`);
+    return new Redirect(`${depPath(org, params.name)}/drafts`);
   });
 
   r.add('GET', '/orgs/:org/audit', ({ principal, params, url }) => {
     const { org } = access(ctx, principal, params.org, 'audit:read');
     const events = listEvents(db, org.id, new URLSearchParams({ limit: '100', ...(url.searchParams.get('cursor') ? { cursor: url.searchParams.get('cursor') } : {}) })).data;
-    return html(page(principal, p => auditPage({ ...p, org, events, audits: deploymentAudits(ctx, org.id) })));
+    return html(auditPage({ ...base(principal), org, events, audits: deploymentAudits(ctx, org.id), nav: navFor(principal, { canAudit: true }) }));
   });
 
-  return r;
+  return { router: r, navFor };
 }
 
 // Returns a handler for non-/v1 paths, or answers 404 itself.
 export function createWebHandler(ctx) {
-  const router = routes(ctx);
+  const { router, navFor } = routes(ctx);
 
   return async function handleWeb(req, res, url) {
     let principal = null;
@@ -202,7 +377,9 @@ export function createWebHandler(ctx) {
     } catch (e) {
       const err = e instanceof ApiError ? e : new ApiError('api_error', 'Something went wrong on the server.');
       if (!(e instanceof ApiError)) ctx.log(`unexpected error: ${e.stack ?? e}`);
-      respond(res, { status: err.status, body: errorPage({ status: err.status, message: err.message, user: principal, csrf: principal?.csrf }), headers: err.headers });
+      let nav;
+      try { nav = principal ? navFor(principal) : undefined; } catch { nav = undefined; }
+      respond(res, { status: err.status, body: errorPage({ status: err.status, message: err.message, user: principal, csrf: principal?.csrf, nav }), headers: err.headers });
     }
   };
 }
@@ -213,5 +390,5 @@ function respond(res, out) {
     send(res, 303, '', { ...headers, location: out.location });
     return;
   }
-  send(res, out.status, out.body, { ...headers, ...out.headers, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': out.csp ?? PAGE_CSP });
+  send(res, out.status, out.body, { ...headers, ...out.headers, 'content-type': out.type ?? 'text/html; charset=utf-8', 'content-security-policy': out.csp ?? PAGE_CSP });
 }

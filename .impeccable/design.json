@@ -1,0 +1,12 @@
+{
+  "source": "src/theme.mjs",
+  "mode": "operate",
+  "standard": "canon: Linear / Vercel / Stripe",
+  "colors": {
+    "light": { "canvas": "#fafafb", "surface": "#ffffff", "rail": "#f4f4f6", "line": "#e4e4e9", "lineStrong": "#d1d1d9", "text": "#18181b", "text2": "#4f4f58", "text3": "#6b6b75", "accent": "#3e63dd", "good": "#18794e", "warn": "#9a5300", "bad": "#c4302b" },
+    "dark": { "canvas": "#0f0f12", "surface": "#16161a", "rail": "#121215", "line": "#26262d", "lineStrong": "#34343d", "text": "#ececf0", "text2": "#a8a8b3", "text3": "#8b8b96", "accent": "#6d8cff", "good": "#4cc38a", "warn": "#f0b35b", "bad": "#ff7a70" }
+  },
+  "type": { "family": "platform UI stack", "base": "14px/1.5", "headings": [22, 15, 14], "weight": 600, "tracking": "-0.015em" },
+  "radius": { "control": 6, "panel": 10 },
+  "logo": "assets/brand/delomu-mark.svg"
+}

@@ -1,5 +1,7 @@
 // Step 5: the acceptance report the customer signs off on. Every value from the run is escaped.
 
+import { TOKENS } from './theme.mjs';
+
 export const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const pct = x => `${Math.round(x * 1000) / 10}%`;
@@ -20,22 +22,22 @@ const CHECK_LABEL = {
 };
 
 function caseBlock(c, open) {
-  const checks = c.checks.map(k => `
-      <li class="${esc(k.status)}">
-        <span class="tag ${esc(k.status)}">${esc(STATUS_LABEL[k.status] ?? k.status)}</span>
-        ${esc((CHECK_LABEL[k.type] ?? (v => v))(k.value))}
-        ${k.reason ? `<div class="why">${esc(k.reason)}</div>` : ''}
-        ${k.fix ? `<div class="fix"><b>Suggested fix:</b> ${esc(k.fix)}</div>` : ''}
-      </li>`).join('');
-  return `
-  <details class="case"${open ? ' open' : ''}>
-    <summary><span class="tag ${esc(c.status)}">${esc(STATUS_LABEL[c.status])}</span> <code>${esc(c.id)}</code>
-      ${c.tags.map(t => `<span class="label">${esc(t)}</span>`).join(' ')}</summary>
-    <div class="io"><div><h4>User message</h4><pre>${esc(c.input)}</pre></div>
-    <div><h4>AI answer</h4><pre>${c.error ? esc(`No answer: ${c.error}`) : esc(c.output)}</pre></div></div>
-    ${checks ? `<ul class="checks">${checks}</ul>` : ''}
-  </details>`;
+  const checks = c.checks.map(k => `<li>
+<span class="badge ${CLS[k.status] ?? ''}">${esc(STATUS_LABEL[k.status] ?? k.status)}</span>
+<div><p>${esc((CHECK_LABEL[k.type] ?? (v => v))(k.value))}</p>
+${k.reason ? `<p class="muted">${esc(k.reason)}</p>` : ''}
+${k.fix ? `<p class="fix"><span class="strong">Suggested fix</span> ${esc(k.fix)}</p>` : ''}</div></li>`).join('');
+  return `<details class="case"${open ? ' open' : ''}>
+<summary><span class="badge ${CLS[c.status] ?? ''}">${esc(STATUS_LABEL[c.status])}</span><code>${esc(c.id)}</code>
+${c.tags.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</summary>
+<div class="io"><div><p class="cap">Customer writes</p><pre>${esc(c.input)}</pre></div>
+<div><p class="cap">AI answers</p><pre>${c.error ? esc(`No answer: ${c.error}`) : esc(c.output)}</pre></div></div>
+${checks ? `<ul class="checks">${checks}</ul>` : ''}
+</details>`;
 }
+
+const CLS = { pass: 'good', fail: 'bad', error: 'bad', needs_review: 'warn' };
+const VERDICT_CLS = { accepted: 'good', not_accepted: 'bad', pending_review: 'warn' };
 
 export function renderHtml(r) {
   const s = r.summary;
@@ -44,55 +46,66 @@ export function renderHtml(r) {
   const gaps = r.cases.filter(c => c.status !== 'pass').sort((a, b) => order[a.status] - order[b.status]);
   const passed = r.cases.filter(c => c.status === 'pass');
   const tags = Object.entries(s.byTag).sort((a, b) => a[1].pass / a[1].total - b[1].pass / b[1].total);
+  const goal = s.minPassRate;
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Acceptance report</title>
-<style>
-:root{--bg:#fff;--fg:#1a1a1f;--muted:#5d5d6b;--line:#e3e3ea;--card:#f7f7fa;--good:#1f7a4d;--bad:#b42318;--warn:#a15c07;--accent:#4b4bd6}
-@media (prefers-color-scheme:dark){:root{--bg:#121216;--fg:#ececf1;--muted:#a3a3b2;--line:#2c2c35;--card:#1b1b22;--good:#4cc38a;--bad:#f97066;--warn:#f5b546;--accent:#8f8ff5}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:920px;margin:0 auto;padding:32px 16px 64px}h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:36px 0 12px}
-h4{margin:0 0 4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}.muted{color:var(--muted)}
-.verdict{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:16px 20px;margin:20px 0;background:var(--card)}
-.verdict.accepted{border-left-color:var(--good)}.verdict.not_accepted{border-left-color:var(--bad)}.verdict.pending_review{border-left-color:var(--warn)}
-.verdict b{font-size:20px}.stats{display:flex;flex-wrap:wrap;gap:24px;margin-top:10px}.stats div{min-width:90px}.stats strong{display:block;font-size:20px}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line)}th{font-size:13px;color:var(--muted);font-weight:600}
-.case{border:1px solid var(--line);border-radius:8px;margin:8px 0;padding:10px 14px}.case summary{cursor:pointer}
-.io{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}@media (max-width:640px){.io{grid-template-columns:1fr}}
-pre{white-space:pre-wrap;word-break:break-word;margin:0;padding:10px;background:var(--card);border-radius:6px;font:13px/1.5 ui-monospace,Consolas,monospace}
-.checks{list-style:none;padding:0;margin:12px 0 0}.checks li{padding:6px 0;border-top:1px solid var(--line)}
-.why{color:var(--muted);margin-top:2px}.fix{margin-top:2px}
-.tag{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;border:1px solid currentColor}
-.tag.pass{color:var(--good)}.tag.fail,.tag.error{color:var(--bad)}.tag.needs_review{color:var(--warn)}
-.label{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 6px}
-footer{margin-top:40px;font-size:13px;color:var(--muted)}
+<meta name="color-scheme" content="light dark"><title>Acceptance report · ${esc(r.customer)}</title>
+<style>${TOKENS}
+.strong{font-weight:600}
+main{max-width:920px;margin:0 auto;padding:40px 24px 72px}
+.top{display:flex;align-items:center;gap:7px;font-weight:600;letter-spacing:-0.03em;color:var(--text);font-size:16px;margin-bottom:28px}
+h1{font-size:26px}h2{font-size:16px;margin:40px 0 12px}
+.meta{margin-top:6px;color:var(--text-2)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.verdict{margin-top:24px;padding:20px}
+.verdict .head{display:flex;align-items:center;gap:10px}.verdict .head .badge{font-size:13px;height:24px}
+.verdict p{margin-top:8px;color:var(--text-2)}
+.figures{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;margin-top:20px;background:var(--line);border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden}
+.figures div{background:var(--surface);padding:12px 14px}
+.figures dt{font-size:12px;color:var(--text-3)}.figures dd{margin:2px 0 0;font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+.panel table th:first-child,.panel table td:first-child{padding-left:16px}.panel table th:last-child,.panel table td:last-child{padding-right:16px}
+.meter{display:flex;align-items:center;gap:10px}.meter span.bar{flex:1;max-width:220px;height:6px;border-radius:3px;background:var(--sunken);position:relative;overflow:hidden}
+.meter span.bar i{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--bad)}.meter span.bar i.ok{background:var(--good)}
+.case{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin:8px 0}
+.case summary{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;flex-wrap:wrap}
+.case[open] summary{border-bottom:1px solid var(--line)}
+.chip{font-size:12px;color:var(--text-3);border:1px solid var(--line);border-radius:5px;padding:0 6px}
+.io{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px}
+.cap{font-size:12px;font-weight:500;color:var(--text-3);margin-bottom:6px}
+pre{white-space:pre-wrap;word-break:break-word;margin:0;padding:10px 12px;background:var(--sunken);border-radius:var(--r-sm);font:13px/1.55 var(--font)}
+.checks{list-style:none;margin:0;padding:0 16px 8px}.checks li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.checks li p+p{margin-top:2px}.fix{margin-top:4px}
+footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);font-size:12.5px;color:var(--text-3)}
+@media (max-width:640px){.io{grid-template-columns:1fr}main{padding:24px 16px 56px}}
+@media print{body{background:#fff}.case{break-inside:avoid}details.case:not([open])>*:not(summary){display:block}}
 </style></head><body><main>
+<div class="top"><svg width="18" height="18" viewBox="0 0 64 64" aria-hidden="true"><defs><mask id="m-report"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" fill="none" stroke="#000" stroke-width="5.5"/></mask></defs><path d="M8 6 H30 A26 26 0 0 1 30 58 H8 Z" fill="currentColor" mask="url(#m-report)"/></svg>Delomu</div>
 <h1>Acceptance report</h1>
-<div class="muted">${esc(r.customer)} · ${esc(r.deployment)} · ${esc(r.generatedAt.slice(0, 10))}</div>
+<p class="meta">${esc(r.customer)} · ${esc(r.deployment)} · ${esc(r.generatedAt.slice(0, 10))}</p>
 
-<section class="verdict ${esc(s.verdict)}"><b>${esc(title)}</b><div>${esc(line)}</div>
-<div class="stats">
-<div><strong>${esc(pct(s.passRate))}</strong>pass rate</div>
-<div><strong>${esc(pct(s.minPassRate))}</strong>required</div>
-<div><strong>${s.pass} / ${s.total}</strong>cases passed</div>
-<div><strong>${s.fail}</strong>failed</div>
-<div><strong>${s.needs_review}</strong>need review</div>
-<div><strong>${s.error}</strong>errors</div>
-</div></section>
+<section class="panel verdict"><div class="head"><span class="badge ${VERDICT_CLS[s.verdict] ?? ''}">${esc(title)}</span></div><p>${esc(line)}</p>
+<dl class="figures">
+<div><dt>Pass rate</dt><dd>${esc(pct(s.passRate))}</dd></div>
+<div><dt>Required</dt><dd>${esc(pct(goal))}</dd></div>
+<div><dt>Cases passed</dt><dd>${s.pass} / ${s.total}</dd></div>
+<div><dt>Failed</dt><dd>${s.fail}</dd></div>
+<div><dt>Need review</dt><dd>${s.needs_review}</dd></div>
+<div><dt>Errors</dt><dd>${s.error}</dd></div>
+</dl></section>
 
 <h2>Pass rate by area</h2>
-<table><thead><tr><th>Area</th><th>Passed</th><th>Pass rate</th></tr></thead><tbody>
-${tags.map(([t, v]) => `<tr><td>${esc(t)}</td><td>${v.pass} / ${v.total}</td><td>${esc(pct(v.pass / v.total))}</td></tr>`).join('\n')}
-</tbody></table>
+<section class="panel"><table><thead><tr><th>Area</th><th>Passed</th><th>Pass rate</th></tr></thead><tbody>
+${tags.map(([t, v]) => `<tr><td>${esc(t)}</td><td>${v.pass} / ${v.total}</td><td><span class="meter"><span class="bar"><i class="${v.pass / v.total >= goal ? 'ok' : ''}" style="width:${Math.round((v.pass / v.total) * 100)}%"></i></span>${esc(pct(v.pass / v.total))}</span></td></tr>`).join('')}
+</tbody></table></section>
 
 <h2>Gaps and suggested fixes (${gaps.length})</h2>
 ${gaps.length ? gaps.map(c => caseBlock(c, true)).join('') : '<p class="muted">No gaps: every case passed.</p>'}
 
 <h2>Decisions</h2>
-${r.decisions.length ? `<table><thead><tr><th>Date</th><th>Decision</th><th>Why</th></tr></thead><tbody>
-${r.decisions.map(d => `<tr><td>${esc(d.date)}</td><td>${esc(d.decision)}</td><td>${esc(d.reason)}</td></tr>`).join('\n')}
-</tbody></table>` : '<p class="muted">No decisions recorded.</p>'}
+${r.decisions.length ? `<section class="panel"><table><thead><tr><th>Date</th><th>Decision</th><th>Why</th></tr></thead><tbody>
+${r.decisions.map(d => `<tr><td>${esc(d.date)}</td><td>${esc(d.decision)}</td><td class="muted">${esc(d.reason)}</td></tr>`).join('')}
+</tbody></table></section>` : '<p class="muted">No decisions recorded.</p>'}
 
 <h2>Passed cases (${passed.length})</h2>
 ${passed.map(c => caseBlock(c, false)).join('')}
