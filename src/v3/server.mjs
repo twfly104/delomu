@@ -28,7 +28,7 @@ export function createServer({
   dataDir = env.DELOMU_DATA,
   deploymentsRoot = env.DELOMU_DEPLOYMENTS ?? (dataDir && path.join(dataDir, 'deployments')),
   pepper = env.DELOMU_KEY_PEPPER,
-  publicUrl = env.DELOMU_PUBLIC_URL,
+  publicUrl = env.DELOMU_PUBLIC_URL ?? (env.RAILWAY_PUBLIC_DOMAIN ? `https://${env.RAILWAY_PUBLIC_DOMAIN}` : undefined),
   trustProxy = env.DELOMU_TRUST_PROXY === '1',
   allowCommandTargets = env.DELOMU_ALLOW_COMMAND_TARGETS === '1',
   targetEnvPrefix = env.DELOMU_TARGET_ENV_PREFIX || 'CUSTOMER_',

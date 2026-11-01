@@ -12,14 +12,16 @@ import { callTarget } from '../adapters.mjs';
 import { parseCsv } from '../csv.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
-import { accessibleOrgs, getOrgBySlug } from './accounts.mjs';
+import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.mjs';
+import { tx } from './db.mjs';
+import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
 import { demoAnswer, sampleFiles } from './demo-bot.mjs';
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
-import { authenticateKey } from './keys.mjs';
+import { authenticateKey, createApiKey } from './keys.mjs';
 import {
   auditPage, billingPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
-  livePage, newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage,
+  livePage, newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
@@ -146,7 +148,43 @@ function routes(ctx) {
 
   r.add('GET', '/login', ({ req }) => {
     const token = randomToken();
-    return html(loginPage({ csrf: token }), 200, [cookie(LOGIN_CSRF_COOKIE, token, { maxAge: 3600, secure: ctx.secureCookies(req) })]);
+    return html(loginPage({ csrf: token, signup: signupOpen }), 200, [cookie(LOGIN_CSRF_COOKIE, token, { maxAge: 3600, secure: ctx.secureCookies(req) })]);
+  }, { public: true });
+
+  // Self-serve sign-up, on when the operator sets DELOMU_SIGNUP=open: a new org on the Free plan, its
+  // owner, and a sign-in key shown once. Limited per client address so it cannot be used to mass-create orgs.
+  const signupOpen = ctx.env?.DELOMU_SIGNUP === 'open';
+  const signupLimit = createRateLimiter({ capacity: 5, refillPerSec: 1 / 600 });
+  r.add('GET', '/signup', ({ req }) => {
+    if (!signupOpen) return new Redirect('/login');
+    const token = randomToken();
+    return html(signupPage({ csrf: token }), 200, [cookie(LOGIN_CSRF_COOKIE, token, { maxAge: 3600, secure: ctx.secureCookies(req) })]);
+  }, { public: true });
+
+  r.add('POST', '/signup', async ({ req }) => {
+    if (!signupOpen) throw notFound('page');
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(parseCookies(req.headers.cookie)[LOGIN_CSRF_COOKIE] ?? '', form);
+    const values = { email: String(form.email ?? '').trim().toLowerCase(), company: String(form.company ?? '').trim() };
+    const fail = (error, status = 400) => html(signupPage({ csrf: form.csrf, error, values }), status);
+    if (!signupLimit(ctx.clientIp(req)).ok) return fail('Too many sign-ups from this network. Try again later.', 429);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) return fail('Enter a work email address.');
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(values.email)) return fail('That email already has an account. Sign in with your key, or ask your admin to add you.', 409);
+    let made;
+    try {
+      made = tx(db, () => {
+        const org = createOrg(db, { name: values.company, kind: 'customer' }, ctx.now());
+        const member = addMember(db, org.id, { email: values.email, role: 'owner' }, null, ctx.now());
+        const { key, secret } = createApiKey(db, { orgId: org.id, userId: member.user_id, name: 'sign-in key' }, ctx.pepper, ctx.now());
+        recordEvent(db, { orgId: org.id, actor: `human:${values.email}`, action: 'org.signup', target: org.id, detail: { key: key.prefix }, ip: ctx.clientIp(req) }, ctx.now());
+        return { org, member, key, secret };
+      });
+    } catch (e) {
+      if (e instanceof ApiError && e.status < 500) return fail(e.message);
+      throw e;
+    }
+    const session = signIn(ctx, req, { userId: made.member.user_id, orgId: made.org.id, scopes: null, apiKeyId: made.key.id, email: values.email, via: 'signup' });
+    return html(signupKeyPage({ secret: made.secret, email: values.email }), 201, session.cookies);
   }, { public: true });
 
   r.add('POST', '/login', async ({ req }) => {

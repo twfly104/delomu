@@ -311,7 +311,36 @@ export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0 
 const notice = (text, kind = '', link) => (text ? `<div class="notice ${kind}" role="${kind ? 'status' : 'alert'}">${icon(kind === 'good' ? 'check' : 'alert')}<span>${esc(text)}${link ? ` <a href="${esc(link[0])}">${esc(link[1])}</a>` : ''}</span></div>` : '');
 const upgradeLink = href => (href ? [href, 'View plans and upgrade'] : undefined);
 
-export function loginPage({ csrf, error }) {
+// Self-serve sign-up (DELOMU_SIGNUP=open): one form, then the sign-in key shown once.
+export function signupPage({ csrf, error, values = {} }) {
+  return layout({
+    title: 'Create your account',
+    body: `<div class="auth-card">
+<a class="brand" href="/login" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
+<h1>Test your support AI</h1><p class="lede">Find the policy rules your AI agent breaks, before your customers do. Free plan, no card.</p>
+${notice(error)}
+<form method="post" action="/signup"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(values.email ?? '')}" placeholder="you@company.com"></label>
+<label class="field"><span>Company</span><input type="text" name="company" required maxlength="60" autocomplete="organization" value="${esc(values.company ?? '')}" placeholder="Acme"></label>
+<button class="btn primary block" data-busy="Creating…">Create free account</button></form>
+<p class="subtle" style="margin-top:16px;text-align:center">Already have an account? <a href="/login">Sign in</a></p>
+</div>`,
+  });
+}
+
+export function signupKeyPage({ secret, email }) {
+  return layout({
+    title: 'Save your sign-in key',
+    body: `<div class="auth-card">
+<a class="brand" href="/" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
+<h1>Save your sign-in key</h1><p class="lede">You are signed in as ${esc(email)}. Next time, sign in with this key. It is shown only once, so save it in your password manager now.</p>
+<label class="field"><span>Sign-in key</span><input type="text" readonly value="${esc(secret)}" class="mono" aria-describedby="keyhint"><p class="hint" id="keyhint">It also works as an API key for the Delomu API.</p></label>
+<a class="btn primary block" href="/">I saved it, continue</a>
+</div>`,
+  });
+}
+
+export function loginPage({ csrf, error, signup = false }) {
   return layout({
     title: 'Sign in',
     body: `<div class="auth-card">
@@ -325,6 +354,7 @@ ${notice(error)}
 <form method="post" action="/login"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>API key</span><input type="password" id="api_key" name="api_key" required autocomplete="off" placeholder="dk_…"></label>
 <button class="btn block">Sign in with API key</button></form>
+${signup ? '<p class="subtle" style="margin-top:16px;text-align:center">New to Delomu? <a href="/signup">Create a free account</a></p>' : ''}
 </div>`,
   });
 }

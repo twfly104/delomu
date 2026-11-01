@@ -9,3 +9,5 @@ outreach/
 hackathon/video/build/
 hackathon/video/*.mp4
 .claude/worktrees/
+
+outreach/
