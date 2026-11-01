@@ -15,11 +15,16 @@ const POLICY = fs.readFileSync(path.join(SAMPLE_DIR, 'inputs', 'refund-policy.md
 const SYSTEM = `You are Acme's friendly customer support assistant. Answer the customer in a few sentences, using the policy below.\n\n${POLICY}`;
 
 // A real AI answer from Acme's bot. client: an Anthropic client (tests inject a fake).
-export async function aiAnswer(message, { client = new Anthropic() } = {}) {
+// instructions: the extra instructions Acme's team approved through a Delomu fix (sent by the check).
+export async function aiAnswer(message, { client = new Anthropic(), instructions = '' } = {}) {
+  const extra = String(instructions ?? '').trim().slice(0, 4000);
   const response = await client.messages.create({
     model: DEMO_BOT_MODEL,
     max_tokens: 1024,
-    system: SYSTEM,
+    system: extra ? `${SYSTEM}
+
+Extra instructions from Acme's support team:
+${extra}` : SYSTEM,
     messages: [{ role: 'user', content: String(message ?? '').slice(0, MAX_MESSAGE) || 'Hello' }],
   });
   if (response.stop_reason === 'refusal') return "Sorry, I can't help with that. Let me connect you with a support agent.";

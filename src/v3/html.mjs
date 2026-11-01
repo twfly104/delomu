@@ -258,6 +258,7 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .verdict.warn b{color:var(--warn);font-weight:600}
 .draft-body .kv td{overflow-wrap:anywhere}
 @media (max-width:760px){.draft-body .kv th{width:110px;white-space:normal}.rulelist li{flex-wrap:wrap}.rulelist .c{white-space:normal;margin-left:26px;width:100%}}
+.fixit .panel-body{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.fixit .panel-body>div{flex:1;min-width:260px}.fixit form.panel-body{display:flex;flex-direction:column;align-items:stretch}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
@@ -745,6 +746,20 @@ ${bad.map(exchange).join('')}
 ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(exchange).join('')}</details>` : ''}</section>`;
   };
   const draft = scan.draftId && ov.drafts.find(d => d.id === scan.draftId);
+  // Before and after: a re-check runs the earlier check's exact messages again after a fix.
+  const before = scan.recheckOf ? ov.scans.find(x => x.id === scan.recheckOf) : null;
+  const compare = before ? `<p class="meta num" style="color:var(--text)"><span class="strong">After the fix:</span> ${before.summary.broken} → ${s.broken} rules broken, ${before.summary.failed} → ${s.failed} messages failed, on the same ${s.probes} messages.</p>` : '';
+  const fix = args.fix?.scanId === scan.id ? args.fix : null;
+  const target = args.fixTarget ?? { canApply: false };
+  const fixPanel = !broken.length || !can.write ? '' : !fix || fix.status !== 'proposed'
+    ? `<section class="panel fixit"><div class="panel-body"><div><h2>Fix it</h2>
+<p class="muted" style="margin-top:4px">The agent drafts one change to your AI's instructions covering the ${broken.length} broken rule${broken.length === 1 ? '' : 's'}. Nothing changes until you approve it; then the same ${s.probes} messages run again.</p></div>
+<form method="post" action="${esc(base)}/fix/draft"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Drafting… about 20 s">${icon('spark')}Draft a fix</button></form></div></section>`
+    : `<section class="panel fixit"><form method="post" action="${esc(base)}/fix/approve" class="panel-body stack" style="gap:12px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
+<div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p></div>
+<label class="field" style="margin:0"><span>Extra instructions for your AI <span class="subtle" style="font-weight:400">(edit before approving)</span></span><textarea name="instructions" maxlength="4000" style="min-height:180px;font:13.5px/1.55 var(--font)">${esc(fix.instructions)}</textarea>
+<p class="hint">${target.canApply ? 'Delomu sends these with every message to this AI, so approving applies them right away.' : 'Delomu cannot change this AI directly. Paste these into its instructions (Intercom Fin: Fin, then Guidance; Zendesk: the AI agent\'s instructions), then re-check.'}</p></label>
+<div class="row-inline" style="gap:8px;flex-wrap:wrap">${target.canApply ? `<button class="btn primary" name="mode" value="apply" data-busy="Applying…">${icon('check')}Approve, apply and re-check</button>` : `<button class="btn primary" name="mode" value="manual" data-busy="Starting…">${icon('check')}I applied it, re-check</button>`}</div></form></section>`;
   const verdict = s.broken
     ? `<p class="verdict bad num"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
     : unsure.length
@@ -753,8 +768,9 @@ ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.len
   return shell(`<section class="panel scan-head">
 <div>${verdict}
 <p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
-<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><a class="btn" style="margin-left:auto" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a></section>
+${compare}<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><a class="btn" style="margin-left:auto" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a></section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
+${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
 ${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li>${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(r.clause)} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);

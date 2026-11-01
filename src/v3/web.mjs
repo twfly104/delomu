@@ -12,7 +12,8 @@ import { callTarget } from '../adapters.mjs';
 import { parseCsv } from '../csv.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
-import { listScans } from '../v1/risk.mjs';
+import { listScans, recheck } from '../v1/risk.mjs';
+import { approveFix, draftFix, getFix, instructionsTarget } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.mjs';
 import { tx } from './db.mjs';
@@ -61,6 +62,8 @@ const NOTICES = {
   created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
   scanned: 'Check finished.',
+  rechecked: 'Re-check finished: the same messages were sent again after the fix.',
+  fixdrafted: 'The agent drafted a fix. Review the instructions below, edit them if you like, then approve.',
   sample: 'Sample ready: Acme’s support bot and its refund policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
@@ -296,7 +299,7 @@ function routes(ctx) {
     if (!realBot) return json(200, { reply: demoAnswer(message) });
     if (!botPerClient(ctx.clientIp(req)).ok || !botTotal('all').ok) return json(429, { error: 'The sample bot is busy. Try again in a minute.' });
     try {
-      return json(200, { reply: await aiAnswer(message, ctx.demoBotClient ? { client: ctx.demoBotClient } : undefined) });
+      return json(200, { reply: await aiAnswer(message, { ...(ctx.demoBotClient ? { client: ctx.demoBotClient } : {}), instructions: typeof body?.body?.instructions === 'string' ? body.body.instructions : '' }) });
     } catch (e) {
       console.error(`sample bot failed: ${e.message}`);
       return json(502, { error: 'The sample bot is unavailable right now.' });
@@ -382,10 +385,11 @@ function routes(ctx) {
   r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => {
     const ws = workspace(principal, params, 'runs:read', url);
     const job = scans.get(ws.dir);
-    if (job?.status === 'running') return html(riskScanPage({ ...ws, job }));
+    const fixArgs = { fix: getFix(ws.dir), fixTarget: instructionsTarget(ws.config) };
+    if (job?.status === 'running') return html(riskScanPage({ ...ws, ...fixArgs, job }));
     if (job) scans.delete(ws.dir);
-    if (job?.status === 'failed') return html(riskScanPage({ ...ws, flash: '', error: job.error }));
-    return html(riskScanPage(job?.status === 'done' ? { ...ws, flash: NOTICES.scanned } : ws));
+    if (job?.status === 'failed') return html(riskScanPage({ ...ws, ...fixArgs, flash: '', error: job.error }));
+    return html(riskScanPage(job?.status === 'done' ? { ...ws, ...fixArgs, flash: job.recheck ? NOTICES.rechecked : NOTICES.scanned } : { ...ws, ...fixArgs }));
   });
 
   r.add('POST', '/orgs/:org/deployments/:name/scan', async ({ req, principal, params }) => {
@@ -419,6 +423,47 @@ function routes(ctx) {
         job.status = 'done';
       }
     }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, params.name) })).finally(() => release());
+    return new Redirect(page);
+  });
+
+  // The fix loop (src/v1/fix.mjs): the agent drafts one change to the AI's instructions for the broken rules,
+  // a person edits and approves it, Delomu applies it where it can, and the same messages run again.
+  r.add('POST', '/orgs/:org/deployments/:name/fix/draft', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const fail = message => html(riskScanPage({ ...workspace(principal, params, 'runs:read'), fix: getFix(dir), fixTarget: instructionsTarget(loadConfig(dir)), error: message }), 400);
+    let res;
+    try {
+      res = await draftFix(dir, { llm: ctx.llm ?? createLlm(), now: ctx.now() });
+    } catch (e) {
+      return fail(scanError(e, dir, params.name).replace('The check could not', 'The fix could not'));
+    }
+    if (!res.ok) return fail(`The agent could not draft a fix: ${res.reason}.`);
+    event(ctx, principal, org.id, 'fix.draft', params.name, { rules: res.fix.rules.length });
+    return new Redirect(`${depPath(org, params.name)}/scan?notice=fixdrafted`);
+  });
+
+  r.add('POST', '/orgs/:org/deployments/:name/fix/approve', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const page = `${depPath(org, params.name)}/scan`;
+    if (scans.get(dir)?.status === 'running') return new Redirect(page);
+    try {
+      approveFix(dir, { instructions: form.instructions, apply: form.mode === 'apply', actor: principal.actor, now: ctx.now() });
+    } catch (e) {
+      return html(riskScanPage({ ...workspace(principal, params, 'runs:read'), fix: getFix(dir), fixTarget: instructionsTarget(loadConfig(dir)), error: e.message }), 400);
+    }
+    event(ctx, principal, org.id, form.mode === 'apply' ? 'fix.apply' : 'fix.applied_manually', params.name, {});
+    const job = { status: 'running', recheck: true, startedAt: ctx.now().getTime(), progress: { phase: 'probes', done: 0, total: 0 } };
+    scans.set(dir, job);
+    job.done = recheck(dir, { llm: ctx.llm ?? createLlm(), now: ctx.now(), onProgress: p => { job.progress = p; } }).then(result => {
+      if (!result.ok) Object.assign(job, { status: 'failed', error: `The re-check could not run: ${result.reason}.` });
+      else { event(ctx, principal, org.id, 'scan.recheck', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken }); job.status = 'done'; }
+    }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, params.name) }));
     return new Redirect(page);
   });
 

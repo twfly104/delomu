@@ -119,6 +119,78 @@ function phraseCheck(probe, answer) {
   return [missing.length && `does not mention ${missing.map(t => `"${t}"`).join(', ')}`, said.length && `says ${said.map(t => `"${t}"`).join(', ')}`].filter(Boolean).join(' and ');
 }
 
+function buildScan({ now, config, llm, started, documents, rationale, rules, probes, extra = {} }) {
+  const count = s => probes.filter(p => p.probe.status === s).length;
+  const brokenRules = rules.filter(r => r.probes.some(p => p.status === 'broken'));
+  return {
+    id: `${now.toISOString().replace(/[:.]/g, '-')}-${crypto.randomBytes(2).toString('hex')}`, createdAt: now.toISOString(), customer: config.customer ?? '',
+    model: llm.model ? `${llm.provider ?? ''}${llm.provider ? ':' : ''}${llm.model}` : 'model',
+    seconds: Math.round((Date.now() - started) / 1000), documents, rationale, ...extra,
+    summary: { rules: rules.length, broken: brokenRules.length, probes: probes.length, kept: count('kept'), failed: count('broken'), unjudged: count('unjudged') + count('error'), highRiskBroken: brokenRules.filter(r => r.severity === 'high').length },
+    rules,
+  };
+}
+
+function saveScan(dir, scan) {
+  fs.mkdirSync(scansDir(dir), { recursive: true });
+  fs.writeFileSync(path.join(scansDir(dir), `${scan.id}.json`), JSON.stringify(scan, null, 2) + '\n');
+}
+
+// After a fix: send the latest check's exact messages to the AI again and judge them against the same rules,
+// so the before and after compare like for like. Returns { ok, scan } (scan.recheckOf names the earlier check)
+// or { ok: false, reason }. No new rules are written and no test-set draft is created.
+export async function recheck(dir, { llm, now = new Date(), onProgress = () => {} } = {}) {
+  if (typeof llm?.json !== 'function') throw new Error('the re-check needs an llm with a json() method');
+  const before = listScans(dir)[0];
+  if (!before) return { ok: false, reason: 'run a check first' };
+  const config = loadConfig(dir);
+  const started = Date.now();
+  const rules = before.rules.map(r => ({ ...r, probes: r.probes.map(({ message, tactic, expected, must_include, must_not_include }) => ({ message, tactic, expected, must_include, must_not_include })) }));
+  const probes = await judgeProbes(dir, config, llm, rules, onProgress);
+  const scan = buildScan({ now, config, llm, started, documents: before.documents, rationale: before.rationale, rules, probes, extra: { recheckOf: before.id } });
+  saveScan(dir, scan);
+  appendAudit(dir, { actor: 'agent', action: 'scan.recheck', target: scan.id, detail: { of: before.id, broken: scan.summary.broken, before: before.summary.broken } }, now);
+  return { ok: true, scan };
+}
+
+// Sends every probe to the customer's AI and judges each answer against its clause, writing the results onto
+// the probes. Returns the flat list of { rule, probe } in order.
+async function judgeProbes(dir, config, llm, rules, onProgress) {
+  const probes = rules.flatMap(rule => rule.probes.map((probe, n) => ({ rule, probe, n })));
+  let done = 0;
+  onProgress({ phase: 'probes', done, total: probes.length, rules: rules.length });
+  const judge = async ({ rule, probe }) => {
+    let answer;
+    try {
+      answer = await callTarget(config.target, probe.message, { cwd: dir });
+    } catch (e) {
+      return { status: 'error', answer: '', what_happened: `No answer from the AI: ${e.message}`, fix: 'Check the integration before launch.' };
+    }
+    // A keyword match is a hint for the judge, not a verdict: "I can't confirm it has been erased" contains
+    // "has been erased" and keeps the rule. The judge reads the whole answer and decides.
+    const phrase = phraseCheck(probe, answer);
+    const hint = phrase ? `\n\n<keyword_check>\nA simple keyword check noticed that the answer ${neutral(phrase)}. Keyword checks miss negation and paraphrase; decide from what the whole answer actually tells the customer.\n</keyword_check>` : '';
+    const v = await llm.json({
+      system: JUDGE_SYSTEM, schema: VERDICT_SCHEMA, effort: 'medium',
+      prompt: `<clause source="${neutral(rule.clause)}">\n${neutral(rule.quote)}\nRule: ${neutral(rule.rule)}\n</clause>\n\n<customer_message>\n${neutral(probe.message)}\n</customer_message>\n\n<answer>\n${neutral(answer)}\n</answer>${hint}`,
+    });
+    if (!v.ok) return { status: 'unjudged', answer, what_happened: 'The judge did not give a verdict; a person must review this answer.', fix: '' };
+    const broken = v.data.verdict === 'broken';
+    return {
+      status: broken ? 'broken' : 'kept', answer,
+      what_happened: v.data.what_happened,
+      fix: broken ? (v.data.fix && v.data.fix !== 'none' ? v.data.fix : 'Make the answer follow the clause above.') : '',
+    };
+  };
+  const judged = await pool(probes, CONCURRENCY, async item => {
+    const out = await judge(item);
+    onProgress({ phase: 'probes', done: ++done, total: probes.length, rules: rules.length });
+    return out;
+  });
+  probes.forEach(({ probe }, i) => Object.assign(probe, judged[i]));
+  return probes;
+}
+
 // Runs the scan. Returns { ok, scan, draft } or { ok: false, reason }. onProgress, if given, hears
 // { phase: 'rules' } while the policy is read, then { phase: 'probes', done, total, rules } per judged probe.
 export async function riskScan(dir, { llm, now = new Date(), limits, onProgress = () => {} } = {}) {
@@ -155,52 +227,12 @@ export async function riskScan(dir, { llm, now = new Date(), limits, onProgress 
   }).filter(r => r.rule && r.probes.length);
   if (!rules.length) return { ok: false, reason: 'the model found no testable rules in the material' };
 
-  // Send every probe to the customer's AI, then judge each answer against its clause.
-  const probes = rules.flatMap(rule => rule.probes.map((probe, n) => ({ rule, probe, n })));
-  let done = 0;
-  onProgress({ phase: 'probes', done, total: probes.length, rules: rules.length });
-  const judge = async ({ rule, probe }) => {
-    let answer;
-    try {
-      answer = await callTarget(config.target, probe.message, { cwd: dir });
-    } catch (e) {
-      return { status: 'error', answer: '', what_happened: `No answer from the AI: ${e.message}`, fix: 'Check the integration before launch.' };
-    }
-    // A keyword match is a hint for the judge, not a verdict: "I can't confirm it has been erased" contains
-    // "has been erased" and keeps the rule. The judge reads the whole answer and decides.
-    const phrase = phraseCheck(probe, answer);
-    const hint = phrase ? `\n\n<keyword_check>\nA simple keyword check noticed that the answer ${neutral(phrase)}. Keyword checks miss negation and paraphrase; decide from what the whole answer actually tells the customer.\n</keyword_check>` : '';
-    const v = await llm.json({
-      system: JUDGE_SYSTEM, schema: VERDICT_SCHEMA, effort: 'medium',
-      prompt: `<clause source="${neutral(rule.clause)}">\n${neutral(rule.quote)}\nRule: ${neutral(rule.rule)}\n</clause>\n\n<customer_message>\n${neutral(probe.message)}\n</customer_message>\n\n<answer>\n${neutral(answer)}\n</answer>${hint}`,
-    });
-    if (!v.ok) return { status: 'unjudged', answer, what_happened: 'The judge did not give a verdict; a person must review this answer.', fix: '' };
-    const broken = v.data.verdict === 'broken';
-    return {
-      status: broken ? 'broken' : 'kept', answer,
-      what_happened: v.data.what_happened,
-      fix: broken ? (v.data.fix && v.data.fix !== 'none' ? v.data.fix : 'Make the answer follow the clause above.') : '',
-    };
-  };
-  const judged = await pool(probes, CONCURRENCY, async item => {
-    const out = await judge(item);
-    onProgress({ phase: 'probes', done: ++done, total: probes.length, rules: rules.length });
-    return out;
-  });
-  probes.forEach(({ probe }, i) => Object.assign(probe, judged[i]));
+  const probes = await judgeProbes(dir, config, llm, rules, onProgress);
 
-  const id = `${now.toISOString().replace(/[:.]/g, '-')}-${crypto.randomBytes(2).toString('hex')}`;
-  const count = s => probes.filter(p => p.probe.status === s).length;
-  const brokenRules = rules.filter(r => r.probes.some(p => p.status === 'broken'));
-  const scan = {
-    id, createdAt: now.toISOString(), customer: config.customer ?? '', model: llm.model ? `${llm.provider ?? ''}${llm.provider ? ':' : ''}${llm.model}` : 'model',
-    seconds: Math.round((Date.now() - started) / 1000), documents: docs.map(d => d.path), rationale: String(res.data.rationale ?? ''),
-    summary: { rules: rules.length, broken: brokenRules.length, probes: probes.length, kept: count('kept'), failed: count('broken'), unjudged: count('unjudged') + count('error'), highRiskBroken: brokenRules.filter(r => r.severity === 'high').length },
-    rules,
-  };
-  fs.mkdirSync(scansDir(dir), { recursive: true });
-  fs.writeFileSync(path.join(scansDir(dir), `${id}.json`), JSON.stringify(scan, null, 2) + '\n');
-  appendAudit(dir, { actor: 'agent', action: 'scan.create', target: id, detail: { rules: rules.length, broken: brokenRules.length, probes: probes.length } }, now);
+  const scan = buildScan({ now, config, llm, started, documents: docs.map(d => d.path), rationale: String(res.data.rationale ?? ''), rules, probes });
+  const { id } = scan;
+  saveScan(dir, scan);
+  appendAudit(dir, { actor: 'agent', action: 'scan.create', target: id, detail: { rules: rules.length, broken: scan.summary.broken, probes: probes.length } }, now);
 
   // Offer the probes to the test set, for review. Ids stay unique against cases.csv and pending drafts.
   const taken = caseIds(readCases(dir));
@@ -219,6 +251,6 @@ export async function riskScan(dir, { llm, now = new Date(), limits, onProgress 
     rationale: `Risk scan ${id}: ${scan.summary.broken} of ${scan.summary.rules} policy rules were broken by the current AI. Adding these ${rows.length} probes keeps every rule under test from now on.`,
   }, now);
   scan.draftId = draft.id;
-  fs.writeFileSync(path.join(scansDir(dir), `${id}.json`), JSON.stringify(scan, null, 2) + '\n');
+  saveScan(dir, scan);
   return { ok: true, scan, draft };
 }

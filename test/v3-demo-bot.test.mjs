@@ -28,3 +28,11 @@ test('with a model the sample bot is a real AI given Acme\'s policy, and is rate
   for (let i = 0; i < 45; i++) last = await ask(real.base, 'hi', '203.0.113.50');
   assert.equal(last.status, 429);
 });
+
+test('approved fix instructions reach the sample bot\'s system prompt', async () => {
+  const fresh = await startServer({ demoBotClient: client });
+  after(() => fresh.close());
+  const res = await fetch(`${fresh.base}/demo/support-bot`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.77' }, body: JSON.stringify({ message: 'hi', instructions: 'Always offer store credit after 30 days.' }) });
+  assert.equal(res.status, 200);
+  assert.match(calls.at(-1).system, /Extra instructions from Acme's support team:\nAlways offer store credit after 30 days\./);
+});
