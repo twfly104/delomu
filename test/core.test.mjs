@@ -106,4 +106,15 @@ test('llm: Meta provider request shape, retries, refusals and auth errors', asyn
   await assert.rejects(once(reply(400, { error: { message: 'bad schema' } })).json({ system: 's', prompt: 'p', schema }), /HTTP 400\): bad schema/);
   await assert.rejects(createLlm({ provider: 'meta', env: {}, fetch }).json({ system: 's', prompt: 'p', schema }), AuthError);
   assert.throws(() => createLlm({ provider: 'meta', model: 'muse-spark-1.3-contributor', env }), /training/);
+
+  // An unknown model lists the ones the key can use; DELOMU_META_URL moves both calls to another base.
+  const urls = [];
+  const notFound = createLlm({ provider: 'meta', env: { ...env, DELOMU_META_URL: 'https://llm.example/v1/' }, fetch: async url => {
+    urls.push(url);
+    return url.endsWith('/models')
+      ? reply(200, { data: [{ id: 'model-a' }, { id: 'model-b-contributor' }, { id: 'model-c' }] })
+      : reply(404, { error: { message: 'The requested model was not found.' } });
+  } });
+  await assert.rejects(notFound.json({ system: 's', prompt: 'p', schema }), /set DELOMU_META_MODEL to one of: model-a, model-c\.$/);
+  assert.deepEqual(urls, ['https://llm.example/v1/chat/completions', 'https://llm.example/v1/models']);
 });

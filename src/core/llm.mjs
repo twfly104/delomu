@@ -11,7 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 export const DEFAULT_META_MODEL = 'muse-spark-1.3';
-const META_URL = 'https://api.meta.ai/v1/chat/completions';
+const META_BASE_URL = 'https://api.meta.ai/v1';
 const META_TIMEOUT_MS = 180_000;
 const META_RETRIES = 3;
 
@@ -52,7 +52,20 @@ function anthropicJson(clientOrNull, model) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// The model ids this key can use, for an actionable "model not found" message; null when the list fails.
+async function metaModels(fetchImpl, base, key) {
+  try {
+    const res = await fetchImpl(`${base}/models`, { headers: { authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return null;
+    const ids = (await res.json()).data?.map(m => m.id).filter(id => typeof id === 'string' && !/contributor/i.test(id));
+    return ids?.length ? ids : null;
+  } catch {
+    return null;
+  }
+}
+
 function metaJson({ fetchImpl = fetch, env, model }) {
+  const base = String(env.DELOMU_META_URL || META_BASE_URL).replace(/\/+$/, '');
   // Contributor models let Meta train on what is sent; customer material must never go there.
   if (/contributor/i.test(model)) throw new Error(`refusing Meta model "${model}": contributor models allow training on the data sent`);
   return async ({ system, prompt, schema, effort, maxTokens }) => {
@@ -69,7 +82,7 @@ function metaJson({ fetchImpl = fetch, env, model }) {
     for (let attempt = 0; ; attempt++) {
       let res;
       try {
-        res = await fetchImpl(META_URL, {
+        res = await fetchImpl(`${base}/chat/completions`, {
           method: 'POST',
           headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
           body,
@@ -90,6 +103,10 @@ function metaJson({ fetchImpl = fetch, env, model }) {
       if (!res.ok) {
         let message = text.slice(0, 300);
         try { message = JSON.parse(text).error?.message ?? message; } catch {}
+        if (res.status === 404) {
+          const ids = await metaModels(fetchImpl, base, key);
+          if (ids) message += ` "${model}" is not available to this key; set DELOMU_META_MODEL to one of: ${ids.slice(0, 12).join(', ')}.`;
+        }
         throw new Error(`Meta Model API error (HTTP ${res.status}): ${message}`);
       }
       const choice = JSON.parse(text).choices?.[0];
