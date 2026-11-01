@@ -26,6 +26,8 @@ const containsInput = v => {
 const usesEnvOnly = value => /\$\{[A-Z0-9_]+\}/i.test(value)
   && value.replace(/\$\{[A-Z0-9_]+\}/gi, '').replace(/^\s*(bearer|basic|token|apikey|api-key)\s*/i, '').trim() === '';
 
+const ENV_ONLY = /^\$\{[A-Z0-9_]+\}$/i;
+
 export function validateTarget(target) {
   const p = [];
   if (!isObject(target)) return ['target must be an object'];
@@ -51,8 +53,13 @@ export function validateTarget(target) {
   } else if (target.type === 'command') {
     if (!isText(target.command)) p.push('command target needs a non-empty command');
     else if (/[\r\n]/.test(target.command)) p.push('command must be a single line');
+  } else if (target.type === 'intercom' || target.type === 'zendesk') {
+    const secrets = target.type === 'intercom' ? ['token'] : ['keyId', 'secret'];
+    for (const k of secrets) if (typeof target[k] !== 'string' || !ENV_ONLY.test(target[k])) p.push(`${target.type} ${k} must be one \${ENV_VAR} reference`);
+    if (target.type === 'zendesk' && !isText(target.appId)) p.push('zendesk target needs an appId');
+    if (target.type === 'zendesk' && !isText(target.subdomain) && !isText(target.baseUrl)) p.push('zendesk target needs a subdomain');
   } else {
-    p.push('target type must be "http" or "command"');
+    p.push('target type must be "http", "command", "intercom" or "zendesk"');
   }
   return p;
 }

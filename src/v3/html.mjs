@@ -52,6 +52,7 @@ const STYLE = `${TOKENS}
 .btn.block{width:100%;justify-content:center;height:36px}
 .field{display:block;margin-bottom:16px}.field>span{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
 .hint{margin-top:6px;font-size:12.5px;color:var(--text-3)}
+.form-section{margin:24px 0 12px;padding-top:16px;border-top:1px solid var(--line)}.form-section .hint{display:block;margin-top:2px;font-weight:400}
 input[type=text],input[type=password],input[type=url],input[type=number],select,textarea{width:100%;height:34px;padding:0 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font:14px var(--font);transition:border-color .15s,box-shadow .15s}
 select{padding-right:28px}
 input:hover,select:hover,textarea:hover{border-color:var(--text-3)}
@@ -60,7 +61,7 @@ input::placeholder,textarea::placeholder{color:var(--text-3)}
 textarea{height:auto;min-height:180px;padding:10px;font:12.5px/1.55 var(--mono);resize:vertical}
 input[type=file]{font:13px var(--font);color:var(--text-2)}
 input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 12px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 13px var(--font);cursor:pointer}
-.choice{display:flex;gap:8px}.choice label{flex:1;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);cursor:pointer}
+.choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}.choice label{flex:1;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);cursor:pointer}
 .choice label:has(input:checked){border-color:var(--accent);background:var(--accent-weak)}
 .choice input{margin-top:3px;accent-color:var(--accent)}
 .check{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--text-2)}.check input{accent-color:var(--accent);margin:0}
@@ -331,9 +332,17 @@ ${notice(msg, 'good')}
 <section class="panel">${deployments.length ? deploymentsTable(deployments, { now }) : `<div class="emptystate"><span class="strong">No deployments yet</span>${canWrite ? 'Create one for each customer rollout.' : 'An engineer creates one for each customer rollout.'}</div>`}</section>` });
 }
 
+const CONNECTIONS = [
+  { type: 'http', label: 'HTTP endpoint', hint: 'The AI answers a POST request.' },
+  { type: 'command', label: 'Command', hint: 'A program on this server; off unless the operator allows it.' },
+  { type: 'intercom', label: 'Intercom', hint: "Fin or a bot in the customer's Intercom workspace." },
+  { type: 'zendesk', label: 'Zendesk', hint: 'An AI agent in Zendesk messaging.' },
+];
+
 export function newDeploymentPage({ user, csrf, nav, org, error, values = {} }) {
   const v = k => esc(values[k] ?? '');
-  const isCommand = values.type === 'command';
+  const type = CONNECTIONS.some(c => c.type === values.type) ? values.type : 'http';
+  const section = (title, hint = '') => `<h3 class="form-section">${esc(title)}${hint ? `<span class="hint">${esc(hint)}</span>` : ''}</h3>`;
   return layout({ title: 'New deployment', user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [[org.name, orgPath(org)], ['Deployments', orgPath(org)], ['New']], body: `
 <div class="page-head"><div><h1>New deployment</h1><p class="sub">One deployment per customer rollout. You can add the customer's material after this.</p></div></div>
 ${notice(error)}
@@ -342,13 +351,23 @@ ${notice(error)}
 <label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="acme-support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
 <label class="field"><span>Customer</span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Inc."></label>
 <div class="field"><span>How Delomu reaches the customer's AI</span><div class="choice">
-<label><input type="radio" name="type" value="http"${isCommand ? '' : ' checked'}><span><span class="strong">HTTP endpoint</span><span class="hint" style="display:block;margin:2px 0 0">The AI answers a POST request.</span></span></label>
-<label><input type="radio" name="type" value="command"${isCommand ? ' checked' : ''}><span><span class="strong">Command</span><span class="hint" style="display:block;margin:2px 0 0">A program on this server; off unless the operator allows it.</span></span></label>
-</div></div>
+${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"${type === c.type ? ' checked' : ''}><span><span class="strong">${esc(c.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(c.hint)}</span></span></label>`).join('\n')}
+</div><p class="hint">Fill in the section for the connection you picked; the other sections are ignored.</p></div>
+${section('HTTP endpoint')}
 <label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://ai.customer.example/chat"></label>
 <label class="field"><span>Authorization header</span><input type="text" name="auth" value="${v('auth')}" placeholder="Bearer \${CUSTOMER_API_KEY}"><p class="hint">Reference a server environment variable; never paste a key here.</p></label>
 <label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
+${section('Command')}
 <label class="field"><span>Command</span><input type="text" name="command" value="${v('command')}" placeholder="node bot.mjs"></label>
+${section('Intercom', 'Each test starts a new conversation from a test contact and waits for Fin or a teammate to reply.')}
+<label class="field"><span>Access token</span><input type="text" name="intercom_token" value="${v('intercom_token')}" placeholder="\${CUSTOMER_INTERCOM_TOKEN}"><p class="hint">A server environment variable holding the Intercom access token; never paste the token here.</p></label>
+<label class="field"><span>Test contact external ID</span><input type="text" name="intercom_contact" maxlength="120" value="${v('intercom_contact')}" placeholder="delomu-test"><p class="hint">Optional. Created on the first test if it does not exist.</p></label>
+${section('Zendesk', 'Uses Sunshine Conversations: each test creates a test user and conversation, then waits for the AI agent to reply.')}
+<label class="field"><span>Zendesk subdomain</span><input type="text" name="zendesk_subdomain" maxlength="63" value="${v('zendesk_subdomain')}" placeholder="acme"><p class="hint">The part before <code>.zendesk.com</code>.</p></label>
+<label class="field"><span>App ID</span><input type="text" name="zendesk_app_id" maxlength="64" value="${v('zendesk_app_id')}" placeholder="5f8a3c…"></label>
+<label class="field"><span>API key ID</span><input type="text" name="zendesk_key_id" value="${v('zendesk_key_id')}" placeholder="\${CUSTOMER_ZENDESK_KEY_ID}"></label>
+<label class="field"><span>API key secret</span><input type="text" name="zendesk_secret" value="${v('zendesk_secret')}" placeholder="\${CUSTOMER_ZENDESK_SECRET}"><p class="hint">Both reference server environment variables; never paste the key here.</p></label>
+${section('Acceptance')}
 <label class="field"><span>Required pass rate (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label>
 </div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Creating…">Create deployment</button></div></form>` });
 }
@@ -475,8 +494,9 @@ export function settingsPage(args) {
   const { config } = args;
   const t = config.target ?? {};
   const rows = [
-    ['Customer', config.customer], ['Connection', t.type === 'http' ? 'HTTP endpoint' : t.type === 'command' ? 'Command' : t.type],
-    ['URL', t.url], ['Command', t.command], ['Answer at', t.output], ['Timeout', t.timeoutMs ? `${t.timeoutMs / 1000} s` : undefined],
+    ['Customer', config.customer], ['Connection', CONNECTIONS.find(c => c.type === t.type)?.label ?? t.type],
+    ['URL', t.url ?? t.baseUrl], ['Command', t.command], ['Zendesk subdomain', t.subdomain], ['App ID', t.appId],
+    ['Test contact', t.contactExternalId], ['Credentials', [t.token, t.keyId, t.secret].filter(s => /^\$\{[A-Za-z0-9_]+\}$/.test(s ?? '')).join(', ')], ['Answer at', t.output], ['Timeout', t.timeoutMs ? `${t.timeoutMs / 1000} s` : undefined],
     ['Required pass rate', pct(config.acceptance?.minPassRate ?? 0.9)],
   ].filter(([, v]) => v);
   const headers = Object.entries(t.headers ?? {});

@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { appendAudit, readAudit, verifyAudit } from '../core/audit.mjs';
 import { writeTests } from '../commands/v0.mjs';
 import { paths } from '../deployment.mjs';
+import { ZENDESK_SUBDOMAIN } from '../connectors/zendesk.mjs';
 import { ApiError, invalid } from './http.mjs';
 
 const NAME = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -32,19 +33,41 @@ export function deploymentDir(root, orgId, name) {
   return dir;
 }
 
+const TARGET_TYPES = ['http', 'command', 'intercom', 'zendesk'];
+const HELP_DESK_SECRETS = { intercom: ['token'], zendesk: ['keyId', 'secret'] };
+const ENV_ONLY = /^\$\{([A-Za-z0-9_]+)\}$/;
+
+function checkUrl(value, field) {
+  let url;
+  try { url = new URL(value); } catch { throw invalid(`config.target.${field} must be a URL.`, 'config'); }
+  if (!['http:', 'https:'].includes(url.protocol)) throw invalid(`config.target.${field} must use http or https.`, 'config');
+}
+
 // Targets run on this server, so a tenant may not run shell commands (unless the operator allows it)
 // and may only reference environment variables with the operator's prefix (default CUSTOMER_).
 export function checkTarget(config, { allowCommandTargets = false, envPrefix = 'CUSTOMER_' } = {}) {
   const target = config?.target;
   if (!target || typeof target !== 'object' || Array.isArray(target)) throw invalid('config.target must be an object.', 'config');
-  if (!['http', 'command'].includes(target.type)) throw invalid('config.target.type must be "http" or "command".', 'config');
+  if (!TARGET_TYPES.includes(target.type)) throw invalid('config.target.type must be "http", "command", "intercom" or "zendesk".', 'config');
   if (target.type === 'command' && !allowCommandTargets) {
     throw new ApiError('permission_error', 'Command targets are disabled on this server; use an http target.');
   }
-  if (target.type === 'http') {
-    let url;
-    try { url = new URL(target.url); } catch { throw invalid('config.target.url must be a URL.', 'config'); }
-    if (!['http:', 'https:'].includes(url.protocol)) throw invalid('config.target.url must use http or https.', 'config');
+  if (target.type === 'http') checkUrl(target.url, 'url');
+  if (target.baseUrl !== undefined && HELP_DESK_SECRETS[target.type]) checkUrl(target.baseUrl, 'baseUrl');
+  // Help-desk credentials must come from the server's environment, never from the config itself.
+  for (const field of HELP_DESK_SECRETS[target.type] ?? []) {
+    const value = target[field];
+    if (typeof value !== 'string' || !value.trim()) throw invalid(`config.target.${field} is required for a ${target.type} target.`, 'config');
+    const name = ENV_ONLY.exec(value)?.[1];
+    if (!name || !name.startsWith(envPrefix)) {
+      throw new ApiError('permission_error', `config.target.${field} must be an environment variable reference like \${${envPrefix}${target.type.toUpperCase()}_${field.toUpperCase()}}.`);
+    }
+  }
+  if (target.type === 'zendesk') {
+    if (typeof target.appId !== 'string' || !target.appId.trim()) throw invalid('config.target.appId is required for a zendesk target.', 'config');
+    if (target.baseUrl === undefined && !ZENDESK_SUBDOMAIN.test(String(target.subdomain ?? ''))) {
+      throw invalid('config.target.subdomain must be the Zendesk subdomain, for example "acme" for acme.zendesk.com.', 'config');
+    }
   }
   for (const [, name] of JSON.stringify(target).matchAll(ENV_REF)) {
     if (!name.startsWith(envPrefix)) throw new ApiError('permission_error', `Targets may only reference environment variables starting with ${envPrefix}.`);
