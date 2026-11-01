@@ -186,6 +186,7 @@ details.history .note{font-style:italic}
 .convo .probe{padding:0;border:0}.convo .meta-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--text-3);margin-bottom:8px}
 .convo .why{margin-top:10px;display:grid;gap:6px}.convo .why p{line-height:1.5}
 .convo.flagged .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
+.btn.sm{height:28px;padding:0 10px;font-size:13px}
 pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sunken);font:12px/1.55 var(--mono);white-space:pre-wrap;word-break:break-all}
 @media (max-width:640px){.stats{grid-template-columns:1fr}.stats>div{border-right:0;border-bottom:1px solid var(--line)}.rulebars li{grid-template-columns:minmax(0,1fr) 60px 24px}}
 .probe.broken .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
@@ -681,12 +682,12 @@ export function livePage(args) {
   const w = live.week;
   const rate = w.checked ? Math.round(100 * w.flagged / w.checked) : 0;
   const n = x => x.toLocaleString('en-US');
-  const replay = can.live && hasTickets ? `<form method="post" action="${esc(base)}/live/replay"><input type="hidden" name="csrf" value="${esc(csrf)}">
-<button class="btn${w.checked ? '' : ' primary'}" data-busy="Starting…">${icon('play')}Send sample traffic</button></form>` : '';
+  const replay = can.live && hasTickets ? `<form method="post" action="${esc(base)}/live/replay" style="margin:0 0 0 12px"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<button class="btn sm${w.checked ? '' : ' primary'}" data-busy="Starting…">${icon('play')}Send sample traffic</button></form>` : '';
   const bars = live.rules.length ? `<ul class="rulebars">${live.rules.map(r => `<li><span><span class="strong">${esc(r.text)}</span> <span class="subtle">${esc(r.clause)}</span></span>
 <span class="bar"><i class="${esc(r.severity)}" style="width:${Math.max(6, Math.round(100 * r.count / Math.max(1, w.flagged)))}%"></i></span><span class="num subtle" style="text-align:right">${r.count}</span></li>`).join('')}</ul>`
     : `<p class="panel-body subtle">${w.checked ? 'Every checked answer kept every rule.' : 'No conversations yet. Connect the help desk, or send sample traffic.'}</p>`;
-  const stats = `<section class="panel"><div class="panel-head"><h2>Last 7 days</h2><span class="aside subtle num">${n(live.checkedThisMonth)} checked this month</span></div>
+  const stats = `<section class="panel"><div class="panel-head"><h2>Last 7 days</h2><span class="aside subtle num">${n(live.checkedThisMonth)} checked this month</span>${replay}</div>
 <div class="stats"><div><p class="v num">${n(w.checked)}</p><p class="k">Conversations checked</p></div>
 <div><p class="v num${w.flagged ? ' bad' : ''}">${n(w.flagged)}</p><p class="k">Broke a rule${w.checked ? ` · ${rate}%` : ''}</p></div>
 <div><p class="v num${live.rules.length ? ' bad' : ''}">${live.rules.length} <span class="subtle" style="font-size:15px;font-weight:400">of ${scan.rules.length}</span></p><p class="k">Policy rules broken</p></div></div>
@@ -710,7 +711,7 @@ ${bars}</section>`;
 <form method="post" action="${esc(base)}/live/settings" class="panel-body stack" style="gap:10px"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Slack or Teams webhook</span><input type="url" name="webhook" value="${esc(settings.webhook)}" placeholder="https://hooks.slack.com/services/…"><p class="hint">Posts when a high-risk rule breaks, at most once an hour per rule.</p></label>
 <div><button class="btn">Save</button></div></form></section>` : '';
-  return shell(`${replay ? `<div class="row-inline" style="justify-content:flex-end;margin-bottom:12px">${replay}</div>` : ''}<div class="grid-2"><div class="stack">${stats}${feed}</div>
+  return shell(`<div class="grid-2"><div class="stack">${stats}${feed}</div>
 <div class="stack">${connect}${check}${alerts}</div></div>`);
 }
 

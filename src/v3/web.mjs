@@ -349,16 +349,16 @@ function routes(ctx) {
   // Live monitoring. The page shows the last 7 days; "Send sample traffic" replays the customer's ticket
   // export through their AI in the background so a new deployment has something to watch.
   const replays = new Map();
-  const liveView = (principal, params, url, extra = {}) => {
+  const liveView = (req, principal, params, url, extra = {}) => {
     const ws = workspace(principal, params, 'runs:read', url);
     const job = replays.get(ws.dir);
     if (job && job.status !== 'running') replays.delete(ws.dir);
     return livePage({ ...ws, can: { ...ws.can, live: principalAllows(principal, roleIn(db, principal, ws.org.id), 'conversations:write') },
-      settings: getLiveSettings(ws.dir), apiBase: `${ctx.publicUrl ?? ''}/v1/orgs/${ws.org.id}/deployments/${encodeURIComponent(params.name)}`,
+      settings: getLiveSettings(ws.dir), apiBase: `${ctx.publicUrl ?? `http://${req.headers.host}`}/v1/orgs/${ws.org.id}/deployments/${encodeURIComponent(params.name)}`,
       job: job?.status === 'running' ? job : null, error: job?.status === 'failed' ? job.error : undefined,
       flash: job?.status === 'done' ? NOTICES.replayed : ws.flash, ...extra });
   };
-  r.add('GET', '/orgs/:org/deployments/:name/live', ({ principal, params, url }) => html(liveView(principal, params, url)));
+  r.add('GET', '/orgs/:org/deployments/:name/live', ({ req, principal, params, url }) => html(liveView(req, principal, params, url)));
 
   r.add('POST', '/orgs/:org/deployments/:name/live/check', async ({ req, principal, params }) => {
     const form = await readForm(req, ctx.maxBodyBytes);
@@ -368,7 +368,7 @@ function routes(ctx) {
       await checkLiveConversation(ctx, principal, org.id, params.name, { message: form.message, answer: form.answer, source: 'web' });
     } catch (e) {
       if (!(e instanceof ApiError) || e.status === 404) throw e;
-      return html(liveView(principal, params, null, { error: e.message, upgrade: e.extra?.upgrade_url, draft: { message: form.message, answer: form.answer } }), e.status);
+      return html(liveView(req, principal, params, null, { error: e.message, upgrade: e.extra?.upgrade_url, draft: { message: form.message, answer: form.answer } }), e.status);
     }
     return new Redirect(`${depPath(org, params.name)}/live?notice=checked`);
   });
@@ -379,7 +379,7 @@ function routes(ctx) {
     const { org } = access(ctx, principal, params.org, 'conversations:write');
     const { dir } = deploymentFor(ctx, org.id, params.name);
     const page = `${depPath(org, params.name)}/live`;
-    const fail = message => html(liveView(principal, params, null, { error: message }), 400);
+    const fail = message => html(liveView(req, principal, params, null, { error: message }), 400);
     if (replays.get(dir)?.status === 'running') return new Redirect(page);
     const file = path.join(dir, 'inputs', 'tickets.csv');
     const rows = fs.existsSync(file) ? parseCsv(fs.readFileSync(file, 'utf8')) : [];
@@ -407,7 +407,7 @@ function routes(ctx) {
     try {
       setLiveSettings(dir, { webhook: form.webhook });
     } catch (e) {
-      return html(liveView(principal, params, null, { error: e.message }), 400);
+      return html(liveView(req, principal, params, null, { error: e.message }), 400);
     }
     event(ctx, principal, org.id, 'live.settings', params.name, { webhook: form.webhook ? 'set' : 'cleared' });
     return new Redirect(`${depPath(org, params.name)}/live?notice=alerts`);
