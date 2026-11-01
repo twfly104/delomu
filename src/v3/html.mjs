@@ -479,7 +479,7 @@ ${notice(error)}
 <form method="post" action="${esc(orgPath(org))}/new-deployment" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
-<label class="field"><span>Brand or team <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Support"></label>
+<label class="field"><span>Client or brand <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Bank"><p class="hint">If you deploy this AI for a client, their name goes on the customer report.</p></label>
 <div class="field"><span>Where your AI agent runs</span><div class="choice">
 ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"${type === c.type ? ' checked' : ''}><span><span class="strong">${esc(c.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(c.hint)}</span></span></label>`).join('\n')}
 </div></div>
@@ -753,7 +753,7 @@ ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.len
   return shell(`<section class="panel scan-head">
 <div>${verdict}
 <p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
-<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div></section>
+<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><a class="btn" style="margin-left:auto" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a></section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}

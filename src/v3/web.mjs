@@ -12,6 +12,8 @@ import { callTarget } from '../adapters.mjs';
 import { parseCsv } from '../csv.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
+import { listScans } from '../v1/risk.mjs';
+import { renderScanReport } from './scan-report.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.mjs';
 import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
@@ -490,6 +492,17 @@ function routes(ctx) {
   r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));
   r.add('GET', '/orgs/:org/deployments/:name/inputs', ({ principal, params, url }) => html(inputsPage(workspace(principal, params, 'deployments:read', url))));
   r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => html(settingsPage(workspace(principal, params, 'deployments:read', url))));
+
+  // The latest check as a document for the customer or legal: print it, then Save as PDF.
+  r.add('GET', '/orgs/:org/deployments/:name/scan/report.html', ({ principal, params }) => {
+    const { org } = access(ctx, principal, params.org, 'runs:read');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const scan = listScans(dir)[0];
+    if (!scan) throw notFound('check');
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* the report works without it */ }
+    return { status: 200, body: renderScanReport({ scan, name: params.name, customer: config.customer, org: org.name }), csp: REPORT_CSP };
+  });
 
   r.add('GET', '/orgs/:org/deployments/:name/runs/:run/report.html', ({ principal, params }) => {
     const { org } = access(ctx, principal, params.org, 'runs:read');

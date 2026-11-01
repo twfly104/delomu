@@ -27,3 +27,19 @@ test('while a check runs, the header says so and offers no second run', () => {
   assert.match(html, /disabled aria-busy="true">.*Checking…/s);
   assert.doesNotMatch(html, /Run check again/);
 });
+
+test('the customer report lists every rule, details only findings, and escapes everything', async () => {
+  const { renderScanReport } = await import('../src/v3/scan-report.mjs');
+  const scan = { id: 's1', createdAt: '2026-11-02T00:00:00Z', seconds: 60, model: 'claude', documents: ['policy.md'],
+    rules: [rule('a', [probe('broken', { answer: '<script>x</script>', fix: 'Offer store credit.' }), probe('kept')]), rule('b', [probe('unjudged')]), rule('c', [probe('kept')])],
+    summary: { rules: 3, broken: 1, probes: 4, kept: 2, failed: 1, unjudged: 1, highRiskBroken: 1 } };
+  const html = renderScanReport({ scan, name: 'support-bot', customer: 'Acme <Bank>', org: 'Vendor' });
+  const t = text(html);
+  assert.match(t, /Pre-launch policy check: support-bot for Acme &lt;Bank&gt;/);
+  assert.match(t, /1 of 3 policy rules broken/);
+  assert.match(t, /Needs a person to review/);
+  assert.match(t, /Recommended fix: Offer store credit\./);
+  assert.ok(!html.includes('<script>'));
+  assert.match(html, /&lt;script&gt;x&lt;\/script&gt;/);
+  assert.equal((t.match(/Rule [abc]/g) ?? []).length >= 3, true);
+});
