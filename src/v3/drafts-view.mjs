@@ -7,7 +7,7 @@ import { icon } from './icons.mjs';
 import { KIND_LABEL } from './insights.mjs';
 
 const list = v => (Array.isArray(v) ? v : String(v ?? '').split('|')).map(x => String(x).trim()).filter(Boolean);
-const chips = (items, cls = '') => items.map(t => `<span class="chip ${cls}">${esc(t)}</span>`).join(' ');
+const chips = (items, cls = '') => items.map(t => `<span class="chip ${cls}"${cls === 'tag' ? ` title="${esc(t)}"` : ''}>${esc(cls === 'tag' ? String(t).replace(/-/g, ' ') : t)}</span>`).join(' ');
 const empty = text => `<p class="subtle">${esc(text)}</p>`;
 
 function mappingView(c) {

@@ -116,7 +116,7 @@ input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 1
 .feed .t{margin-left:auto;color:var(--text-3);white-space:nowrap}
 .who-chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;background:var(--sunken);font-size:12px;color:var(--text-2);white-space:nowrap}
 .who-chip.agent{background:var(--accent-weak);color:var(--accent-text)}
-.chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;background:var(--sunken);font-size:12px;color:var(--text-2);margin:2px 0}
+.chip{display:inline-flex;align-items:center;min-height:20px;max-width:100%;padding:2px 7px;border-radius:5px;background:var(--sunken);font-size:12px;line-height:16px;color:var(--text-2);margin:2px 0;overflow-wrap:anywhere}
 .chip.good{background:var(--good-weak);color:var(--good)}.chip.bad{background:var(--bad-weak);color:var(--bad)}.chip.tag{background:transparent;border:1px solid var(--line);color:var(--text-3)}
 .draft{overflow:hidden}
 .draft-head{display:flex;align-items:flex-start;gap:12px;padding:16px;border-bottom:1px solid var(--line)}
