@@ -8,7 +8,10 @@ import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { appendAudit } from '../core/audit.mjs';
 import { createLlm, isAuthError } from '../core/llm.mjs';
+import { callTarget } from '../adapters.mjs';
+import { parseCsv } from '../csv.mjs';
 import { loadConfig } from '../deployment.mjs';
+import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { accessibleOrgs, getOrgBySlug } from './accounts.mjs';
 import { recordEvent, listEvents } from './events.mjs';
 import { demoAnswer, sampleFiles } from './demo-bot.mjs';
@@ -16,10 +19,10 @@ import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJ
 import { authenticateKey } from './keys.mjs';
 import {
   auditPage, billingPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
-  newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage,
+  livePage, newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
-import { access, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
+import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
 import { principalAllows, roleIn } from './rbac.mjs';
 import { createSession, deleteSession, getSession, randomToken, sameSecret, SESSION_COOKIE, SESSION_TTL_MS } from './sessions.mjs';
 import { OidcError } from './oidc.mjs';
@@ -35,6 +38,7 @@ const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.html']);
 const MAX_INPUT_BYTES = 1024 * 1024;
 const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
+const REPLAY_LIMIT = 6;
 const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report'];
 const NOTICES = {
   created: 'Deployment created. Add the customer’s material next, then ask the agent to draft the first step.',
@@ -43,6 +47,9 @@ const NOTICES = {
   sample: 'Sample customer ready: Acme’s support bot and its refund policy. Run the risk scan to see what it gets wrong.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
+  checked: 'Conversation checked.',
+  replayed: 'Sample traffic checked. Every conversation below was judged against the policy rules.',
+  alerts: 'Alert settings saved.',
 };
 
 class Redirect {
@@ -337,6 +344,73 @@ function routes(ctx) {
       ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
       : `The scan could not finish: ${String(e.message).split(dir).join(params.name)}` })).finally(() => release());
     return new Redirect(page);
+  });
+
+  // Live monitoring. The page shows the last 7 days; "Send sample traffic" replays the customer's ticket
+  // export through their AI in the background so a new deployment has something to watch.
+  const replays = new Map();
+  const liveView = (principal, params, url, extra = {}) => {
+    const ws = workspace(principal, params, 'runs:read', url);
+    const job = replays.get(ws.dir);
+    if (job && job.status !== 'running') replays.delete(ws.dir);
+    return livePage({ ...ws, can: { ...ws.can, live: principalAllows(principal, roleIn(db, principal, ws.org.id), 'conversations:write') },
+      settings: getLiveSettings(ws.dir), apiBase: `${ctx.publicUrl ?? ''}/v1/orgs/${ws.org.id}/deployments/${encodeURIComponent(params.name)}`,
+      job: job?.status === 'running' ? job : null, error: job?.status === 'failed' ? job.error : undefined,
+      flash: job?.status === 'done' ? NOTICES.replayed : ws.flash, ...extra });
+  };
+  r.add('GET', '/orgs/:org/deployments/:name/live', ({ principal, params, url }) => html(liveView(principal, params, url)));
+
+  r.add('POST', '/orgs/:org/deployments/:name/live/check', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'conversations:write');
+    try {
+      await checkLiveConversation(ctx, principal, org.id, params.name, { message: form.message, answer: form.answer, source: 'web' });
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status === 404) throw e;
+      return html(liveView(principal, params, null, { error: e.message, upgrade: e.extra?.upgrade_url, draft: { message: form.message, answer: form.answer } }), e.status);
+    }
+    return new Redirect(`${depPath(org, params.name)}/live?notice=checked`);
+  });
+
+  r.add('POST', '/orgs/:org/deployments/:name/live/replay', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'conversations:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const page = `${depPath(org, params.name)}/live`;
+    const fail = message => html(liveView(principal, params, null, { error: message }), 400);
+    if (replays.get(dir)?.status === 'running') return new Redirect(page);
+    const file = path.join(dir, 'inputs', 'tickets.csv');
+    const rows = fs.existsSync(file) ? parseCsv(fs.readFileSync(file, 'utf8')) : [];
+    const messages = rows.map(r => r.customer_message ?? r.message ?? r.input).filter(m => String(m ?? '').trim()).slice(0, REPLAY_LIMIT);
+    if (!messages.length) return fail('Add the customer’s ticket export (tickets.csv with a customer_message column) under Customer material first.');
+    let config;
+    try { config = loadConfig(dir); checkTarget(config, ctx.policy); } catch (e) { return fail(e instanceof ApiError ? e.message : 'The deployment is not connected to an AI yet.'); }
+    const job = { status: 'running', startedAt: ctx.now().getTime(), done: 0, total: messages.length };
+    replays.set(dir, job);
+    (async () => {
+      for (const message of messages) {
+        const answer = await callTarget(config.target, message, { cwd: dir });
+        await checkLiveConversation(ctx, principal, org.id, params.name, { message, answer, source: 'sample' });
+        job.done++;
+      }
+    })().then(() => { job.status = 'done'; }, e => Object.assign(job, { status: 'failed', error: e instanceof ApiError ? e.message : `Sample traffic stopped: ${String(e.message).split(dir).join(params.name)}` }));
+    return new Redirect(page);
+  });
+
+  r.add('POST', '/orgs/:org/deployments/:name/live/settings', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    try {
+      setLiveSettings(dir, { webhook: form.webhook });
+    } catch (e) {
+      return html(liveView(principal, params, null, { error: e.message }), 400);
+    }
+    event(ctx, principal, org.id, 'live.settings', params.name, { webhook: form.webhook ? 'set' : 'cleared' });
+    return new Redirect(`${depPath(org, params.name)}/live?notice=alerts`);
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));

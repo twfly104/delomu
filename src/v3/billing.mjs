@@ -27,15 +27,15 @@ import { listDeployments, deploymentDir } from './workspace.mjs';
 export const PLANS = Object.freeze({
   free: Object.freeze({
     id: 'free', name: 'Free', monthlyUsd: 0, includedActiveDeployments: 1, extraActiveDeploymentUsd: null,
-    scansPerMonth: 3, how: 'Default for every organization',
+    scansPerMonth: 3, conversationsPerMonth: 200, how: 'Default for every organization',
   }),
   team: Object.freeze({
     id: 'team', name: 'Team', monthlyUsd: 499, includedActiveDeployments: 5, extraActiveDeploymentUsd: 99,
-    scansPerMonth: null, how: 'Self-serve with a card (Stripe Checkout)',
+    scansPerMonth: null, conversationsPerMonth: 10000, how: 'Self-serve with a card (Stripe Checkout)',
   }),
   enterprise: Object.freeze({
     id: 'enterprise', name: 'Enterprise', monthlyUsd: null, includedActiveDeployments: null, extraActiveDeploymentUsd: null,
-    scansPerMonth: null, how: 'Contact sales; invoiced',
+    scansPerMonth: null, conversationsPerMonth: null, how: 'Contact sales; invoiced',
   }),
 });
 
@@ -205,6 +205,14 @@ export function scansThisMonth(db, orgId, month) {
   return db.prepare("SELECT COUNT(*) AS n FROM audit_events WHERE org_id = ? AND action = 'scan.create' AND ts >= ? AND ts < ?").get(orgId, from, to).n;
 }
 
+// Conversations checked by live monitoring this month, across the org's deployments (src/v1/live.mjs).
+export function conversationsThisMonth(db, root, orgId, month) {
+  return listDeployments(db, root, orgId).reduce((n, d) => {
+    const file = path.join(deploymentDir(root, orgId, d.name), 'live', `${month}.jsonl`);
+    return n + (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).length : 0);
+  }, 0);
+}
+
 // ---- The billing service --------------------------------------------------------------------------
 
 const planLimit = (code, message, upgradeUrl) => new ApiError('permission_error', message, { status: 402, code, extra: { upgrade_url: upgradeUrl } });
@@ -232,10 +240,11 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
     const plan = planOf(orgId);
     const active = activeDeployments(db, deploymentsRoot, orgId, month);
     const scans = scansThisMonth(db, orgId, month);
+    const conversations = conversationsThisMonth(db, deploymentsRoot, orgId, month);
     const included = plan.includedActiveDeployments;
     const extra = included === null || plan.extraActiveDeploymentUsd === null ? 0 : Math.max(0, active.length - included);
     return {
-      configured: !!config, live: !!config?.live, month, plan, account: getAccount(db, orgId), active, scans,
+      configured: !!config, live: !!config?.live, month, plan, account: getAccount(db, orgId), active, scans, conversations,
       extra, extraUsd: extra * (plan.extraActiveDeploymentUsd ?? 0),
     };
   }
@@ -278,6 +287,18 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
       const n = (pendingScans.get(orgId) ?? 1) - 1;
       if (n > 0) pendingScans.set(orgId, n); else pendingScans.delete(orgId);
     };
+  }
+
+  // Throws a 402 when the org has checked all the live conversations its plan includes this month.
+  function checkConversationQuota(orgId) {
+    const month = monthOf(now());
+    const plan = planOf(orgId);
+    if (plan.conversationsPerMonth !== null && conversationsThisMonth(db, deploymentsRoot, orgId, month) >= plan.conversationsPerMonth) {
+      throw planLimit('plan_limit_conversations',
+        `The ${plan.name} plan includes ${plan.conversationsPerMonth.toLocaleString('en-US')} live conversations a month and this organization has used them all in ${month}. `
+        + (plan.id === 'free' ? 'Upgrade to Team for 10,000 a month; an owner or admin can do this on the Billing page.' : 'Contact us for Enterprise volumes.'),
+        pathFor(orgId));
+    }
   }
 
   // After a completed run: if the deployment just became an extra active one on Team, queue one meter
@@ -494,7 +515,7 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
     sendJson(res, 200, { received: true, note });
   }
 
-  return { configured: !!config, config, planOf, summary, reserveRun, reserveScan, afterRun, flushUsage, createCheckout, createPortal, handleWebhook };
+  return { configured: !!config, config, planOf, summary, reserveRun, reserveScan, checkConversationQuota, afterRun, flushUsage, createCheckout, createPortal, handleWebhook };
 }
 
 // The exact bytes Stripe signed; rejects past `limit` bytes.

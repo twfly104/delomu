@@ -5,7 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { getDraft, listDrafts, reviewDraft } from '../core/drafts.mjs';
+import { createLlm, isAuthError } from '../core/llm.mjs';
 import { loadConfig } from '../deployment.mjs';
+import { checkConversation } from '../v1/live.mjs';
 import { runDeployment } from '../run.mjs';
 import { getOrg } from './accounts.mjs';
 import { recordEvent } from './events.mjs';
@@ -64,6 +66,23 @@ async function runOnce(ctx, principal, orgId, name, dir, judge) {
   event(ctx, principal, orgId, 'run.create', `${name}/${results.runId}`, { verdict: results.summary.verdict, judge: results.judge });
   await ctx.billing?.afterRun(orgId, name); // Team overage meter event; never throws
   return runObject(results);
+}
+
+// Live monitoring: checks one real conversation against the deployment's rules, within the plan's
+// monthly allowance. Returns the stored record; 400 when it cannot be checked.
+export async function checkLiveConversation(ctx, principal, orgId, name, input) {
+  const { dir } = deploymentFor(ctx, orgId, name);
+  ctx.billing?.checkConversationQuota(orgId);
+  let result;
+  try {
+    result = await checkConversation(dir, input, { llm: ctx.llm ?? createLlm(), now: ctx.now(), log: ctx.log });
+  } catch (e) {
+    if (isAuthError(e)) throw new ApiError('api_error', 'The judge has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.', { status: 503, code: 'no_model' });
+    throw e;
+  }
+  if (!result.ok) throw invalid(result.reason, 'message');
+  if (result.record.status === 'flagged') event(ctx, principal, orgId, 'live.flag', `${name}/${result.record.id}`, { rules: result.record.violations.map(v => v.rule) });
+  return result.record;
 }
 
 export function draftsOf(ctx, orgId, name, status) {

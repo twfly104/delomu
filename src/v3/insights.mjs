@@ -7,6 +7,7 @@ import { paths } from '../deployment.mjs';
 import { listDrafts } from '../core/drafts.mjs';
 import { readAudit } from '../core/audit.mjs';
 import { listScans } from '../v1/risk.mjs';
+import { liveSummary } from '../v1/live.mjs';
 
 export const STEPS = [
   { key: 'mapping', label: 'Data mapping' },
@@ -96,7 +97,7 @@ export function overview(dir, config) {
   const pending = drafts.filter(d => d.status === 'pending');
   const scans = listScans(dir);
   return {
-    drafts, pending, runs, inputs, steps, scans,
+    drafts, pending, runs, inputs, steps, scans, live: liveSummary(dir),
     latest: runs.at(-1) ?? null,
     current: currentStep(steps),
     next: nextAction(steps, { pending: pending.length, runs: runs.length, inputs: inputs.length, scans: scans.length }),

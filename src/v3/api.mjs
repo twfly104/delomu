@@ -10,10 +10,11 @@ import { ApiError, createRouter, forbidden, notFound, paginate, readJson, send, 
 import { beginIdempotent, checkIdempotencyKey } from './idempotency.mjs';
 import { authenticateKey, checkScopes, createApiKey, listKeys, revokeKey } from './keys.mjs';
 import {
-  access, deploymentAudits, deploymentFor, draftOf, draftsOf, event, orgUsage, reviewDeploymentDraft, startRun,
+  access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, draftsOf, event, orgUsage, reviewDeploymentDraft, startRun,
 } from './operations.mjs';
 import { isManager, principalAllows, roleIn } from './rbac.mjs';
 import { checkOidcConfig, getOidcConfig, setOidcConfig } from './sso.mjs';
+import { listConversations } from '../v1/live.mjs';
 import { deploymentAudit, listDeployments, listRuns, registerDeployment, reportFile } from './workspace.mjs';
 
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
@@ -149,6 +150,22 @@ function routes(ctx) {
     const file = reportFile(deploymentFor(ctx, params.org, params.name).dir, params.run);
     if (!file) throw notFound('run');
     return { status: 200, text: fs.readFileSync(file, 'utf8'), headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': REPORT_CSP } };
+  });
+
+  // Live monitoring. A help desk or the customer's code posts each finished exchange.
+  r.add('POST', '/v1/orgs/:org/deployments/:name/conversations', async ({ principal, params, body }) => {
+    access(ctx, principal, params.org, 'conversations:write');
+    const record = await checkLiveConversation(ctx, principal, params.org, params.name, { ...body, source: body.source ?? 'api' });
+    return ok({ object: 'conversation', ...record }, 201);
+  });
+
+  r.add('GET', '/v1/orgs/:org/deployments/:name/conversations', ({ principal, params, url }) => {
+    access(ctx, principal, params.org, 'runs:read');
+    const month = url.searchParams.get('month') ?? ctx.now().toISOString().slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(month)) throw new ApiError('invalid_request_error', 'month must look like 2026-11.', { status: 400, param: 'month' });
+    let list = listConversations(deploymentFor(ctx, params.org, params.name).dir, month);
+    if (url.searchParams.get('status')) list = list.filter(c => c.status === url.searchParams.get('status'));
+    return ok(paginate(list, url.searchParams));
   });
 
   r.add('GET', '/v1/orgs/:org/deployments/:name/drafts', ({ principal, params, url }) => {

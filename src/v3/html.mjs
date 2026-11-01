@@ -174,6 +174,20 @@ details.history .note{font-style:italic}
 .probe .cap{font-size:12px;color:var(--text-3);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .bubble{padding:9px 12px;border-radius:10px;background:var(--sunken);line-height:1.5}
 .bubble.ai{background:var(--surface);border:1px solid var(--line)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line)}
+.stats>div{padding:16px;border-right:1px solid var(--line)}.stats>div:last-child{border-right:0}
+.stats .v{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1}.stats .v.bad{color:var(--bad)}
+.stats .k{font-size:12.5px;color:var(--text-3);margin-top:4px}
+.rulebars{list-style:none;margin:0;padding:8px 16px 14px}
+.rulebars li{display:grid;grid-template-columns:minmax(0,1fr) 120px 28px;gap:12px;align-items:center;padding:6px 0}
+.rulebars .bar{height:6px;border-radius:3px;background:var(--sunken);overflow:hidden}.rulebars .bar i{display:block;height:100%;background:var(--bad);border-radius:3px}
+.rulebars .bar i.medium{background:var(--warn)}.rulebars .bar i.low{background:var(--text-3)}
+.convo{padding:14px 16px;border-bottom:1px solid var(--line)}.convo:last-child{border-bottom:0}
+.convo .probe{padding:0;border:0}.convo .meta-line{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--text-3);margin-bottom:8px}
+.convo .why{margin-top:10px;display:grid;gap:6px}.convo .why p{line-height:1.5}
+.convo.flagged .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
+pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sunken);font:12px/1.55 var(--mono);white-space:pre-wrap;word-break:break-all}
+@media (max-width:640px){.stats{grid-template-columns:1fr}.stats>div{border-right:0;border-bottom:1px solid var(--line)}.rulebars li{grid-template-columns:minmax(0,1fr) 60px 24px}}
 .probe.broken .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
 .verdict-line{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;font-size:13px}
 .verdict-line .fix{color:var(--text-2)}
@@ -430,7 +444,7 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 // The shared header of every deployment page: title, actions and the six-step track.
 function deploymentHeader({ org, name, config, ov, tab, can, csrf }) {
   const base = depPath(org, name);
-  const tabs = [['overview', 'Overview', base], ['scan', 'Risk scan', `${base}/scan`, ov.scans.length ? ov.scans[0].summary.broken : 0, true], ['runs', 'Runs', `${base}/runs`, ov.runs.length], ['drafts', 'Review', `${base}/drafts`, ov.pending.length, true], ['inputs', 'Customer material', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
+  const tabs = [['overview', 'Overview', base], ['scan', 'Risk scan', `${base}/scan`, ov.scans.length ? ov.scans[0].summary.broken : 0, true], ['live', 'Live', `${base}/live`, ov.live?.week.flagged ?? 0, true], ['runs', 'Runs', `${base}/runs`, ov.runs.length], ['drafts', 'Review', `${base}/drafts`, ov.pending.length, true], ['inputs', 'Customer material', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
   const runForm = (cls, label) => `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
 <button class="btn ${cls}" data-busy="Running tests…">${icon('play')}${label}</button></form>`;
   // One primary action: the next thing this rollout needs. Everything else lives in the More menu.
@@ -481,7 +495,7 @@ const ACTIVITY = {
   'deployment.register': 'created the deployment', 'input.upload': 'added customer material', 'scan.create': 'ran a risk scan',
   'draft.create': 'drafted a proposal', 'draft.approve': 'approved a draft', 'draft.reject': 'rejected a draft', 'draft.edit': 'edited a draft',
   'draft.apply': 'applied a draft', 'draft.approved': 'approved a draft', 'draft.rejected': 'rejected a draft', 'draft.edited': 'edited a draft', 'run.create': 'ran the tests', 'run.complete': 'finished a test run', 'agent.failed': 'could not finish a draft',
-  'library.harvest': 'added cases to the library', 'monitor.run': 're-ran the tests', 'alert.send': 'sent an alert',
+  'library.harvest': 'added cases to the library', 'monitor.run': 're-ran the tests', 'alert.send': 'sent an alert', 'live.flag': 'flagged a live conversation',
 };
 
 export function deploymentOverviewPage(args) {
@@ -644,6 +658,62 @@ ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-
 <div class="stack" style="margin-top:16px">${rules.map(ruleCard).join('')}</div>`);
 }
 
+// Live monitoring: what the AI did with real customers in the last 7 days, against the policy rules.
+export function livePage(args) {
+  const { org, name, ov, csrf, can, now, settings, apiBase, job, draft } = args;
+  const base = depPath(org, name);
+  const live = ov.live;
+  const scan = ov.scans[0];
+  const hasTickets = ov.inputs.some(f => f.name.toLowerCase() === 'tickets.csv');
+  const shell = body => deploymentShell({ ...args, tab: 'live', title: 'Live', refresh: job ? 2 : undefined }, body);
+  if (!scan) {
+    return shell(`<section class="panel"><div class="emptystate" style="padding:40px 16px"><span class="strong" style="font-size:15px">Watch every real conversation after launch</span>
+<p style="max-width:60ch;margin:6px auto 18px">Live monitoring checks each answer the customer’s AI gives against the policy rules the risk scan finds, and alerts you when a high-risk rule breaks.</p>
+<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Run the risk scan first</a></div></section>`);
+  }
+  if (job) {
+    const pctDone = Math.round(100 * job.done / job.total);
+    return shell(`<section class="panel scan-live" aria-live="polite"><p class="big">Sending sample traffic…</p>
+<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${Math.max(4, pctDone)}%"></i></div>
+<p class="muted num">Asking the customer’s AI each ticket from their export and judging the answer · ${job.done} of ${job.total} done</p>
+<p class="subtle" style="margin-top:6px">You can leave this page; the results appear here.</p></section>`);
+  }
+  const w = live.week;
+  const rate = w.checked ? Math.round(100 * w.flagged / w.checked) : 0;
+  const n = x => x.toLocaleString('en-US');
+  const replay = can.live && hasTickets ? `<form method="post" action="${esc(base)}/live/replay"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<button class="btn${w.checked ? '' : ' primary'}" data-busy="Starting…">${icon('play')}Send sample traffic</button></form>` : '';
+  const bars = live.rules.length ? `<ul class="rulebars">${live.rules.map(r => `<li><span><span class="strong">${esc(r.text)}</span> <span class="subtle">${esc(r.clause)}</span></span>
+<span class="bar"><i class="${esc(r.severity)}" style="width:${Math.max(6, Math.round(100 * r.count / Math.max(1, w.flagged)))}%"></i></span><span class="num subtle" style="text-align:right">${r.count}</span></li>`).join('')}</ul>`
+    : `<p class="panel-body subtle">${w.checked ? 'Every checked answer kept every rule.' : 'No conversations yet. Connect the help desk, or send sample traffic.'}</p>`;
+  const stats = `<section class="panel"><div class="panel-head"><h2>Last 7 days</h2><span class="aside subtle num">${n(live.checkedThisMonth)} checked this month</span></div>
+<div class="stats"><div><p class="v num">${n(w.checked)}</p><p class="k">Conversations checked</p></div>
+<div><p class="v num${w.flagged ? ' bad' : ''}">${n(w.flagged)}</p><p class="k">Broke a rule${w.checked ? ` · ${rate}%` : ''}</p></div>
+<div><p class="v num${live.rules.length ? ' bad' : ''}">${live.rules.length} <span class="subtle" style="font-size:15px;font-weight:400">of ${scan.rules.length}</span></p><p class="k">Policy rules broken</p></div></div>
+${bars}</section>`;
+  const badge = c => (c.status === 'flagged' ? '<span class="badge bad">Broke a rule</span>' : c.status === 'ok' ? '<span class="badge good">Kept</span>' : '<span class="badge warn">Check</span>');
+  const why = c => (c.violations.length ? `<div class="why">${c.violations.map(v => `<p><span class="badge ${esc((SEVERITY[v.severity] ?? SEVERITY.medium)[0])}">${esc(v.clause)}</span> ${esc(v.what_happened)}<br><span class="fix"><span class="strong">Fix</span> ${esc(v.fix)}</span></p>`).join('')}</div>`
+    : c.status === 'unjudged' ? '<p class="subtle" style="margin-top:8px">The judge gave no verdict; a person should read this one.</p>' : '');
+  const convo = c => `<div class="convo ${esc(c.status)}"><p class="meta-line">${badge(c)}<span title="${esc(fmtDate(c.at))}">${esc(ago(c.at, now))}</span><span>· ${esc(c.source)}</span>${c.externalId ? `<span class="mono">· ${esc(c.externalId)}</span>` : ''}</p>
+<div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Their AI</p><div class="bubble ai">${esc(c.answer)}</div></div></div>${why(c)}</div>`;
+  const recent = [...live.recent].sort((a, b) => (b.status === 'flagged') - (a.status === 'flagged')).slice(0, 20);
+  const feed = recent.length ? `<section class="panel"><div class="panel-head"><h2>Conversations</h2><span class="aside subtle">Rule breaks first · newest 20</span></div>${recent.map(convo).join('')}</section>` : '';
+  const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $DELOMU_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": "Can I get a refund after 45 days?", "answer": "…", "id": "ticket-123"}'`;
+  const connect = `<section class="panel"><div class="panel-head"><h2>Connect the help desk</h2></div><div class="panel-body">
+<p class="muted" style="margin-bottom:10px">Send each finished exchange from Intercom, Zendesk or your own code. Emails, phone numbers, card numbers and keys are removed before anything is stored or judged.</p>
+<pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p></div></section>`;
+  const area = (field, label, h) => `<label class="field"><span>${label}</span><textarea name="${field}" required maxlength="4000" style="min-height:${h}px;font:14px/1.5 var(--font)">${esc(draft?.[field] ?? '')}</textarea></label>`;
+  const check = can.live ? `<section class="panel"><div class="panel-head"><h2>Check one conversation</h2></div><form method="post" action="${esc(base)}/live/check" class="panel-body stack" style="gap:10px">
+<input type="hidden" name="csrf" value="${esc(csrf)}">${area('message', 'Customer message', 64)}${area('answer', 'The AI’s answer', 88)}
+<div><button class="btn" data-busy="Checking…">${icon('pulse')}Check against the rules</button></div></form></section>` : '';
+  const alerts = can.write ? `<section class="panel"><div class="panel-head"><h2>Alerts</h2>${settings.webhook ? '<span class="badge good">On</span>' : '<span class="badge plain">Off</span>'}</div>
+<form method="post" action="${esc(base)}/live/settings" class="panel-body stack" style="gap:10px"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<label class="field"><span>Slack or Teams webhook</span><input type="url" name="webhook" value="${esc(settings.webhook)}" placeholder="https://hooks.slack.com/services/…"><p class="hint">Posts when a high-risk rule breaks, at most once an hour per rule.</p></label>
+<div><button class="btn">Save</button></div></form></section>` : '';
+  return shell(`${replay ? `<div class="row-inline" style="justify-content:flex-end;margin-bottom:12px">${replay}</div>` : ''}<div class="grid-2"><div class="stack">${stats}${feed}</div>
+<div class="stack">${connect}${check}${alerts}</div></div>`);
+}
+
 const usd = n => `$${Number(n).toLocaleString('en-US')}`;
 const limitText = n => (n === null ? 'Unlimited' : String(n));
 
@@ -689,6 +759,7 @@ Every organization is on the Free plan. The operator turns on paid plans by sett
 ${usageRow('Active deployments', b.active.length, plan.includedActiveDeployments, plan.extraActiveDeploymentUsd !== null,
     b.active.length ? `${b.active.join(', ')}${extraNote}` : 'A deployment is active once it has a test run this month.')}
 ${usageRow('Risk scans', b.scans, plan.scansPerMonth, false, 'Completed scans this month, across all deployments.')}
+${usageRow('Live conversations', b.conversations ?? 0, plan.conversationsPerMonth ?? null, false, 'Real conversations checked by live monitoring this month.')}
 </tbody></table></div></section>`;
 
   const cols = ['free', 'team', 'enterprise'].map(id => PLAN_VIEW[id]);
@@ -698,6 +769,7 @@ ${usageRow('Risk scans', b.scans, plan.scansPerMonth, false, 'Completed scans th
     ['Active deployments a month', p => (p.includedActiveDeployments === null ? 'Unlimited' : `${p.includedActiveDeployments} included`)],
     ['Each extra active deployment', p => (p.extraActiveDeploymentUsd !== null ? `${usd(p.extraActiveDeploymentUsd)} / month` : p.includedActiveDeployments === null ? 'Included' : 'Not available')],
     ['Risk scans a month', p => limitText(p.scansPerMonth)],
+    ['Live conversations a month', p => (p.conversationsPerMonth === null ? 'Unlimited' : p.conversationsPerMonth.toLocaleString('en-US'))],
     ['How to get it', p => p.how],
   ];
   const sales = /^[^@\s]+@[^@\s]+$/.test(salesContact) ? `mailto:${salesContact}` : /^https?:\/\//i.test(salesContact) ? salesContact : '';

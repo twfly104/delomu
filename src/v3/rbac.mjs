@@ -17,6 +17,7 @@ export const MATRIX = {
   'deployments:write': ['owner', 'admin', 'engineer'],
   'runs:read': ALL,
   'runs:create': ['owner', 'admin', 'engineer'],
+  'conversations:write': ['owner', 'admin', 'engineer'],
   'drafts:read': ALL,
   'drafts:review': ['owner', 'admin', 'engineer', 'reviewer'],
   'audit:read': ['owner', 'admin', 'reviewer'],

@@ -77,6 +77,7 @@ const PERMISSION_CALLS = {
   'deployments:write': role => ['POST', `${o1()}/deployments`, { name: `rbac-${role}`, config: targetConfig(target.url) }],
   'runs:read': () => ['GET', `${o1()}/deployments/rbac-owner/runs`],
   'runs:create': () => ['POST', `${o1()}/deployments/rbac-owner/runs`, {}],
+  'conversations:write': () => ['POST', `${o1()}/deployments/rbac-owner/conversations`, {}],
   'drafts:read': () => ['GET', `${o1()}/deployments/rbac-owner/drafts`],
   'drafts:review': () => ['POST', `${o1()}/deployments/rbac-owner/drafts/2026-01-01-none-abcdef/review`, { decision: 'reject' }],
   'audit:read': () => ['GET', `${o1()}/audit_events`],
