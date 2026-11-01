@@ -228,12 +228,12 @@ describe('billing not configured', () => {
       page = await (await get(`/orgs/${o.org.id}/deployments/first/scan`, eng.cookie)).text();
     }
     assert.match(page, /could not finish|found nothing/, 'it fails here without a model');
-    assert.doesNotMatch(page, /risk scans a month/);
+    assert.doesNotMatch(page, /includes 3 checks a month/);
     seedScans(srv.dataDir, o.org.id, 1);
     const fourth = await post(`/orgs/${o.org.id}/deployments/first/scan`, eng.cookie, { csrf: eng.csrf });
     assert.equal(fourth.status, 402);
     const text = await fourth.text();
-    assert.match(text, /Free plan includes 3 risk scans a month/);
+    assert.match(text, /Free plan includes 3 checks a month/);
     assert.match(text, /View plans and upgrade/);
   });
 

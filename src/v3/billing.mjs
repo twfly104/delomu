@@ -262,7 +262,7 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
       const active = new Set([...activeDeployments(db, deploymentsRoot, orgId, month), ...pending]);
       if (!active.has(name) && active.size >= limit) {
         throw planLimit('plan_limit_active_deployments',
-          `The ${plan.name} plan includes ${limit} active deployment${limit === 1 ? '' : 's'} a month, and ${[...active].join(', ')} ${active.size === 1 ? 'is' : 'are'} already active in ${month}. `
+          `The ${plan.name} plan includes ${limit} active AI agent${limit === 1 ? '' : 's'} a month, and ${[...active].join(', ')} ${active.size === 1 ? 'is' : 'are'} already active in ${month}. `
           + `Upgrade to Team for ${PLANS.team.includedActiveDeployments} included and $${PLANS.team.extraActiveDeploymentUsd} per extra one; an owner or admin can do this on the Billing page.`,
           pathFor(orgId));
       }
@@ -278,8 +278,8 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
     const inFlight = pendingScans.get(orgId) ?? 0;
     if (plan.scansPerMonth !== null && scansThisMonth(db, orgId, month) + inFlight >= plan.scansPerMonth) {
       throw planLimit('plan_limit_scans',
-        `The ${plan.name} plan includes ${plan.scansPerMonth} risk scans a month and this organization has used them all in ${month}. `
-        + 'Upgrade to Team for unlimited scans; an owner or admin can do this on the Billing page.',
+        `The ${plan.name} plan includes ${plan.scansPerMonth} checks a month and this organization has used them all in ${month}. `
+        + 'Upgrade to Team for unlimited checks; an owner or admin can do this on the Billing page.',
         pathFor(orgId));
     }
     pendingScans.set(orgId, inFlight + 1);
