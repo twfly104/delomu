@@ -52,7 +52,7 @@ test('the demo bot answers like the sample customer, bugs included', async () =>
 test('a new engineer gets the first-run guide, a one-click sample customer, and a live risk scan', async () => {
   const eng = await signIn('eng@newco.test');
   assert.match(eng.home, /Welcome to Delomu/);
-  assert.match(eng.home, /Try it with a sample customer/);
+  assert.match(eng.home, /Try it on a sample support bot/);
 
   const org = `/orgs/${o.org.id}`;
   assert.equal((await post(`${org}/sample`, eng.cookie, { csrf: 'forged' })).status, 403);
@@ -69,7 +69,7 @@ test('a new engineer gets the first-run guide, a one-click sample customer, and 
   const started = await post(`${org}/deployments/sample-acme/scan`, eng.cookie, { csrf: eng.csrf });
   assert.equal(started.status, 303);
   const live = await (await get(`${org}/deployments/sample-acme/scan`, eng.cookie)).text();
-  assert.match(live, /Scanning…/);
+  assert.match(live, /Checking…/);
   assert.match(live, /http-equiv="refresh"/);
   // Starting again while it runs does not start a second scan.
   assert.equal((await post(`${org}/deployments/sample-acme/scan`, eng.cookie, { csrf: eng.csrf })).status, 303);
@@ -80,14 +80,14 @@ test('a new engineer gets the first-run guide, a one-click sample customer, and 
     await new Promise(r => setTimeout(r, 50));
     page = await (await get(`${org}/deployments/sample-acme/scan`, eng.cookie)).text();
   }
-  assert.match(page, /1 of 1 policy rules broken/);
-  assert.match(page, /Risk scan finished/);
+  assert.match(page.replace(/<[^>]+>/g, ''), /1 of 1 policy rules broken/);
+  assert.match(page, /Check finished/);
   assert.match(page, /issued a full refund/);
   assert.doesNotMatch(page, /http-equiv="refresh"/);
 });
 
 test('viewers see no sample button and cannot create one', async () => {
   const v = await signIn('view@newco.test');
-  assert.doesNotMatch(v.home, /Try it with a sample customer/);
+  assert.doesNotMatch(v.home, /Try it on a sample support bot/);
   assert.equal((await post(`/orgs/${o.org.id}/sample`, v.cookie, { csrf: v.csrf })).status, 403);
 });

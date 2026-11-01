@@ -13,42 +13,44 @@ import { PLANS as PLAN_VIEW } from './billing.mjs';
 export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});";
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
-const STYLE = `${TOKENS}
+const STYLE = `@font-face{font-family:"Geist";src:url(/fonts/Geist-Variable.woff2) format("woff2");font-weight:100 900;font-display:swap}
+@font-face{font-family:"Geist Mono";src:url(/fonts/GeistMono-Variable.woff2) format("woff2");font-weight:100 900;font-display:swap}
+${TOKENS}
 .i{flex:none;display:block}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .strong{font-weight:600;color:var(--text)}.nowrap{white-space:nowrap}
 .app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh;background:linear-gradient(to right,var(--rail) 239px,var(--line) 239px 240px,transparent 240px)}
 .rail{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;padding:16px 12px;overflow-y:auto}
-.brand{display:flex;align-items:center;gap:8px;padding:2px 8px;font-size:17px;font-weight:600;letter-spacing:-0.03em;color:var(--text)}
+.brand{display:flex;align-items:center;gap:8px;padding:2px 8px;font-size:16px;font-weight:600;letter-spacing:-0.035em;color:var(--text)}
 .brand:hover{text-decoration:none}
 .nav{display:flex;flex-direction:column;gap:1px}
 .nav-title{padding:0 10px 6px;font-size:12px;font-weight:500;color:var(--text-3)}
-.nav a{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:var(--r-sm);color:var(--text-2);font-weight:500}
+.nav a{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:var(--r-sm);color:var(--text-2);font-weight:450}
 .nav a:hover{background:var(--hover);color:var(--text);text-decoration:none}
-.nav a[aria-current=page]{background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
-.nav .count{margin-left:auto;min-width:20px;height:18px;padding:0 6px;border-radius:9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;display:grid;place-items:center}
+.nav a[aria-current=page]{background:var(--hover);color:var(--text);font-weight:500}
+.nav .count{margin-left:auto;min-width:20px;height:18px;padding:0 6px;border-radius:9px;background:var(--line);color:var(--text-2);font-size:11px;font-weight:600;display:grid;place-items:center}
 .nav .org-kind{margin-left:auto;font-size:11px;color:var(--text-3)}
 .rail-foot{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px 0;display:flex;align-items:center;gap:8px}
 .rail-foot .who{min-width:0;flex:1;font-size:13px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .icon-btn{width:30px;height:30px;display:grid;place-items:center;border-radius:var(--r-sm);border:0;background:transparent;color:var(--text-2);cursor:pointer}
 .icon-btn:hover{background:var(--hover);color:var(--text)}
-.topbar{height:52px;display:flex;align-items:center;gap:8px;padding:0 32px;border-bottom:1px solid var(--line);background:var(--surface);font-size:13px}
+.topbar{height:52px;display:flex;align-items:center;gap:8px;padding:0 32px;border-bottom:1px solid var(--line);background:var(--canvas);font-size:13px}
 .topbar a{color:var(--text-2)}.topbar a:hover{color:var(--text);text-decoration:none}.topbar .sep{color:var(--line-strong)}.topbar .here{color:var(--text);font-weight:500}
-.content{max-width:1160px;margin:0 auto;padding:28px 32px 72px}
+.content{max-width:1120px;margin:0 auto;padding:32px 32px 80px}
 .page-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:22px;flex-wrap:wrap}
 .page-head .title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.page-head .sub{margin-top:4px;color:var(--text-2)}
+.page-head .sub{margin-top:6px;color:var(--text-2)}
 .page-head .actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
 .panel+.panel,.stack>*+*{margin-top:16px}
-.panel-head{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+.panel-head{display:flex;align-items:center;gap:10px;min-height:48px;padding:10px 16px;border-bottom:1px solid var(--line)}
 .panel-head .aside{margin-left:auto;font-size:13px}
 .panel-body{padding:16px}
 .panel table th:first-child,.panel table td:first-child{padding-left:16px}.panel table th:last-child,.panel table td:last-child{padding-right:16px}
 .grid-2{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
-.btn{height:32px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 13px var(--font);cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s}
+.btn{height:32px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 13px var(--font);letter-spacing:-0.005em;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background .15s,border-color .15s;box-shadow:0 1px 1px rgb(0 0 0/.03)}
 .btn:hover{background:var(--hover);text-decoration:none}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--on-ink)}.btn.primary:hover{background:var(--ink-hover);border-color:var(--ink-hover)}
 .btn:disabled{opacity:.6;cursor:progress}
 .btn.block{width:100%;justify-content:center;height:36px}
 .field{display:block;margin-bottom:16px}.field>span{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
@@ -69,11 +71,11 @@ input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 1
 .notice{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;margin-bottom:16px;border-radius:var(--r-sm);background:var(--bad-weak);color:var(--bad);font-weight:500}
 .notice.good{background:var(--good-weak);color:var(--good)}
 .notice .i{margin-top:2px}
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:4px 0 24px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 24px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
 .tabs a{display:flex;align-items:center;gap:6px;padding:10px 10px;margin-bottom:-1px;border-bottom:2px solid transparent;color:var(--text-2);font-weight:500;white-space:nowrap}
 .tabs a:hover{color:var(--text);text-decoration:none}
 .tabs a[aria-current=page]{color:var(--text);border-bottom-color:var(--text)}
-.tabs .n{font-size:12px;color:var(--text-3)}.tabs .n.hot{color:var(--accent-text);font-weight:600}
+.tabs .n{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--sunken);font-size:11.5px;color:var(--text-3);display:inline-grid;place-items:center}.tabs .n.hot{background:var(--bad-weak);color:var(--bad);font-weight:600}
 .track{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));padding:18px 16px 16px}
 .step{position:relative;padding:26px 12px 0 0}
 .step::before{content:"";position:absolute;top:8px;left:18px;right:6px;height:2px;border-radius:2px;background:var(--line)}
@@ -196,7 +198,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 @media (max-width:760px){.probe{grid-template-columns:1fr}}
 @media (max-width:1000px){.grid-2{grid-template-columns:1fr}}
 @media (max-width:860px){
-  .app{grid-template-columns:1fr;background:none}
+  .app{grid-template-columns:minmax(0,1fr);background:none}
   .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;background:var(--rail);border-bottom:1px solid var(--line)}
   .nav{flex-direction:row;flex-wrap:wrap}.nav-title,.orgs-nav{display:none}
   .rail-foot{margin:0 0 0 auto;border:0;padding:0}.rail-foot .who{display:none}
@@ -234,6 +236,24 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
   .meter.indet i{animation:indet 1.3s cubic-bezier(.4,0,.2,1) infinite}
   .step.current .dot,.step.review .dot{animation:pulse 2s ease-in-out infinite}
 }
+.stages{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.stages li+li{border-left:1px solid var(--line)}
+.stages a{display:flex;gap:12px;align-items:flex-start;height:100%;padding:14px 16px;color:inherit}
+.stages a:hover{background:var(--hover);text-decoration:none}
+.stages .st{flex:none;width:22px;height:22px;margin-top:1px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line-strong);color:var(--text-3);font-size:11px;font-weight:600}
+.stages .done .st{background:var(--good);border-color:var(--good);color:#fff}.stages .bad .st{background:var(--bad);border-color:var(--bad);color:#fff}
+.stages .lbl{font-weight:500;letter-spacing:-0.01em}.stages .det{font-size:12.5px;color:var(--text-3)}.stages .bad .det{color:var(--bad)}
+.verdict{font-size:30px;font-weight:600;letter-spacing:-0.035em;line-height:1.15}.verdict .of{color:var(--text-3);font-weight:500}
+.verdict.bad b{color:var(--bad);font-weight:600}.verdict.good b{color:var(--good);font-weight:600}
+.rulelist{list-style:none;margin:0;padding:0}
+.rulelist li{display:flex;gap:10px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line);font-size:13.5px}.rulelist li:last-child{border-bottom:0}
+.rulelist .i{color:var(--good)}.rulelist .c{margin-left:auto;font-size:12.5px;color:var(--text-3);white-space:nowrap}
+.rule-title{display:flex;gap:10px;align-items:flex-start}.rule-title .i{color:var(--bad);margin-top:3px}
+.clause{border-left:2px solid var(--line-strong);border-radius:0;background:none;padding:2px 0 2px 12px}
+details.kept summary{list-style:none;cursor:pointer;padding:10px 16px;font-size:13px;color:var(--text-2);border-top:1px solid var(--line)}details.kept summary::-webkit-details-marker{display:none}
+details.kept summary:hover{background:var(--hover)}details.kept[open] summary{border-bottom:1px solid var(--line)}
+.agent-name{display:flex;gap:10px;align-items:center}.agent-name .av{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--sunken);border:1px solid var(--line);color:var(--text-2)}
+@media (max-width:760px){.page-head .actions{margin-left:0}.rule-head{flex-direction:column}.rule-head .tags{flex-direction:row;align-items:center}.stages{grid-template-columns:1fr}.stages li+li{border-left:0;border-top:1px solid var(--line)}.verdict{font-size:24px}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes indet{from{transform:translateX(-110%)}to{transform:translateX(380%)}}
@@ -279,7 +299,7 @@ function rail({ user, csrf, nav = {} }) {
 <a class="brand" href="/" aria-label="Delomu home">${mark(20, 'm-rail')}<span>Delomu</span></a>
 <div class="nav">
 ${link('/', 'Home', 'home', 'home', nav.pending ? `<span class="count" aria-label="${nav.pending} waiting">${nav.pending}</span>` : '')}
-${org ? link(orgPath(org), 'Deployments', 'layers', 'deployments') : ''}
+${org ? link(orgPath(org), 'AI agents', 'layers', 'deployments') : ''}
 ${org && nav.canAudit ? link(`${orgPath(org)}/audit`, 'Audit log', 'shield', 'audit') : ''}
 ${org && nav.billingOrgs?.has(org.id) ? link(`${orgPath(org)}/billing`, 'Billing', 'card', 'billing') : ''}
 </div>
@@ -365,96 +385,103 @@ export function errorPage({ status, message, user, csrf, nav }) {
 <h1>${esc(title)}</h1><p class="muted">${esc(message)}</p><p style="margin-top:20px"><a class="btn" href="/">Go to Home</a></p></div>` });
 }
 
-const miniTrack = steps => `<span class="mini" aria-hidden="true">${steps.map(s => `<i class="${esc(s.state)}"></i>`).join('')}</span>`;
+// The latest pre-launch check of an agent, as a badge: rules broken, all kept, or not checked yet.
+function checkBadge(scan) {
+  if (!scan) return '<span class="subtle">Not checked</span>';
+  const s = scan.summary;
+  return s.broken
+    ? `<span class="badge bad num">${s.broken} of ${s.rules} rules broken</span>`
+    : `<span class="badge good num">All ${s.rules} rules kept</span>`;
+}
 
-function stageCell(d) {
-  const s = d.current;
-  const n = STEPS.findIndex(x => x.key === s.key) + 1;
-  return `<div class="stage">${miniTrack(d.steps)}<span class="lbl">${esc(`${n}. ${s.label}`)} · <span class="${s.state === 'attention' ? 'bad' : s.state === 'review' ? '' : ''}">${esc(s.detail)}</span></span></div>`;
+function liveCell(live) {
+  const w = live?.week;
+  if (!w?.checked) return '<span class="subtle">Not connected</span>';
+  return `<span class="num">${w.checked.toLocaleString('en-US')} checked</span>${w.flagged ? ` · <span class="bad num" style="color:var(--bad)">${w.flagged} broke a rule</span>` : ' · <span class="subtle">all kept</span>'}`;
 }
 
 // rows: [{ org, name, ov (overview), customer }]
-function deploymentsTable(rows, { showOrg, now }) {
+function agentsTable(rows, { showOrg, now }) {
   if (!rows.length) return '';
-  return `<div class="scroll"><table><thead><tr><th>Deployment</th>${showOrg ? '<th class="hide-sm">Organization</th>' : ''}<th>Stage</th><th>Latest result</th><th class="hide-sm">Last run</th></tr></thead><tbody>
-${rows.map(({ org, name, ov, customer }) => `<tr>
-<td><a class="strong" href="${esc(depPath(org, name))}">${esc(name)}</a>${customer ? `<div class="subtle">${esc(customer)}</div>` : ''}</td>
+  return `<div class="scroll"><table><thead><tr><th>AI agent</th>${showOrg ? '<th class="hide-sm">Organization</th>' : ''}<th>Pre-launch check</th><th class="hide-sm">Live, last 7 days</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
+${rows.map(({ org, name, ov, customer }) => {
+    const scan = ov.scans[0];
+    return `<tr>
+<td><a class="agent-name" href="${esc(depPath(org, name))}/scan"><span class="av">${icon('spark')}</span><span><span class="strong">${esc(name)}</span>${customer ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(customer)}</span>` : ''}</span></a></td>
 ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
-<td>${stageCell(ov)}</td>
-<td>${ov.latest ? `${verdictBadge(ov.latest.summary.verdict)} <span class="num muted">${ov.latest.summary.pass}/${ov.latest.summary.total}</span>` : '<span class="subtle">Not run</span>'}</td>
-<td class="hide-sm subtle nowrap">${ov.latest ? esc(ago(ov.latest.generatedAt, now)) : '—'}</td></tr>`).join('\n')}
+<td>${checkBadge(scan)}</td>
+<td class="hide-sm">${liveCell(ov.live)}</td>
+<td class="hide-sm subtle nowrap">${scan ? esc(ago(scan.createdAt, now)) : '—'}</td></tr>`;
+  }).join('\n')}
 </tbody></table></div>`;
 }
 
-// First-run guide: the three steps to a first risk scan, with a one-click sample customer.
+// First-run guide: the three steps to a first check, with a one-click sample support bot.
 function onboarding(org, csrf) {
   return `<section class="panel onboard"><div>
-<h2>Find what an AI will get wrong at a customer, before launch</h2>
-<p class="lede">Delomu reads the customer’s own policies, writes the messages most likely to break each rule, sends them to their AI and judges every answer against the exact clause.</p>
+<h2>Find the rules your support AI breaks, before your customers do</h2>
+<p class="lede">Delomu reads your support policies, writes the customer messages most likely to make your AI break each rule, and checks every answer against the exact clause.</p>
 <div class="acts"><form method="post" action="${esc(orgPath(org))}/sample"><input type="hidden" name="csrf" value="${esc(csrf)}">
-<button class="btn primary" data-busy="Setting up…">${icon('spark')}Try it with a sample customer</button></form>
-<a class="btn" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Set up a real customer</a></div></div>
-<ol aria-label="How it works"><li><p><span class="strong">Connect the customer’s AI</span><br><span class="subtle">An HTTP endpoint, Intercom or Zendesk.</span></p></li>
-<li><p><span class="strong">Add their policies</span><br><span class="subtle">Refund rules, privacy terms, API docs.</span></p></li>
-<li><p><span class="strong">Run the risk scan</span><br><span class="subtle">About a minute. Every finding cites its clause.</span></p></li></ol></section>`;
+<button class="btn primary" data-busy="Setting up…">${icon('spark')}Try it on a sample support bot</button></form>
+<a class="btn" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Connect your AI agent</a></div></div>
+<ol aria-label="How it works"><li><p><span class="strong">Connect your AI agent</span><br><span class="subtle">Intercom Fin, Zendesk AI or your own bot.</span></p></li>
+<li><p><span class="strong">Add your support policies</span><br><span class="subtle">Refunds, cancellations, privacy, help articles.</span></p></li>
+<li><p><span class="strong">Run the check</span><br><span class="subtle">About a minute. Every finding cites its clause.</span></p></li></ol></section>`;
 }
 
 export function homePage({ user, csrf, nav, now, deployments, review, canWrite }) {
-  const queue = review.length
-    ? `<div class="rows">${review.map(({ org, name, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
-${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.rationale ? ` · ${esc(draft.rationale)}` : ''}</p></div>
-<span class="btn">Review</span></a>`).join('')}</div>`
-    : `<div class="emptystate"><span class="strong">You're all caught up</span>New drafts from the agent appear here for your decision.</div>`;
-  const attention = deployments.filter(d => d.ov.latest && d.ov.latest.summary.verdict !== 'accepted').length;
-  const summary = deployments.length
-    ? `${deployments.length} deployment${deployments.length > 1 ? 's' : ''} · ${review.length} waiting for review · ${attention} with failing tests`
-    : 'No deployments yet.';
   const orgs = nav.orgs ?? [];
   if (!deployments.length && canWrite && orgs.length === 1) {
     return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
-<div class="page-head"><div><h1>Welcome to Delomu</h1><p class="sub">Run your first risk scan in about two minutes.</p></div></div>${onboarding(orgs[0], csrf)}` });
+<div class="page-head"><div><h1>Welcome to Delomu</h1><p class="sub">Run your first check in about two minutes.</p></div></div>${onboarding(orgs[0], csrf)}` });
   }
+  const broken = deployments.filter(d => d.ov.scans[0]?.summary.broken).length;
+  const summary = deployments.length
+    ? `${deployments.length} AI agent${deployments.length > 1 ? 's' : ''}${broken ? ` · ${broken} breaking policy rules` : ''}`
+    : 'No AI agents yet.';
+  const queue = review.length ? `<section class="panel"><div class="panel-head"><h2>Waiting for your decision</h2><span class="badge accent plain num">${review.length}</span></div><div class="rows">${review.map(({ org, name, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
+${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.rationale ? ` · ${esc(draft.rationale)}` : ''}</p></div>
+<span class="btn">Review</span></a>`).join('')}</div></section>` : '';
   return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
-<div class="page-head"><div><h1>Home</h1><p class="sub num">${esc(summary)}</p></div>
-${orgs.length === 1 ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(orgs[0]))}/new-deployment">${icon('plus')}New deployment</a></div>` : ''}</div>
-<section class="panel"><div class="panel-head"><h2>Needs your review</h2>${review.length ? `<span class="badge accent plain num">${review.length}</span>` : ''}</div>${queue}</section>
-<section class="panel"><div class="panel-head"><h2>Deployments</h2></div>
-${deployments.length ? deploymentsTable(deployments, { showOrg: orgs.length > 1, now }) : `<div class="emptystate"><span class="strong">No deployments yet</span>Create one to start a customer rollout.</div>`}</section>` });
+<div class="page-head"><div><h1>AI agents</h1><p class="sub num">${esc(summary)}</p></div>
+${orgs.length === 1 && canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(orgs[0]))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
+<section class="panel">${deployments.length ? agentsTable(deployments, { showOrg: orgs.length > 1, now }) : `<div class="emptystate"><span class="strong">No AI agents yet</span>Connect the support AI you want to check.</div>`}</section>
+${queue}` });
 }
 
 const draftLabel = d => ({ mapping: 'Data mapping', integration: 'Integration', cases: 'Test cases', fixes: 'Fixes', 'launch-report': 'Launch report' })[d.kind] ?? 'Draft';
 
 export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, notice: msg }) {
-  return layout({ title: org.name, user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [[org.name, orgPath(org)], ['Deployments']], body: `
-<div class="page-head"><div><h1>Deployments</h1><p class="sub">${esc(org.name)} · ${deployments.length} deployment${deployments.length === 1 ? '' : 's'}</p></div>
-${canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}New deployment</a></div>` : ''}</div>
+  return layout({ title: org.name, user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [['AI agents']], body: `
+<div class="page-head"><div><h1>AI agents</h1><p class="sub">${esc(org.name)} · ${deployments.length} agent${deployments.length === 1 ? '' : 's'}</p></div>
+${canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
 ${notice(msg, 'good')}
-${deployments.length ? `<section class="panel">${deploymentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No deployments yet</span>An engineer creates one for each customer rollout.</div></section>`}` });
+${deployments.length ? `<section class="panel">${agentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No AI agents yet</span>An admin connects the support AI to check.</div></section>`}` });
 }
 
 const CONNECTIONS = [
-  { type: 'http', label: 'HTTP endpoint', hint: 'The AI answers a POST request.' },
-  { type: 'command', label: 'Command', hint: 'A program on this server; off unless the operator allows it.' },
-  { type: 'intercom', label: 'Intercom', hint: "Fin or a bot in the customer's Intercom workspace." },
+  { type: 'intercom', label: 'Intercom', hint: 'Fin or a bot in your Intercom workspace.' },
   { type: 'zendesk', label: 'Zendesk', hint: 'An AI agent in Zendesk messaging.' },
+  { type: 'http', label: 'HTTP endpoint', hint: 'Your own bot answers a POST request.' },
+  { type: 'command', label: 'Command', hint: 'A program on this server; off unless the operator allows it.' },
 ];
 
 export function newDeploymentPage({ user, csrf, nav, org, error, values = {} }) {
   const v = k => esc(values[k] ?? '');
   const type = CONNECTIONS.some(c => c.type === values.type) ? values.type : 'http';
   const section = (title, hint = '') => `<h3 class="form-section">${esc(title)}${hint ? `<span class="hint">${esc(hint)}</span>` : ''}</h3>`;
-  return layout({ title: 'New deployment', user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [[org.name, orgPath(org)], ['Deployments', orgPath(org)], ['New']], body: `
-<div class="page-head"><div><h1>New deployment</h1><p class="sub">One deployment per customer rollout. You can add the customer's material after this.</p></div></div>
+  return layout({ title: 'Add an AI agent', user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [['AI agents', orgPath(org)], ['Add']], body: `
+<div class="page-head"><div><h1>Add an AI agent</h1><p class="sub">Connect the support AI you want to check. You add your policies next.</p></div></div>
 ${notice(error)}
 <form method="post" action="${esc(orgPath(org))}/new-deployment" class="panel" style="max-width:720px"><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
-<label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="acme-support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
-<label class="field"><span>Customer</span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Inc."></label>
-<div class="field"><span>How Delomu reaches the customer's AI</span><div class="choice">
+<label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
+<label class="field"><span>Brand or team <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Support"></label>
+<div class="field"><span>Where your AI agent runs</span><div class="choice">
 ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"${type === c.type ? ' checked' : ''}><span><span class="strong">${esc(c.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(c.hint)}</span></span></label>`).join('\n')}
 </div></div>
 <div class="conn conn-http">
-<label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://ai.customer.example/chat"></label>
+<label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://bot.example.com/chat"></label>
 <label class="field"><span>Authorization header</span><input type="text" name="auth" value="${v('auth')}" placeholder="Bearer \${CUSTOMER_API_KEY}"><p class="hint">Reference a server environment variable; never paste a key here.</p></label>
 <label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
 </div><div class="conn conn-command">
@@ -467,42 +494,59 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 <label class="field"><span>App ID</span><input type="text" name="zendesk_app_id" maxlength="64" value="${v('zendesk_app_id')}" placeholder="5f8a3c…"></label>
 <label class="field"><span>API key ID</span><input type="text" name="zendesk_key_id" value="${v('zendesk_key_id')}" placeholder="\${CUSTOMER_ZENDESK_KEY_ID}"></label>
 <label class="field"><span>API key secret</span><input type="text" name="zendesk_secret" value="${v('zendesk_secret')}" placeholder="\${CUSTOMER_ZENDESK_SECRET}"><p class="hint">Both reference server environment variables; never paste the key here.</p></label>
-</div>${section('Acceptance')}
-<label class="field"><span>Required pass rate (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label>
-</div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Creating…">Create deployment</button></div></form>` });
+</div><details class="edit" style="margin:8px -16px 0;padding:0 16px"><summary>Advanced</summary>
+<label class="field"><span>Required pass rate for test runs (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label></details>
+</div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Adding…">Add AI agent</button></div></form>` });
 }
 
-// The shared header of every deployment page: title, actions and the six-step track.
+// The three stages a support team moves through, each linking to its tab: policies in, a pre-launch check, live monitoring.
+function stages({ base, ov }) {
+  const scan = ov.scans[0];
+  const w = ov.live?.week;
+  const items = [
+    { href: `${base}/inputs`, label: 'Policies', state: ov.inputs.length ? 'done' : 'todo',
+      det: ov.inputs.length ? `${ov.inputs.length} document${ov.inputs.length === 1 ? '' : 's'}` : 'Add the rules your AI must follow' },
+    { href: `${base}/scan`, label: 'Pre-launch check',
+      state: !scan ? 'todo' : scan.summary.broken ? 'bad' : 'done',
+      det: !scan ? 'Not run yet' : scan.summary.broken ? `${scan.summary.broken} of ${scan.summary.rules} rules broken` : `All ${scan.summary.rules} rules kept` },
+    { href: `${base}/live`, label: 'Live monitoring',
+      state: !w?.checked ? 'todo' : w.flagged ? 'bad' : 'done',
+      det: !w?.checked ? 'Not connected' : w.flagged ? `${w.flagged} of ${w.checked} chats broke a rule` : `${w.checked} chats checked, all kept` },
+  ];
+  return `<ol class="stages" aria-label="Progress">${items.map((s, i) => `<li class="${s.state}"><a href="${esc(s.href)}">
+<span class="st" aria-hidden="true">${s.state === 'done' ? icon('check', { size: 12 }) : s.state === 'bad' ? '!' : i + 1}</span>
+<span><span class="lbl" style="display:block">${esc(s.label)}</span><span class="det">${esc(s.det)}</span></span></a></li>`).join('')}</ol>`;
+}
+
+// The shared header of every agent page: name and status, one primary action, the stages and four tabs.
 function deploymentHeader({ org, name, config, ov, tab, can, csrf }) {
   const base = depPath(org, name);
-  const tabs = [['overview', 'Overview', base], ['scan', 'Risk scan', `${base}/scan`, ov.scans.length ? ov.scans[0].summary.broken : 0, true], ['live', 'Live', `${base}/live`, ov.live?.week.flagged ?? 0, true], ['runs', 'Runs', `${base}/runs`, ov.runs.length], ['drafts', 'Review', `${base}/drafts`, ov.pending.length, true], ['inputs', 'Customer material', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
-  const runForm = (cls, label) => `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
-<button class="btn ${cls}" data-busy="Running tests…">${icon('play')}${label}</button></form>`;
-  // One primary action: the next thing this rollout needs. Everything else lives in the More menu.
-  const next = ov.next.action;
-  const primary = next === 'review' && can.review ? `<a class="btn primary" href="${esc(base)}/drafts">${icon('inbox')}Review drafts</a>`
-    : next === 'inputs' && can.write ? `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add customer material</a>`
-      : next === 'scan' && tab !== 'scan' ? `<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Run risk scan</a>`
-        : can.run ? runForm('primary', 'Run tests') : '';
-  const more = can.write || can.run ? `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
-${can.run && !primary.includes('/run"') ? runForm('ghost', 'Run tests, graded by the judge') : ''}
+  const scan = ov.scans[0];
+  const tabs = [['scan', 'Check results', `${base}/scan`, scan ? scan.summary.broken : 0, true], ['live', 'Live', `${base}/live`, ov.live?.week.flagged ?? 0, true], ['inputs', 'Policies', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
+  const primary = !ov.inputs.length
+    ? (can.write ? `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add policies</a>` : '')
+    : can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<button class="btn primary" data-busy="Starting…">${icon('shield')}${scan ? 'Run check again' : 'Run check'}</button></form>` : '';
+  const item = (href, label, ic, n) => `<a class="btn ghost" href="${esc(href)}">${icon(ic)}${esc(label)}${n ? ` <span class="subtle num" style="margin-left:auto">${n}</span>` : ''}</a>`;
+  const more = `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
+${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
+${can.run ? `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
+<button class="btn ghost" data-busy="Running tests…">${icon('play')}Run the saved test set</button></form>` : ''}
 ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label for="task" class="subtle">Ask the agent to draft</label><div class="row-inline"><select id="task" name="task">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
-<button class="btn" data-busy="Drafting…">${icon('spark')}Draft</button></div></form>` : ''}</div></details>` : '';
-  const via = { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? '';
-  return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${ov.latest ? verdictBadge(ov.latest.summary.verdict) : '<span class="badge plain">Not run</span>'}</div>
-<p class="sub">${esc([config.customer, via, `needs ${pct(config.acceptance?.minPassRate ?? 0.9)} to pass`].filter(Boolean).join(' · '))}</p></div>
+<button class="btn" data-busy="Drafting…">${icon('spark')}Draft</button></div></form>` : ''}</div></details>`;
+  const via = { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? 'Not connected';
+  return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
+<p class="sub">${esc([config.customer, via].filter(Boolean).join(' · '))}</p></div>
 <div class="actions">${more}${primary}</div></div>
-${tab === 'overview' ? `<section class="panel" aria-label="Rollout progress"><ol class="track" style="list-style:none;margin:0">
-${ov.steps.map(s => `<li class="step ${esc(s.state)}"><span class="dot">${s.state === 'done' ? icon('check', { size: 12 }) : ''}</span><p class="label">${esc(s.label)}</p><p class="detail">${esc(s.detail)}</p></li>`).join('')}
-</ol></section>` : ''}
-<nav class="tabs" aria-label="Deployment">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
+${stages({ base, ov })}
+<nav class="tabs" aria-label="AI agent">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 
 function deploymentShell(args, body) {
   const { user, csrf, nav, org, name, title, flash, error, upgrade, refresh } = args;
   return layout({ title: title ? `${title} · ${name}` : name, user, csrf, nav: { ...nav, org, active: 'deployments' }, refresh,
-    crumbs: [[org.name, orgPath(org)], ['Deployments', orgPath(org)], [name, title ? depPath(org, name) : undefined], ...(title ? [[title]] : [])],
+    crumbs: [['AI agents', orgPath(org)], [name, title ? `${depPath(org, name)}/scan` : undefined], ...(title ? [[title]] : [])],
     body: `${deploymentHeader(args)}${notice(error, '', upgradeLink(upgrade))}${notice(flash, 'good')}${body}` });
 }
 
@@ -558,7 +602,7 @@ ${failing.length ? `<div class="panel-head" style="border-top:1px solid var(--li
     return `<li><span class="who-chip${agent ? ' agent' : ''}">${esc(who)}</span><span class="muted">${esc(ACTIVITY[e.action] ?? e.action.replace(/[._]/g, ' '))}</span><span class="t">${esc(ago(e.ts, now))}</span></li>`;
   }).join('')}</ul>` : '<p class="panel-body subtle">Nothing yet.</p>';
 
-  return deploymentShell({ ...args, tab: 'overview' }, `<div class="grid-2"><div>${result}</div>
+  return deploymentShell({ ...args, tab: 'overview', title: 'Activity' }, `<div class="grid-2"><div>${result}</div>
 <div class="stack"><section class="panel"><div class="panel-head"><h2>Next step</h2></div><div class="panel-body next"><p>${esc(ov.next.text)}</p>${nextBtn}</div></section>
 <section class="panel"><div class="panel-head"><h2>Activity</h2></div>${feed}</section></div></div>`);
 }
@@ -596,13 +640,13 @@ export function inputsPage(args) {
   const base = depPath(org, name);
   const files = ov.inputs.length ? `<table><thead><tr><th>File</th><th>Size</th><th class="hide-sm">Added</th></tr></thead><tbody>
 ${ov.inputs.map(f => `<tr><td><span style="display:inline-flex;gap:8px;align-items:center">${icon('file')}${esc(f.name)}</span></td><td class="num muted">${esc(size(f.size))}</td><td class="hide-sm subtle">${esc(ago(f.modified, now))}</td></tr>`).join('')}
-</tbody></table>` : `<div class="emptystate"><span class="strong">No material yet</span>The agent reads only what is here: policies, API docs and past tickets.</div>`;
+</tbody></table>` : `<div class="emptystate"><span class="strong">No policies yet</span>Add the documents your AI must follow: refund, cancellation and privacy policies, help-center articles. A ticket export named tickets.csv lets you send sample traffic.</div>`;
   const upload = can.write ? `<form method="post" action="${esc(base)}/inputs" enctype="multipart/form-data" class="panel" style="margin-top:16px"><div class="panel-head"><h2>Add files</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span class="sr">Files</span><input type="file" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"></label>
 <p class="hint" style="margin:-8px 0 14px">Markdown, text, CSV, JSON, YAML or HTML, up to 1 MB each. A file with the same name is replaced.</p>
 <button class="btn primary" data-busy="Uploading…">${icon('upload')}Upload</button></div></form>` : '';
-  return deploymentShell({ ...args, tab: 'inputs', title: 'Customer material' }, `<section class="panel">${files}</section>${upload}`);
+  return deploymentShell({ ...args, tab: 'inputs', title: 'Policies' }, `<section class="panel">${files}</section>${upload}`);
 }
 
 export function settingsPage(args) {
@@ -643,50 +687,57 @@ export function riskScanPage(args) {
   const { org, name, ov, csrf, can, now } = args;
   const base = depPath(org, name);
   const scan = ov.scans[0];
+  const shell = (body, refresh) => deploymentShell({ ...args, tab: 'scan', title: 'Check results', refresh }, body);
   if (args.job) {
     const p = args.job.progress ?? {};
     const pctDone = p.phase === 'probes' && p.total ? Math.round(10 + 90 * p.done / p.total) : 5;
     const what = p.phase === 'probes'
-      ? `Sending ${p.total} probes for ${p.rules} rules to the customer’s AI and judging each answer · ${p.done} of ${p.total} done`
-      : 'Reading the policies and writing the messages most likely to break each rule';
+      ? `Sending ${p.total} test messages for ${p.rules} rules to your AI and judging each answer · ${p.done} of ${p.total} done`
+      : 'Reading your policies and writing the customer messages most likely to break each rule';
     const secs = Math.max(0, Math.round(((now?.getTime?.() ?? Date.now()) - args.job.startedAt) / 1000));
-    return deploymentShell({ ...args, tab: 'scan', title: 'Risk scan', refresh: 2 }, `<section class="panel scan-live" aria-live="polite">
-<p class="big">Scanning… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter${p.phase === 'probes' ? '' : ' indet'}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${pctDone}%"></i></div>
-<p class="muted num">${esc(what)}</p><p class="subtle" style="margin-top:6px">You can leave this page; the scan keeps running and the results appear here.</p></section>`);
+    return shell(`<section class="panel scan-live" aria-live="polite">
+<p class="big">Checking… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter${p.phase === 'probes' ? '' : ' indet'}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${pctDone}%"></i></div>
+<p class="muted num">${esc(what)}</p><p class="subtle" style="margin-top:6px">You can leave this page; the check keeps running and the results appear here.</p></section>`, 2);
   }
-  const runForm = can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
-<button class="btn primary" data-busy="Scanning… about a minute">${icon('shield')}${scan ? 'Scan again' : 'Run risk scan'}</button></form>` : '';
   if (!scan) {
-    return deploymentShell({ ...args, tab: 'scan', title: 'Risk scan' }, `<section class="panel"><div class="emptystate" style="padding:40px 16px">
-<span class="strong" style="font-size:15px">Find what the customer’s AI would get wrong, before launch</span>
-<p style="max-width:60ch;margin:6px auto 18px">The agent reads the customer’s own policies, writes the messages most likely to make an AI break each rule, sends them to the AI and judges every answer against the exact clause.</p>
-${ov.inputs.length ? runForm : `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add the customer’s policies first</a>`}</div></section>`);
+    return shell(`<section class="panel"><div class="emptystate" style="padding:48px 16px">
+<span class="strong" style="font-size:16px;letter-spacing:-0.01em">Find the rules your AI breaks, before customers do</span>
+<p style="max-width:58ch;margin:8px auto 20px">Delomu reads your policies, writes the customer messages most likely to make your AI break each rule, sends them to it and checks every answer against the exact clause.</p>
+${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Starting…">${icon('shield')}Run check</button></form>` : '') : `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add your policies first</a>`}</div></section>`);
   }
   const s = scan.summary;
   const order = { high: 0, medium: 1, low: 2 };
   const isBroken = r => r.probes.some(p => p.status === 'broken');
-  const rules = [...scan.rules].sort((a, b) => (isBroken(b) - isBroken(a)) || order[a.severity] - order[b.severity]);
+  const broken = scan.rules.filter(isBroken).sort((a, b) => order[a.severity] - order[b.severity]);
+  const kept = scan.rules.filter(r => !isBroken(r));
+  const exchange = p => `<div class="probe ${esc(p.status)}">
+<div><p class="cap">Customer wrote <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
+<div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div></div>
+<p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
+<span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p></div>`;
   const ruleCard = rule => {
-    const bad = rule.probes.filter(p => p.status === 'broken').length;
+    const bad = rule.probes.filter(p => p.status === 'broken');
+    const ok = rule.probes.filter(p => p.status !== 'broken');
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
     return `<section class="panel"><div class="rule-head">
-<div class="what"><h3>${esc(rule.rule)}</h3>
+<div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(rule.rule)}</h3></div>
 <p class="clause"><cite>${esc(rule.clause)}</cite>“${esc(rule.quote)}”</p>
-<p class="harm"><b>If broken:</b> ${esc(rule.harm)}</p></div>
-<div class="tags">${bad ? `<span class="badge bad">Broken ${bad}/${rule.probes.length}</span>` : '<span class="badge good">Kept</span>'}<span class="badge ${cls}">${esc(label)}</span></div></div>
-${rule.probes.map(p => `<div class="probe ${esc(p.status)}">
-<div><p class="cap">Customer writes <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
-<div><p class="cap">Their AI answers</p><div class="bubble ai">${esc(p.answer || '—')}</div></div>
-<p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
-<span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p></div>`).join('')}</section>`;
+<p class="harm"><b>Risk with a real customer:</b> ${esc(rule.harm)}</p></div>
+<div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">Broken in ${bad.length} of ${rule.probes.length}</span></div></div>
+${bad.map(exchange).join('')}
+${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(exchange).join('')}</details>` : ''}</section>`;
   };
   const draft = scan.draftId && ov.drafts.find(d => d.id === scan.draftId);
-  return deploymentShell({ ...args, tab: 'scan', title: 'Risk scan' }, `<section class="panel scan-head">
-<div><p class="big num">${s.broken} of ${s.rules} policy rules broken</p>
-<p class="meta num">${s.failed} of ${s.probes} probes failed${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk rule${s.highRiskBroken > 1 ? 's' : ''} broken` : ''} · written and judged by ${esc(scan.model)} in ${scan.seconds} s · ${esc(ago(scan.createdAt, now))}</p>
-<p class="subtle" style="margin-top:4px">Read from ${scan.documents.map(d => esc(d)).join(', ')}</p></div>${runForm}</section>
-${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>The agent drafted these ${draft.content.rows.length} probes for the test set, so every rule stays tested after the fixes. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
-<div class="stack" style="margin-top:16px">${rules.map(ruleCard).join('')}</div>`);
+  const verdict = s.broken
+    ? `<p class="verdict bad num"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
+    : `<p class="verdict good num"><b>All ${s.rules}</b> policy rules kept</p>`;
+  return shell(`<section class="panel scan-head">
+<div>${verdict}
+<p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
+<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div></section>
+${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
+${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li>${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(r.clause)} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);
 }
 
 // Live monitoring: what the AI did with real customers in the last 7 days, against the policy rules.
@@ -699,14 +750,14 @@ export function livePage(args) {
   const shell = body => deploymentShell({ ...args, tab: 'live', title: 'Live', refresh: job ? 2 : undefined }, body);
   if (!scan) {
     return shell(`<section class="panel"><div class="emptystate" style="padding:40px 16px"><span class="strong" style="font-size:15px">Watch every real conversation after launch</span>
-<p style="max-width:60ch;margin:6px auto 18px">Live monitoring checks each answer the customer’s AI gives against the policy rules the risk scan finds, and alerts you when a high-risk rule breaks.</p>
-<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Run the risk scan first</a></div></section>`);
+<p style="max-width:60ch;margin:6px auto 18px">Live monitoring checks each answer your AI gives real customers against the rules the check found, and alerts you when a high-risk rule breaks.</p>
+<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Run the check first</a></div></section>`);
   }
   if (job) {
     const pctDone = Math.round(100 * job.done / job.total);
     return shell(`<section class="panel scan-live" aria-live="polite"><p class="big">Sending sample traffic…</p>
 <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${Math.max(4, pctDone)}%"></i></div>
-<p class="muted num">Asking the customer’s AI each ticket from their export and judging the answer · ${job.done} of ${job.total} done</p>
+<p class="muted num">Asking your AI each ticket from your export and judging the answer · ${job.done} of ${job.total} done</p>
 <p class="subtle" style="margin-top:6px">You can leave this page; the results appear here.</p></section>`);
   }
   const w = live.week;
@@ -726,7 +777,7 @@ ${bars}</section>`;
   const why = c => (c.violations.length ? `<div class="why">${c.violations.map(v => `<p><span class="badge ${esc((SEVERITY[v.severity] ?? SEVERITY.medium)[0])}">${esc(v.clause)}</span> ${esc(v.what_happened)}<br><span class="fix"><span class="strong">Fix</span> ${esc(v.fix)}</span></p>`).join('')}</div>`
     : c.status === 'unjudged' ? '<p class="subtle" style="margin-top:8px">The judge gave no verdict; a person should read this one.</p>' : '');
   const convo = c => `<div class="convo ${esc(c.status)}"><p class="meta-line">${badge(c)}<span title="${esc(fmtDate(c.at))}">${esc(ago(c.at, now))}</span><span>· ${esc(c.source)}</span>${c.externalId ? `<span class="mono">· ${esc(c.externalId)}</span>` : ''}</p>
-<div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Their AI</p><div class="bubble ai">${esc(c.answer)}</div></div></div>${why(c)}</div>`;
+<div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Your AI</p><div class="bubble ai">${esc(c.answer)}</div></div></div>${why(c)}</div>`;
   const recent = [...live.recent].sort((a, b) => (b.status === 'flagged') - (a.status === 'flagged')).slice(0, 20);
   const feed = recent.length ? `<section class="panel"><div class="panel-head"><h2>Conversations</h2><span class="aside subtle">Rule breaks first · newest 20</span></div>${recent.map(convo).join('')}</section>` : '';
   const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $DELOMU_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": "Can I get a refund after 45 days?", "answer": "…", "id": "ticket-123"}'`;

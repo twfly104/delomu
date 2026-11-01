@@ -33,8 +33,21 @@ import { checkTarget, listDeployments, registerDeployment, reportFile } from './
 
 const LOGIN_CSRF_COOKIE = 'delomu_login_csrf';
 // The Delomu mark (assets/brand/delomu-mark.svg), dark on light tabs and light on dark ones.
+// The UI typeface (Geist, OFL; src/v3/fonts/OFL.txt), served from this server so pages make no third-party calls.
+// What a person sees when a check fails. Problems with Delomu's own model are ours to fix, so the page says
+// so plainly and the details go to the server log; anything else (usually the customer's AI) is shown as is.
+function scanError(e, dir, name) {
+  const detail = String(e?.message ?? e).split(dir).join(name);
+  if (isAuthError(e) || /^(Meta Model API|Anthropic|no Meta Model API key)/i.test(detail) || e?.status >= 500) {
+    console.error(`check failed for ${name}: ${detail}`);
+    return 'The check could not run because Delomu\u2019s AI model is unavailable right now. It did not count toward your plan. Try again in a few minutes; if it keeps happening, contact support.';
+  }
+  return `The check could not finish: ${detail}`;
+}
+
+const FONTS = Object.fromEntries(['Geist-Variable.woff2', 'GeistMono-Variable.woff2'].map(f => [f, fs.readFileSync(new URL(`./fonts/${f}`, import.meta.url))]));
 const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>path{fill:#0b0b14}@media (prefers-color-scheme:dark){path{fill:#fff}}</style><defs><mask id="m"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" style="fill:none" stroke="#000" stroke-width="5.5"/></mask></defs><path d="M8 6 H30 A26 26 0 0 1 30 58 H8 Z" mask="url(#m)"/></svg>';
-const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src '${BUSY_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
+const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; script-src '${BUSY_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.html']);
@@ -43,10 +56,10 @@ const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
 const REPLAY_LIMIT = 6;
 const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report'];
 const NOTICES = {
-  created: 'Deployment created. Add the customer’s material next, then ask the agent to draft the first step.',
+  created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
-  scanned: 'Risk scan finished.',
-  sample: 'Sample customer ready: Acme’s support bot and its refund policy. Run the risk scan to see what it gets wrong.',
+  scanned: 'Check finished.',
+  sample: 'Sample ready: Acme’s support bot and its refund policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
   checked: 'Conversation checked.',
@@ -145,6 +158,12 @@ function routes(ctx) {
   }
 
   r.add('GET', '/favicon.svg', () => ({ status: 200, body: FAVICON, type: 'image/svg+xml', headers: { 'cache-control': 'public, max-age=86400' } }), { public: true });
+
+  r.add('GET', '/fonts/:file', ({ params }) => {
+    const body = FONTS[params.file];
+    if (!body) throw notFound('font');
+    return { status: 200, body, type: 'font/woff2', headers: { 'cache-control': 'public, max-age=31536000, immutable' } };
+  }, { public: true });
 
   r.add('GET', '/login', ({ req }) => {
     const token = randomToken();
@@ -336,7 +355,12 @@ function routes(ctx) {
 
   const showOverview = (principal, params, url, error, status = 200, upgrade) => html(deploymentOverviewPage({ ...workspace(principal, params, 'runs:read', url), error, upgrade }), status);
 
-  r.add('GET', '/orgs/:org/deployments/:name', ({ principal, params, url }) => showOverview(principal, params, url));
+  // An agent opens on its check results; the activity view (latest test run, agent activity) moved under More.
+  r.add('GET', '/orgs/:org/deployments/:name', ({ principal, params, url }) => {
+    const { org } = access(ctx, principal, params.org, 'runs:read');
+    return new Redirect(`${depPath(org, params.name)}/scan${url.search}`);
+  });
+  r.add('GET', '/orgs/:org/deployments/:name/overview', ({ principal, params, url }) => showOverview(principal, params, url));
   // Risk scans run in the background (about a minute); the scan page shows live progress and refreshes.
   const scans = new Map();
   r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => {
@@ -378,9 +402,7 @@ function routes(ctx) {
         event(ctx, principal, org.id, 'scan.create', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
         job.status = 'done';
       }
-    }, e => Object.assign(job, { status: 'failed', error: isAuthError(e)
-      ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
-      : `The scan could not finish: ${String(e.message).split(dir).join(params.name)}` })).finally(() => release());
+    }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, params.name) })).finally(() => release());
     return new Redirect(page);
   });
 

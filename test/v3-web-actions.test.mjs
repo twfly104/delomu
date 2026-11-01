@@ -82,7 +82,9 @@ test('an engineer creates a deployment, adds material, asks the agent, approves,
   const config = JSON.parse(fs.readFileSync(path.join(dir, 'delomu.json'), 'utf8'));
   assert.deepEqual(config.target, { type: 'http', url: target.url, body: { message: '{{input}}' }, output: 'reply' });
   assert.equal(config.acceptance.minPassRate, 0.5);
-  assert.match(await (await get(created.headers.get('location'), eng.cookie)).text(), /Deployment created/);
+  const opened = await get(created.headers.get('location'), eng.cookie);
+  assert.equal(opened.headers.get('location'), `${org}/deployments/bot/scan?notice=created`);
+  assert.match(await (await get(opened.headers.get('location'), eng.cookie)).text(), /AI agent added/);
 
   // Upload customer material (multipart); unsupported types are refused.
   const upload = (files, csrf = eng.csrf) => {
@@ -124,15 +126,14 @@ test('an engineer creates a deployment, adds material, asks the agent, approves,
   writeTests(dir);
   const ran = await post(`${org}/deployments/bot/run`, eng.cookie, { csrf: eng.csrf });
   assert.equal(ran.status, 303);
-  const overview = await (await get(`${org}/deployments/bot`, eng.cookie)).text();
+  const overview = await (await get(`${org}/deployments/bot/overview`, eng.cookie)).text();
   assert.match(overview, /Latest result/);
-  assert.match(overview, /Data mapping/);
-  assert.match(overview, /Test set/);
+  assert.match(overview, /Activity/);
   assert.match((await (await get(`${org}/deployments/bot/runs`, eng.cookie)).text()), /Run 1/);
   for (const tab of ['inputs', 'settings']) assert.equal((await get(`${org}/deployments/bot/${tab}`, eng.cookie)).status, 200, tab);
 
   // Home lists the deployment.
-  assert.match(await (await get('/', eng.cookie)).text(), /href="\/orgs\/[^"]+\/deployments\/bot"/);
+  assert.match(await (await get('/', eng.cookie)).text(), /href="\/orgs\/[^"]+\/deployments\/bot\/scan"/);
 });
 
 test('viewers see the workspace but cannot create, upload, ask the agent or run', async () => {

@@ -83,18 +83,18 @@ test('every page escapes org names, draft text and audit values', async () => {
   createDraft(dir, { kind: 'v3-web-note', step: 4, content: { text: EVIL }, rationale: `Because ${EVIL}` });
   appendAudit(dir, { actor: 'agent', action: 'note', target: EVIL });
   const { cookie } = await signIn('owner@acme.test');
-  for (const url of ['/', `/orgs/${o.org.id}`, `/orgs/${o.org.id}/deployments/bot`, `/orgs/${o.org.id}/deployments/bot/drafts`, `/orgs/${o.org.id}/audit`]) {
+  for (const url of ['/', `/orgs/${o.org.id}`, `/orgs/${o.org.id}/deployments/bot/scan`, `/orgs/${o.org.id}/deployments/bot/drafts`, `/orgs/${o.org.id}/audit`]) {
     const res = await get(url, cookie);
     assert.equal(res.status, 200, url);
     const body = await res.text();
     assert.ok(!body.includes('<script>'), `unescaped script on ${url}`);
-    assert.ok(body.includes('&lt;script&gt;') || url.endsWith('/bot'), `expected escaped text on ${url}`);
+    assert.ok(body.includes('&lt;script&gt;') || url.endsWith('/bot/scan'), `expected escaped text on ${url}`);
   }
 });
 
 test('deployment page lists runs with working report links; audit page shows chain status', async () => {
   const { cookie } = await signIn('view@acme.test');
-  const page = await (await get(`/orgs/${o.org.id}/deployments/bot`, cookie)).text();
+  const page = await (await get(`/orgs/${o.org.id}/deployments/bot/overview`, cookie)).text();
   const link = /href="([^"]+\/report\.html)"/.exec(page)[1];
   const report = await get(link, cookie);
   assert.equal(report.status, 200);
@@ -181,4 +181,13 @@ test('revoking the API key used to sign in ends that web session', async () => {
   const used = keys.find(k => k.user_id === s.users['e@revoke.test']);
   assert.equal((await api(srv.base, 'DELETE', `/v1/orgs/${s.org.id}/api_keys/${used.id}`, { key: owner })).status, 200);
   assert.equal((await get(`/orgs/${s.org.id}`, cookie)).headers.get('location'), '/login');
+});
+
+test('the UI typeface is served from this server, and nothing else under /fonts', async () => {
+  const res = await get('/fonts/Geist-Variable.woff2');
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'font/woff2');
+  assert.match(res.headers.get('cache-control'), /immutable/);
+  assert.equal((await get('/fonts/..%2Fweb.mjs')).status, 404);
+  assert.equal((await get('/fonts/other.woff2')).status, 404);
 });

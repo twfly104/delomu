@@ -120,7 +120,7 @@ test('live through the server: sample traffic, the API, the page, viewers and th
   await post(`${org}/sample`, eng.cookie, { csrf: eng.csrf });
 
   // Before a scan the page explains what is needed.
-  assert.match(await (await get(`${dep}/live`, eng.cookie)).text(), /Run the risk scan first/);
+  assert.match(await (await get(`${dep}/live`, eng.cookie)).text(), /Run the check first/);
   await post(`${dep}/scan`, eng.cookie, { csrf: eng.csrf });
   await until(async () => (await get(`${dep}/scan`, eng.cookie)).text(), t => /policy rules broken/.test(t));
 

@@ -7,37 +7,30 @@
 web
 
 ## Users
-One integrated product for everyone involved in rolling an AI product out to an enterprise customer (confirmed: "all guy, it should be integrated, make everything simple"):
+Confirmed 2026-11-01: the main user is the **head of support or CX lead at a SaaS company** that runs an AI support agent (Intercom Fin, Zendesk AI or its own bot). They check that the AI follows the company's own written policies before launch and keep watching real conversations after. They are not engineers; plain language beats technical terms.
 
-- **Deployment engineers** at an AI startup (Series A–C): every day they review agent drafts, run tests and move several customer rollouts forward.
-- **Deployment leads and executives** at the same startup: they check which rollouts are on track, at risk or ready to launch, and rarely operate anything themselves.
-- **The enterprise customer**: they sign in to see their own acceptance report, launch decision and monitoring status.
-
-The same screens serve all three; roles decide what each person can do, not which product they use.
+Secondary: support operations people who connect the help desk and set alerts, and engineers at AI startups who still use the deeper test-run and agent-draft tools (kept behind the More menu).
 
 ## Product Purpose
-Delomu is an AI forward-deployed engineer. An agent drafts each step of a customer rollout (data mapping, integration, test cases from the customer's own past tickets, fixes, launch report); a person approves, edits or rejects every draft; tests run against the customer's AI and are re-run automatically after launch. Success: one engineer can carry more rollouts, each rollout is faster than the last, and every launch decision is backed by evidence the customer can read.
+Delomu finds the policy rules a support AI breaks, before customers do. It reads the company's policies, writes the customer messages most likely to make the AI break each rule, sends them to the AI and judges every answer against the exact clause. After launch it checks real conversations and alerts on high-risk breaks. Success: a support lead sees, in one screen, which rules break, the AI's actual reply, the clause it broke and the fix.
 
 ## Positioning
-The agent proposes, a person decides, and every action is recorded in a tamper-evident audit log. Tests are built from the customer's own history and graded against the customer's own policy, not generic benchmarks.
+Tests are built from the company's own policies and graded against the exact clause, not generic benchmarks. Every finding shows the real exchange and the clause. The agent proposes, a person decides, and every action is recorded in a tamper-evident audit log.
 
 ## Operating Context
-- A rollout moves through six steps: 1 mapping, 2 integration, 3 test set, 4 test and fix, 5 launch report, 6 monitoring.
-- Daily work is a queue: drafts waiting for review, runs that regressed, rollouts close to launch.
-- Customer material (policies, API docs, ticket exports) is uploaded per deployment; the agent may only read that.
-- Organizations: customer orgs, and partner orgs that run rollouts for several customers. Roles: owner, admin, engineer, reviewer, viewer.
-- Sign-in: company SSO (OIDC) or an API key; programs use API keys.
-- Pricing (planning assumption): 3,000 USD per customer per month platform fee, 500 USD per active deployment per month.
+- An AI agent (internally a "deployment"; URLs keep that word) moves through three stages: Policies, Pre-launch check, Live monitoring.
+- Each agent page has four tabs: Check results, Live, Policies, Settings. Activity, test runs and agent drafts live under More.
+- Organizations and roles (owner, admin, engineer, reviewer, viewer) are unchanged. Sign-in: self-serve sign-up with a sign-in key, company SSO (OIDC), or an API key.
+- Plans: Free, Team, Enterprise (see the Billing page).
 
 ## Capabilities and Constraints
 - Server-rendered HTML from plain Node (`src/v3/`), no frontend framework, no new npm dependencies. Must work without JavaScript for core actions; small progressive enhancement is allowed.
 - English only, for US customers.
 - Everything rendered is escaped; forms carry CSRF tokens; tenants never cross org boundaries.
 - Runs are synchronous today and can take tens of seconds.
-- Not yet in the web UI (as of 2026-11-01): creating deployments, uploading inputs, starting the agent, starting runs. These are in scope for the redesign.
 
 ## Evidence on Hand
-- Demo data only: the fictional Acme support bot (`examples/`). No real customers, logos, testimonials or usage numbers exist; never invent them.
+- Demo data only: the fictional Acme support bot (`examples/`, `src/v3/demo-bot.mjs`, which has deliberate bugs). Its scan results are a demonstration, never evidence of real-world error rates. No real customers, logos, testimonials or usage numbers exist; never invent them.
 
 ## Product Principles
 1. Simple first: one obvious next action on every screen; complexity stays behind it.

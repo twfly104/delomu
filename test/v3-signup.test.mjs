@@ -37,7 +37,7 @@ test('a new user signs up, gets a key once, lands signed in, and can sign in aga
   const session = cookiesOf(res).find(c => c.startsWith('delomu_session='));
   const home = await (await fetch(`${open.base}/`, { headers: { cookie: session } })).text();
   assert.match(home, /Welcome to Delomu/);
-  assert.match(home, /Try it with a sample customer/);
+  assert.match(home, /Try it on a sample support bot/);
 
   // The key works for the API and for signing in.
   const orgs = await (await fetch(`${open.base}/v1/orgs`, { headers: { authorization: `Bearer ${key}` } })).json();
