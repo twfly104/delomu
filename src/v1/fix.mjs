@@ -99,7 +99,7 @@ export function approveFix(dir, { instructions, apply, actor, now = new Date() }
 // Puts back the instructions the AI had before the last fix Delomu applied, when a re-check came out worse.
 export function revertFix(dir, { actor, now = new Date() }) {
   const fix = getFix(dir);
-  if (!fix?.appliedByDelomu || fix.status !== 'applied') throw new Error('there is no fix applied by Delomu to undo');
+  if (fix?.status !== 'applied') throw new Error('there is no fix applied by Delomu to undo');
   const configFile = path.join(dir, 'delomu.json');
   const config = loadConfig(dir);
   const { field } = instructionsTarget(config);
