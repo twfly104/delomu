@@ -1,34 +1,196 @@
 {
-  "voice": "en-US-AndrewNeural",
-  "rate": "-4%",
+  "voice": "en-US-AndrewMultilingualNeural",
+  "rate": "-2%",
   "segments": [
-    { "type": "title", "heading": "An AI startup just won an enterprise customer.", "sub": "What will their support AI promise that customer?",
-      "say": "An AI startup just won an enterprise customer. Before launch, nobody knows what their support AI will promise that customer." },
-    { "type": "screen", "shot": "scan", "from": "viewport", "to": "probe1",
-      "say": "This one is about to promise a cash refund the policy forbids." },
-    { "type": "title", "logo": true, "heading": "Delomu", "sub": "An AI forward-deployed engineer",
-      "say": "Meet Delomu, an AI forward-deployed engineer." },
-    { "type": "screen", "shot": "overview", "from": "viewport", "to": "track",
-      "say": "It does the rollout work an engineer usually spends weeks on, across six steps, and a person approves every one." },
-    { "type": "screen", "shot": "inputs", "from": "viewport", "to": "files",
-      "say": "Start with the customer's own material: their refund policy and their API docs." },
-    { "type": "screen", "shot": "scan", "from": "viewport", "to": "button",
-      "say": "Then one click. Muse Spark reads the policy, lists the rules the AI must keep, and writes the customer messages most likely to break each one. Delomu sends every message to the customer's AI." },
-    { "type": "screen", "shot": "scan", "from": "button", "to": "head",
-      "say": "Under a minute later: four of eight rules are broken." },
-    { "type": "screen", "shot": "scan", "from": "rule1", "to": "probe1",
-      "say": "The policy says: after thirty days, store credit only. Muse Spark wrote the boundary case. Thirty-five days, refund it to my card. And the AI said: sure, I've issued a full refund." },
-    { "type": "screen", "shot": "scan", "from": "probe1", "to": "probe2",
-      "say": "The judge quotes the exact clause, explains what broke, and proposes the smallest fix. And when the AI holds up under pressure, like a manager who supposedly approved it, Delomu says so." },
-    { "type": "screen", "shot": "drafts", "from": "viewport", "to": "draft",
-      "say": "Nothing changes on its own. The probes become a draft for the permanent test set, and an engineer approves it." },
-    { "type": "screen", "shot": "audit", "from": "viewport", "to": "records",
-      "say": "Every action, by the agent or a person, goes into a hash-chained audit log." },
-    { "type": "screen", "shot": "report", "from": "verdict", "to": "areas",
-      "say": "And the customer gets a clear acceptance report: the pass rate by area, every gap, and every decision with its reason." },
-    { "type": "title", "heading": "Built on Meta Muse Spark", "lines": ["Red-teaming from the customer's policy", "Clause-grounded judging", "Drafting the whole rollout"],
-      "say": "Muse Spark does three jobs here: red-teaming from the customer's policy, judging against the exact clause, and drafting the whole rollout, all with strict structured output. Everything you saw was built during this hackathon, by one student." },
-    { "type": "title", "logo": true, "heading": "Delomu", "sub": "Find what your AI will get wrong at a customer, before your customer does.",
-      "say": "Delomu. Find what your AI will get wrong at a customer, before your customer does." }
+    {
+      "type": "title",
+      "heading": "An AI startup just won an enterprise customer.",
+      "sub": "What will their support AI promise that customer?",
+      "say": "An AI startup just won an enterprise customer. Before launch, nobody knows what their support AI will promise that customer."
+    },
+    {
+      "type": "screen",
+      "shot": "scan",
+      "say": "This one is about to promise a cash refund the policy forbids.",
+      "camera": [
+        [
+          "viewport"
+        ],
+        [
+          "answer",
+          "promise"
+        ]
+      ],
+      "ring": [
+        "answer",
+        "forbids"
+      ]
+    },
+    {
+      "type": "title",
+      "logo": true,
+      "heading": "Delomu",
+      "sub": "An AI forward-deployed engineer",
+      "say": "Meet Delomu, an AI forward-deployed engineer."
+    },
+    {
+      "type": "screen",
+      "shot": "overview",
+      "say": "It does the rollout work an engineer usually spends weeks on, across six steps, and a person approves every one.",
+      "camera": [
+        [
+          "viewport"
+        ],
+        [
+          "track",
+          "six"
+        ]
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "inputs",
+      "say": "Start with the customer's own material: their refund policy and their API docs.",
+      "camera": [
+        [
+          "viewport"
+        ],
+        [
+          "files",
+          "refund"
+        ]
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "scan",
+      "say": "Then one click. Muse Spark reads the policy, lists the rules the AI must keep, and writes the customer messages most likely to break each one. Delomu sends every message to the customer's AI.",
+      "camera": [
+        [
+          "viewport"
+        ],
+        [
+          "button",
+          "one"
+        ],
+        [
+          "rule1",
+          "writes"
+        ]
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "scan",
+      "say": "Under a minute later: four of eight rules are broken.",
+      "camera": [
+        [
+          "rule1"
+        ],
+        [
+          "head",
+          "four"
+        ]
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "scan",
+      "say": "The policy says: after thirty days, store credit only. Muse Spark wrote the boundary case. Thirty-five days, refund it to my card. And the AI said: sure, I've issued a full refund.",
+      "camera": [
+        [
+          "rule1"
+        ],
+        [
+          "msg",
+          "thirty"
+        ],
+        [
+          "answer",
+          "said"
+        ]
+      ],
+      "ring": [
+        "answer",
+        "sure"
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "scan",
+      "say": "The judge quotes the exact clause, explains what broke, and proposes the smallest fix. And when the AI holds up under pressure, like a manager who supposedly approved it, Delomu says so.",
+      "camera": [
+        [
+          "answer"
+        ],
+        [
+          "probe1",
+          "judge"
+        ],
+        [
+          "probe2",
+          "pressure"
+        ]
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "drafts",
+      "say": "Nothing changes on its own. The probes become a draft for the permanent test set, and an engineer approves it.",
+      "camera": [
+        [
+          "viewport"
+        ],
+        [
+          "draft",
+          "draft"
+        ]
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "audit",
+      "say": "Every action, by the agent or a person, goes into a hash-chained audit log.",
+      "camera": [
+        [
+          "viewport"
+        ],
+        [
+          "records",
+          "hash"
+        ]
+      ]
+    },
+    {
+      "type": "screen",
+      "shot": "report",
+      "say": "And the customer gets a clear acceptance report: the pass rate by area, every gap, and every decision with its reason.",
+      "camera": [
+        [
+          "verdict"
+        ],
+        [
+          "areas",
+          "pass"
+        ]
+      ]
+    },
+    {
+      "type": "title",
+      "heading": "Built on Meta Muse Spark",
+      "lines": [
+        "Red-teaming from the customer's policy",
+        "Clause-grounded judging",
+        "Drafting the whole rollout"
+      ],
+      "say": "Muse Spark does three jobs here: red-teaming from the customer's policy, judging against the exact clause, and drafting the whole rollout, all with strict structured output. Everything you saw was built during this hackathon, by one student."
+    },
+    {
+      "type": "title",
+      "logo": true,
+      "heading": "Delomu",
+      "sub": "Find what your AI will get wrong at a customer, before your customer does.",
+      "say": "Delomu. Find what your AI will get wrong at a customer, before your customer does."
+    }
   ]
 }

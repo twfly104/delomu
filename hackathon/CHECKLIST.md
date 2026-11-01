@@ -14,10 +14,11 @@ Meta Global AI Developer Hackathon，個人開發者賽道。
 
 ## 2. 影片（已完成，你只要看一遍）
 
-- [ ] 打開 `hackathon/video/delomu-demo.mp4`（2:09，1080p，英文配音和字幕）看一遍。
-- 配音是 Microsoft 的神經語音（Andrew），不是你本人的聲音；提交文案裡已經註明。
-- 想用自己的聲音也可以：照 `hackathon/VIDEO-SCRIPT.md` 錄，畫面直接用這支影片。
-- 要改台詞：改 `hackathon/video/storyboard.json`，再執行 `node hackathon/video/build.mjs`（約 4 分鐘重新產生）。
+- [ ] 要交的是 Clueso 版：`hackathon/video/delomu-demo-clueso.mp4`（2:11，1080p，英文配音和字幕）。看一遍。
+- 配音是 Clueso 的 AI 語音（ElevenLabs 的 Jeff），不是你本人的聲音；提交文案裡已經註明。
+- 右下角有「Made with Clueso」浮水印（免費方案）。升級 Clueso 後告訴 Claude，它會重新輸出一支沒有浮水印的版本。
+- 要改內容：直接在 Clueso 編輯器改 https://web.clueso.io/guide/7900a2a6-5175-4c6c-bcfc-fd09326f2ff6 ，再輸出。
+- 備用版（沒有浮水印、自己產生的）：`hackathon/video/delomu-demo.mp4`（2:12）。
 
 ## 3. 上傳影片
 

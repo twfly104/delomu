@@ -22,7 +22,7 @@ const res = await fetch(`${BASE}/login`, { method: 'POST', redirect: 'manual', h
 const session = res.headers.getSetCookie().find(c => c.startsWith('delomu_session=')).split(';')[0].split('=')[1];
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-'));
-const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=9334', `--user-data-dir=${profile}`, '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(CHROME, ['--headless=new', '--remote-debugging-port=9334', `--user-data-dir=${profile}`, '--hide-scrollbars', '--lang=en-US', 'about:blank'], { stdio: 'ignore' });
 let target;
 for (let i = 0; i < 50 && !target; i++) {
   await new Promise(r => setTimeout(r, 200));
@@ -39,6 +39,8 @@ await send('Page.enable');
 await send('Network.enable');
 await send('Network.setCookie', { name: 'delomu_session', value: session, domain: 'localhost', path: '/' });
 await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 800, deviceScaleFactor: 2, mobile: false });
+// Native controls (the file picker) follow the browser's locale; pin it so every screen reads in English.
+await send('Emulation.setLocaleOverride', { locale: 'en-US' });
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
 
 const dep = `/orgs/${org}/deployments/${depName}`;
@@ -46,10 +48,11 @@ const report = path.join(here, 'build', 'report.html');
 const pages = {
   home: ['/', { panel: '.panel' }],
   overview: [dep, { track: '.track', result: '.grid-2 > div:first-child .panel' }],
-  inputs: [`${dep}/inputs`, { files: '.panel' }],
+  inputs: [`${dep}/inputs`, { files: '.panel:has(table)' }],
   scan: [`${dep}/scan`, {
     button: '.scan-head form button', head: '.scan-head', rule1: '.stack > .panel:nth-child(1)',
-    probe1: '.stack > .panel:nth-child(1) .probe:nth-of-type(2)', probe2: '.stack > .panel:nth-child(1) .probe:nth-of-type(3)', rule2: '.stack > .panel:nth-child(2)',
+    probe1: '.stack > .panel:nth-child(1) .probe:nth-of-type(2)', probe2: '.stack > .panel:nth-child(1) .probe:nth-of-type(3)',
+    msg: '.stack > .panel:nth-child(1) .probe:nth-of-type(2) .bubble:not(.ai)', answer: '.stack > .panel:nth-child(1) .probe:nth-of-type(2) .bubble.ai', rule2: '.stack > .panel:nth-child(2)',
   }],
   drafts: [`${dep}/drafts`, { draft: '.draft', foot: '.draft .draft-foot' }],
   audit: [`/orgs/${org}/audit`, { records: '.panel' }],

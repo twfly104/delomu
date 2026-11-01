@@ -72,7 +72,7 @@ founder's earlier, different product (an agent-action verification API) is not p
 - De-identified, consented knowledge library that reuses test cases across rollouts
 - 150+ automated tests
 
-Built by a solo student founder working with an AI coding assistant. The demo video's narration is a synthetic voice (Microsoft neural text-to-speech); every screen in it is the real product.
+Built by a solo student founder working with an AI coding assistant. The demo video was edited in Clueso and its narration is a synthetic voice (ElevenLabs, via Clueso); every screen in it is the real product.
 
 ## Team
 
