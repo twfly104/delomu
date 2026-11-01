@@ -5,6 +5,7 @@
 import http from 'node:http';
 import path from 'node:path';
 import { createApiHandler } from './api.mjs';
+import { createBilling } from './billing.mjs';
 import { openDb } from './db.mjs';
 import { send, sendJson } from './http.mjs';
 import { checkPepper } from './keys.mjs';
@@ -44,6 +45,13 @@ export function createServer({
   const baseUrl = checkPublicUrl(publicUrl);
 
   const db = openDb(dataDir);
+  let billing;
+  try {
+    billing = createBilling({ db, env, deploymentsRoot: path.resolve(deploymentsRoot), now, log, fetch });
+  } catch (e) {
+    db.close();
+    throw e;
+  }
   const ctx = {
     db,
     deploymentsRoot: path.resolve(deploymentsRoot),
@@ -57,6 +65,7 @@ export function createServer({
     now,
     log,
     oidc: createOidcClient({ fetch }),
+    billing,
     rateLimit: createRateLimiter(rateLimit),
     secureCookies: req => ctx.publicUrl?.startsWith('https:') || (trustProxy && req.headers['x-forwarded-proto'] === 'https'),
     // The trusted proxy appends the address it saw, so the last entry is the only one a client cannot forge.
@@ -82,7 +91,8 @@ export function createServer({
       }
       return;
     }
-    if (url.pathname === '/v1' || url.pathname.startsWith('/v1/')) await api(req, res, url);
+    if (url.pathname === '/webhooks/stripe') await billing.handleWebhook(req, res, { maxBodyBytes });
+    else if (url.pathname === '/v1' || url.pathname.startsWith('/v1/')) await api(req, res, url);
     else await web(req, res, url);
   });
   server.on('close', () => db.close());

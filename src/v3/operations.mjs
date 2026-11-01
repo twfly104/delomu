@@ -42,17 +42,28 @@ export async function startRun(ctx, principal, orgId, name, { judge = false } = 
   if (typeof judge !== 'boolean') throw invalid('judge must be true or false.', 'judge');
   const { dir } = deploymentFor(ctx, orgId, name);
   return withRunLock(dir, async () => {
-    let results;
+    // Plan limits: refuses (402) a run that would make one deployment too many active this month.
+    const release = ctx.billing?.reserveRun(orgId, name) ?? (() => {});
     try {
-      checkTarget(loadConfig(dir), ctx.policy);
-      ({ results } = await runDeployment(dir, { judge: judge ? (ctx.judge ?? true) : false, now: ctx.now() }));
-    } catch (e) {
-      if (e instanceof ApiError) throw e;
-      throw invalid(`Run could not start: ${pathSafe(e.message, dir, name)}`);
+      return await runOnce(ctx, principal, orgId, name, dir, judge);
+    } finally {
+      release();
     }
-    event(ctx, principal, orgId, 'run.create', `${name}/${results.runId}`, { verdict: results.summary.verdict, judge: results.judge });
-    return runObject(results);
   });
+}
+
+async function runOnce(ctx, principal, orgId, name, dir, judge) {
+  let results;
+  try {
+    checkTarget(loadConfig(dir), ctx.policy);
+    ({ results } = await runDeployment(dir, { judge: judge ? (ctx.judge ?? true) : false, now: ctx.now() }));
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    throw invalid(`Run could not start: ${pathSafe(e.message, dir, name)}`);
+  }
+  event(ctx, principal, orgId, 'run.create', `${name}/${results.runId}`, { verdict: results.summary.verdict, judge: results.judge });
+  await ctx.billing?.afterRun(orgId, name); // Team overage meter event; never throws
+  return runObject(results);
 }
 
 export function draftsOf(ctx, orgId, name, status) {

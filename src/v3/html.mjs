@@ -8,6 +8,7 @@ import { TOKENS } from '../theme.mjs';
 import { icon } from './icons.mjs';
 import { draftCard, reviewedRow } from './drafts-view.mjs';
 import { STEPS } from './insights.mjs';
+import { PLANS as PLAN_VIEW } from './billing.mjs';
 
 export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});";
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
@@ -219,7 +220,7 @@ export const verdictBadge = v => { const [cls, text] = VERDICT[v] ?? ['', v]; re
 // The Delomu mark: a "D" cut by one diagonal slash (assets/brand/delomu-mark.svg), drawn in the text colour.
 export const mark = (size, id) => `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><defs><mask id="${id}"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" fill="none" stroke="#000" stroke-width="5.5"/></mask></defs><path d="M8 6 H30 A26 26 0 0 1 30 58 H8 Z" fill="currentColor" mask="url(#${id})"/></svg>`;
 
-// nav: { orgs, org?, active, pending, canAudit }
+// nav: { orgs, org?, active, pending, canAudit, billingOrgs (Set of org ids where Billing shows) }
 function rail({ user, csrf, nav = {} }) {
   const org = nav.org;
   const link = (href, label, ic, key, extra = '') => `<a href="${esc(href)}"${nav.active === key ? ' aria-current="page"' : ''}>${icon(ic)}${esc(label)}${extra}</a>`;
@@ -230,6 +231,7 @@ function rail({ user, csrf, nav = {} }) {
 ${link('/', 'Home', 'home', 'home', nav.pending ? `<span class="count" aria-label="${nav.pending} waiting">${nav.pending}</span>` : '')}
 ${org ? link(orgPath(org), 'Deployments', 'layers', 'deployments') : ''}
 ${org && nav.canAudit ? link(`${orgPath(org)}/audit`, 'Audit log', 'shield', 'audit') : ''}
+${org && nav.billingOrgs?.has(org.id) ? link(`${orgPath(org)}/billing`, 'Billing', 'card', 'billing') : ''}
 </div>
 ${orgLinks}
 <div class="rail-foot"><span class="who" title="${esc(user.email)}">${esc(user.email)}</span>
@@ -255,7 +257,9 @@ export function layout({ title, user, csrf, nav, crumbs = [], body }) {
 <div><header class="topbar">${trail}</header><main class="content">${body}</main></div></div>`);
 }
 
-const notice = (text, kind = '') => (text ? `<div class="notice ${kind}" role="${kind ? 'status' : 'alert'}">${icon(kind === 'good' ? 'check' : 'alert')}<span>${esc(text)}</span></div>` : '');
+// link: optional [href, label] shown after the text, e.g. the Billing page for a plan limit.
+const notice = (text, kind = '', link) => (text ? `<div class="notice ${kind}" role="${kind ? 'status' : 'alert'}">${icon(kind === 'good' ? 'check' : 'alert')}<span>${esc(text)}${link ? ` <a href="${esc(link[0])}">${esc(link[1])}</a>` : ''}</span></div>` : '');
+const upgradeLink = href => (href ? [href, 'View plans and upgrade'] : undefined);
 
 export function loginPage({ csrf, error }) {
   return layout({
@@ -374,10 +378,10 @@ ${ov.steps.map(s => `<li class="step ${esc(s.state)}"><span class="dot">${s.stat
 }
 
 function deploymentShell(args, body) {
-  const { user, csrf, nav, org, name, title, flash, error } = args;
+  const { user, csrf, nav, org, name, title, flash, error, upgrade } = args;
   return layout({ title: title ? `${title} · ${name}` : name, user, csrf, nav: { ...nav, org, active: 'deployments' },
     crumbs: [[org.name, orgPath(org)], ['Deployments', orgPath(org)], [name, title ? depPath(org, name) : undefined], ...(title ? [[title]] : [])],
-    body: `${deploymentHeader(args)}${notice(error)}${notice(flash, 'good')}${body}` });
+    body: `${deploymentHeader(args)}${notice(error, '', upgradeLink(upgrade))}${notice(flash, 'good')}${body}` });
 }
 
 function historyChart(runs, goal) {
@@ -541,4 +545,80 @@ ${rule.probes.map(p => `<div class="probe ${esc(p.status)}">
 <p class="subtle" style="margin-top:4px">Read from ${scan.documents.map(d => esc(d)).join(', ')}</p></div>${runForm}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>The agent drafted these ${draft.content.rows.length} probes for the test set, so every rule stays tested after the fixes. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 <div class="stack" style="margin-top:16px">${rules.map(ruleCard).join('')}</div>`);
+}
+
+const usd = n => `$${Number(n).toLocaleString('en-US')}`;
+const limitText = n => (n === null ? 'Unlimited' : String(n));
+
+// The org's plan, this month's usage against its limits, upgrade and manage actions, and the plans side
+// by side. billing: summary() from billing.mjs.
+export function billingPage({ user, csrf, nav, org, billing: b, salesContact, flash, error }) {
+  const { plan, account } = b;
+  const base = `${orgPath(org)}/billing`;
+  const form = (action, label, primary) => `<form method="post" action="${esc(base)}/${action}" style="margin:0"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<button class="btn${primary ? ' primary' : ''}" data-busy="Opening Stripe…">${icon(primary ? 'arrow' : 'card')}${esc(label)}</button></form>`;
+  const actions = b.configured ? [
+    plan.id === 'free' ? form('checkout', 'Upgrade to Team', true) : '',
+    account?.stripe_customer_id ? form('portal', 'Manage billing', false) : '',
+  ].join('') : '';
+  const statusBadge = plan.id === 'free' ? '<span class="badge plain">Free</span>'
+    : account?.status === 'past_due' ? `<span class="badge bad">${esc(plan.name)} · payment failed</span>`
+      : `<span class="badge good">${esc(plan.name)}</span>`;
+  const sub = [org.name, b.configured ? (b.live ? '' : 'Stripe test mode') : 'Billing not configured'].filter(Boolean).join(' · ');
+
+  const warnings = [];
+  if (account?.status === 'past_due') warnings.push(notice('The last payment failed. Team stays on while Stripe retries; update the card in Manage billing.'));
+  if (plan.id === 'team' && account?.cancel_at_period_end && account.current_period_end) {
+    warnings.push(notice(`Team ends on ${fmtDate(account.current_period_end).replace(/,.*$/, '')}; after that this organization moves to Free.`));
+  }
+
+  const notConfigured = b.configured ? '' : `<section class="panel"><div class="emptystate"><span class="strong">Billing is not configured on this server</span>
+Every organization is on the Free plan. The operator turns on paid plans by setting <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_WEBHOOK_SECRET</code>, <code>STRIPE_PRICE_TEAM</code> and <code>STRIPE_PRICE_EXTRA</code>, or grants Enterprise with <code>delomu admin plan</code>.</div></section>`;
+
+  // Colour carries state: green within the plan, amber billed as extra (Team), red at a hard limit (Free).
+  const usageRow = (label, used, limit, overage, detail) => {
+    let badge = '<span class="badge plain">Unlimited</span>';
+    if (limit !== null) {
+      if (used < limit) badge = '<span class="badge good">Within plan</span>';
+      else if (overage && used > limit) badge = '<span class="badge warn">Extra, billed</span>';
+      else if (overage) badge = '<span class="badge good">All included used</span>';
+      else badge = '<span class="badge bad">Limit reached</span>';
+    }
+    return `<tr><th scope="row">${esc(label)}</th><td class="num"><span class="strong">${used}</span> <span class="subtle">of ${esc(limitText(limit))}</span></td><td>${badge}</td><td class="hide-sm muted">${esc(detail)}</td></tr>`;
+  };
+  const extraNote = b.extra ? ` · ${b.extra} extra × ${usd(plan.extraActiveDeploymentUsd)} = ${usd(b.extraUsd)} on the next invoice` : '';
+  const usage = `<section class="panel"><div class="panel-head"><h2>This month</h2><span class="aside subtle num">${esc(b.month)} (UTC)</span></div>
+<div class="scroll"><table><thead><tr><th>Usage</th><th>Used</th><th>Status</th><th class="hide-sm">Detail</th></tr></thead><tbody>
+${usageRow('Active deployments', b.active.length, plan.includedActiveDeployments, plan.extraActiveDeploymentUsd !== null,
+    b.active.length ? `${b.active.join(', ')}${extraNote}` : 'A deployment is active once it has a test run this month.')}
+${usageRow('Risk scans', b.scans, plan.scansPerMonth, false, 'Completed scans this month, across all deployments.')}
+</tbody></table></div></section>`;
+
+  const cols = ['free', 'team', 'enterprise'].map(id => PLAN_VIEW[id]);
+  const price = p => (p.monthlyUsd === null ? 'Contact sales' : p.monthlyUsd === 0 ? '$0' : `${usd(p.monthlyUsd)} / month`);
+  const rows = [
+    ['Price', price],
+    ['Active deployments a month', p => (p.includedActiveDeployments === null ? 'Unlimited' : `${p.includedActiveDeployments} included`)],
+    ['Each extra active deployment', p => (p.extraActiveDeploymentUsd !== null ? `${usd(p.extraActiveDeploymentUsd)} / month` : p.includedActiveDeployments === null ? 'Included' : 'Not available')],
+    ['Risk scans a month', p => limitText(p.scansPerMonth)],
+    ['How to get it', p => p.how],
+  ];
+  const sales = /^[^@\s]+@[^@\s]+$/.test(salesContact) ? `mailto:${salesContact}` : /^https?:\/\//i.test(salesContact) ? salesContact : '';
+  const cta = p => {
+    if (p.id === plan.id) return '<span class="badge accent">Current plan</span>';
+    if (p.id === 'team' && plan.id === 'free' && b.configured) return form('checkout', 'Upgrade', true);
+    if (p.id === 'enterprise') return sales ? `<a class="btn" href="${esc(sales)}">Contact sales</a>` : '<span class="subtle">Ask your Delomu contact</span>';
+    return '';
+  };
+  const pricing = `<section class="panel"><div class="panel-head"><h2>Plans</h2><span class="aside subtle">Prices in USD, billed monthly</span></div>
+<div class="scroll"><table><thead><tr><th><span class="sr">Feature</span></th>${cols.map(p => `<th scope="col">${esc(p.name)}</th>`).join('')}</tr></thead><tbody>
+${rows.map(([label, cell]) => `<tr><th scope="row" class="muted">${esc(label)}</th>${cols.map(p => `<td class="num">${esc(cell(p))}</td>`).join('')}</tr>`).join('\n')}
+<tr><td></td>${cols.map(p => `<td>${cta(p)}</td>`).join('')}</tr>
+</tbody></table></div></section>`;
+
+  return layout({ title: `Billing · ${org.name}`, user, csrf, nav: { ...nav, org, active: 'billing' }, crumbs: [[org.name, orgPath(org)], ['Billing']], body: `
+<div class="page-head"><div><div class="title"><h1>Billing</h1>${statusBadge}</div><p class="sub">${esc(sub)}</p></div>
+${actions ? `<div class="actions">${actions}</div>` : ''}</div>
+${notice(error)}${notice(flash, 'good')}${warnings.join('')}
+<div class="stack">${notConfigured}${usage}${pricing}</div>` });
 }

@@ -1,11 +1,16 @@
-// v3 commands: run the multi-tenant server (API + web UI), and bootstrap the first org on a new install.
+// v3 commands: run the multi-tenant server (API + web UI), bootstrap the first org on a new install, and
+// set an org's plan by hand (Enterprise is sold by contract, not through Stripe Checkout).
 
 import path from 'node:path';
 import { flag, need } from './args.mjs';
 import { start } from '../v3/server.mjs';
 import { bootstrap } from '../v3/bootstrap.mjs';
+import { setPlanByOperator } from '../v3/billing.mjs';
+import { openDb } from '../v3/db.mjs';
 
-const dataDirFrom = value => path.resolve(value ?? process.env.DELOMU_DATA ?? 'data');
+const ADMIN_USAGE = 'admin bootstrap --org NAME --email EMAIL [--kind customer|partner] [--data DIR]\n       delomu admin plan --org ORG_ID --plan free|enterprise [--data DIR]';
+
+const dataDirFrom =value => path.resolve(value ?? process.env.DELOMU_DATA ?? 'data');
 
 function parsePort(value) {
   const port = Number(value);
@@ -35,14 +40,26 @@ export const commands = [
   },
   {
     name: 'admin',
-    usage: 'admin bootstrap --org NAME --email EMAIL [--kind customer|partner] [--data DIR]',
-    summary: 'create the first org, its owner and an API key (printed once)',
+    usage: ADMIN_USAGE,
+    summary: 'create the first org, its owner and an API key (printed once); or grant an org Enterprise',
     run(args) {
-      const usage = 'admin bootstrap --org NAME --email EMAIL [--kind customer|partner] [--data DIR]';
+      const usage = ADMIN_USAGE;
       const org = flag(args, '--org');
+      const dataDir = dataDirFrom(flag(args, '--data'));
+      if (args[0] === 'plan') {
+        const plan = flag(args, '--plan');
+        need(org && plan, usage);
+        const db = openDb(dataDir);
+        try {
+          const change = setPlanByOperator(db, org, plan);
+          console.log(`Org ${org}: ${change.before} -> ${change.after}.`);
+        } finally {
+          db.close();
+        }
+        return 0;
+      }
       const email = flag(args, '--email');
       const kind = flag(args, '--kind') ?? 'customer';
-      const dataDir = dataDirFrom(flag(args, '--data'));
       if (args[0] !== 'bootstrap') need(undefined, usage);
       need(org && email, usage);
       const r = bootstrap({ dataDir, org, email, kind, pepper: process.env.DELOMU_KEY_PEPPER });

@@ -101,6 +101,59 @@ hash-chained `audit.jsonl`; `delomu audit <dir> --verify` checks it was not alte
 
 `node bin/delomu.mjs help` lists every command.
 
+## Billing
+
+The v3 server bills organizations through Stripe. The plans live in one table, `PLANS` in
+`src/v3/billing.mjs`:
+
+| Plan | Price | Active deployments a month | Risk scans a month |
+| --- | --- | --- | --- |
+| Free | $0 | 1 | 3 |
+| Team | $499 / month | 5 included, then $99 per extra active deployment | unlimited |
+| Enterprise | contact sales | unlimited | unlimited |
+
+A deployment is **active** in a month once it has a completed test run that month (the same rule
+`delomu usage` uses). On Free, a run that would make a second deployment active and a fourth risk scan
+in a month are refused with HTTP 402 (`code: plan_limit_active_deployments` / `plan_limit_scans`,
+`upgrade_url` in the API error; a link to Billing in the web UI). Deployments already active keep
+running. Owners and admins open **Billing** in the sidebar (`/orgs/<org>/billing`) to see the plan,
+this month's usage against the limits, **Upgrade to Team** (Stripe Checkout), **Manage billing** (Stripe
+Customer Portal) and the plans side by side.
+
+**Without Stripe** (no `STRIPE_SECRET_KEY`) the server runs normally, the Billing page says billing is
+not configured and every org is on Free. A self-hosted operator can lift the limits for an org with
+`node bin/delomu.mjs admin plan --org <org id> --plan enterprise` (and `--plan free` to undo).
+
+| Variable | What |
+| --- | --- |
+| `STRIPE_SECRET_KEY` | `sk_test_...`. Any other key is refused at start-up unless `DELOMU_BILLING_LIVE=1`. |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_...` of the webhook endpoint (or the one `stripe listen` prints). |
+| `STRIPE_PRICE_TEAM` | the $499/month recurring price. |
+| `STRIPE_PRICE_EXTRA` | the $99 metered price, backed by a Billing Meter. |
+| `STRIPE_METER_EVENT` | the meter's event name (default `delomu_extra_active_deployment`). |
+| `DELOMU_PUBLIC_URL` | where Stripe sends people back after Checkout and the portal (not needed on localhost). |
+| `DELOMU_SALES_CONTACT` | optional email or URL behind "Contact sales". |
+
+Set up test mode (Stripe Dashboard in a sandbox, or the Stripe CLI):
+
+1. Create a meter: event name `delomu_extra_active_deployment`, aggregation **Sum**, customer mapping
+   `stripe_customer_id`, value key `value`.
+2. Create a product "Delomu Team" with two monthly prices: a flat $499 recurring price (`STRIPE_PRICE_TEAM`)
+   and a usage-based $99 per-unit price on that meter (`STRIPE_PRICE_EXTRA`).
+3. Turn on the Customer Portal (Settings, Billing, Customer portal) so customers can change cards and cancel.
+4. Webhooks: point an endpoint at `https://<your host>/webhooks/stripe` with the events
+   `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` and
+   `invoice.payment_failed`, and copy its signing secret. Locally, run
+   `stripe listen --forward-to localhost:8080/webhooks/stripe` and use the `whsec_` it prints.
+5. Start the server with the variables above and pay with Stripe's test card `4242 4242 4242 4242`.
+
+The webhook checks the `Stripe-Signature` HMAC (5-minute tolerance, constant-time compare), ignores
+events it has already applied and events from the other mode (live vs test), and never lets an older
+subscription event overwrite a newer one. On Team, each deployment that becomes active beyond the five
+included ones sends one meter event (value 1, a stable `identifier`, so retries do not double-bill);
+failed reports are retried when the Billing page is opened. Going live later means swapping in live keys,
+live price ids and the live webhook secret, and setting `DELOMU_BILLING_LIVE=1`.
+
 ## Demo and tests
 
 `npm run demo` runs a fictional support bot (`examples/mock-bot.mjs`) with three planted bugs against

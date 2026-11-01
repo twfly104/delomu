@@ -14,7 +14,7 @@ import { recordEvent, listEvents } from './events.mjs';
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, send } from './http.mjs';
 import { authenticateKey } from './keys.mjs';
 import {
-  auditPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -109,10 +109,12 @@ function routes(ctx) {
     try { config = loadConfig(dir); } catch { /* registered without a readable config; show what exists */ }
     return { org, name: d.name, customer: config.customer, config, ov: overview(dir, config) };
   });
+  // Orgs where the principal may open Billing (owners and admins), for the sidebar link.
+  const billingOrgsOf = (principal, orgs) => new Set(orgs.filter(o => principalAllows(principal, roleIn(db, principal, o.id), 'org:manage')).map(o => o.id));
   const navFor = (principal, extra = {}) => {
     const orgs = orgsOf(principal);
     const pending = orgs.flatMap(deploymentsOf).reduce((n, d) => n + d.ov.pending.length, 0);
-    return { orgs, pending, ...extra };
+    return { orgs, pending, billingOrgs: billingOrgsOf(principal, orgs), ...extra };
   };
   const base = principal => ({ user: principal, csrf: principal.csrf, now: ctx.now() });
 
@@ -201,7 +203,7 @@ function routes(ctx) {
     const review = deployments.flatMap(d => d.ov.pending.map(draft => ({ org: d.org, name: d.name, draft })))
       .sort((a, b) => a.draft.createdAt.localeCompare(b.draft.createdAt));
     const homeRole = roleIn(db, principal, principal.homeOrgId);
-    const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), org: orgs.length === 1 ? orgs[0] : undefined };
+    const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), billingOrgs: billingOrgsOf(principal, orgs), org: orgs.length === 1 ? orgs[0] : undefined };
     return html(homePage({ ...base(principal), nav, deployments, review }));
   });
 
@@ -248,7 +250,7 @@ function routes(ctx) {
     }
   });
 
-  const showOverview = (principal, params, url, error, status = 200) => html(deploymentOverviewPage({ ...workspace(principal, params, 'runs:read', url), error }), status);
+  const showOverview = (principal, params, url, error, status = 200, upgrade) => html(deploymentOverviewPage({ ...workspace(principal, params, 'runs:read', url), error, upgrade }), status);
 
   r.add('GET', '/orgs/:org/deployments/:name', ({ principal, params, url }) => showOverview(principal, params, url));
   r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => html(riskScanPage(workspace(principal, params, 'runs:read', url))));
@@ -258,24 +260,36 @@ function routes(ctx) {
     requireCsrf(principal, form);
     const { org } = access(ctx, principal, params.org, 'deployments:write');
     const { dir } = deploymentFor(ctx, org.id, params.name);
-    const fail = message => html(riskScanPage({ ...workspace(principal, params, 'runs:read'), error: message }), 400);
+    const fail = (message, status = 400, upgrade) => html(riskScanPage({ ...workspace(principal, params, 'runs:read'), error: message, upgrade }), status);
     try {
       checkTarget(loadConfig(dir), ctx.policy);
     } catch (e) {
       return fail(e instanceof ApiError ? e.message : 'The deployment is not connected to an AI yet.');
     }
-    const { riskScan } = await import('../v1/risk.mjs');
-    let result;
+    // Plan limits: a completed scan counts toward the month (the scan.create event below).
+    let release;
     try {
-      result = await riskScan(dir, { llm: ctx.llm ?? createLlm() });
+      release = ctx.billing.reserveScan(org.id);
     } catch (e) {
-      return fail(isAuthError(e)
-        ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
-        : `The scan could not finish: ${String(e.message).split(dir).join(params.name)}`);
+      if (!(e instanceof ApiError)) throw e;
+      return fail(e.message, e.status, e.extra?.upgrade_url);
     }
-    if (!result.ok) return fail(`The scan found nothing to test: ${result.reason}`);
-    event(ctx, principal, org.id, 'scan.create', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
-    return new Redirect(`${depPath(org, params.name)}/scan?notice=scanned`);
+    try {
+      const { riskScan } = await import('../v1/risk.mjs');
+      let result;
+      try {
+        result = await riskScan(dir, { llm: ctx.llm ?? createLlm() });
+      } catch (e) {
+        return fail(isAuthError(e)
+          ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
+          : `The scan could not finish: ${String(e.message).split(dir).join(params.name)}`);
+      }
+      if (!result.ok) return fail(`The scan found nothing to test: ${result.reason}`);
+      event(ctx, principal, org.id, 'scan.create', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
+      return new Redirect(`${depPath(org, params.name)}/scan?notice=scanned`);
+    } finally {
+      release();
+    }
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));
@@ -297,7 +311,7 @@ function routes(ctx) {
       await startRun(ctx, principal, org.id, params.name, { judge: form.judge === '1' });
     } catch (e) {
       if (!(e instanceof ApiError) || e.status >= 500 || e.status === 404) throw e;
-      return showOverview(principal, params, null, e.message, e.status);
+      return showOverview(principal, params, null, e.message, e.status, e.extra?.upgrade_url);
     }
     return new Redirect(`${depPath(org, params.name)}?notice=ran`);
   });
@@ -376,6 +390,49 @@ function routes(ctx) {
     }
     return new Redirect(`${depPath(org, params.name)}/drafts`);
   });
+
+  // Billing: owners and admins only (org:manage). Stripe hosts the payment pages; this server never sees a card.
+  const returnBase = req => {
+    if (ctx.publicUrl) return ctx.publicUrl;
+    const host = String(req.headers.host ?? '');
+    if (!LOCAL_HOST.test(host)) throw new ApiError('api_error', 'Billing needs DELOMU_PUBLIC_URL set on the server, so Stripe knows where to send people back.');
+    return `http://${host}`;
+  };
+  const BILLING_NOTICES = { success: 'Thanks. Your plan changes as soon as Stripe confirms the payment, usually within a few seconds.', cancelled: '' };
+
+  const showBilling = (principal, params, url, error, status = 200) => {
+    const { org } = access(ctx, principal, params.org, 'org:manage');
+    const role = roleIn(db, principal, org.id);
+    return html(billingPage({
+      ...base(principal), org, billing: ctx.billing.summary(org.id), salesContact: ctx.env.DELOMU_SALES_CONTACT ?? '',
+      nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }),
+      flash: BILLING_NOTICES[url?.searchParams.get('checkout')] ?? '', error,
+    }), status);
+  };
+
+  r.add('GET', '/orgs/:org/billing', async ({ principal, params, url }) => {
+    const { org } = access(ctx, principal, params.org, 'org:manage');
+    await ctx.billing.flushUsage(org.id); // retry meter events that failed earlier
+    return showBilling(principal, params, url);
+  });
+
+  for (const [action, start] of [['checkout', (org, principal, req) => ctx.billing.createCheckout(org, { email: principal.email, returnBase: returnBase(req) })],
+    ['portal', (org, principal, req) => ctx.billing.createPortal(org, { returnBase: returnBase(req) })]]) {
+    r.add('POST', `/orgs/:org/billing/${action}`, async ({ req, principal, params }) => {
+      const form = await readForm(req, ctx.maxBodyBytes);
+      requireCsrf(principal, form);
+      const { org } = access(ctx, principal, params.org, 'org:manage');
+      let target;
+      try {
+        target = await start(org, principal, req);
+      } catch (e) {
+        if (!(e instanceof ApiError) || e.status === 404) throw e;
+        return showBilling(principal, params, null, e.message, e.status);
+      }
+      event(ctx, principal, org.id, `billing.${action}`, org.id);
+      return new Redirect(target);
+    });
+  }
 
   r.add('GET', '/orgs/:org/audit', ({ principal, params, url }) => {
     const { org } = access(ctx, principal, params.org, 'audit:read');
