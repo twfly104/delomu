@@ -187,6 +187,16 @@ details.history .note{font-style:italic}
   .track{grid-template-columns:repeat(3,minmax(0,1fr));row-gap:18px}
   .hide-sm{display:none}
 }
+.meter{height:6px;border-radius:99px;background:var(--sunken);overflow:hidden;margin:14px 0 8px}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s ease}
+.scan-live{padding:28px 24px}.scan-live .big{font-size:17px;font-weight:600}
+.onboard{padding:28px 24px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:center}
+.onboard h2{font-size:20px;letter-spacing:-.02em;line-height:1.25}.onboard .lede{color:var(--text-2);margin:8px 0 18px;max-width:52ch}
+.onboard ol{list-style:none;margin:0;padding:0;display:grid;gap:10px;counter-reset:s}
+.onboard li{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunken);counter-increment:s}
+.onboard li::before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--surface);border:1px solid var(--line-strong);color:var(--text-2)}
+.onboard li p{margin:0}.onboard .acts{display:flex;gap:10px;flex-wrap:wrap}
+@media (max-width:760px){.onboard{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 `;
 
@@ -237,22 +247,22 @@ ${orgLinks}
 </nav>`;
 }
 
-function doc(title, body, bodyClass = '') {
+function doc(title, body, bodyClass = '', refresh = 0) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>${esc(title)} · Delomu</title><style>${STYLE}</style></head>
+<meta name="color-scheme" content="light dark">${refresh ? `<meta http-equiv="refresh" content="${refresh}">` : ''}<link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>${esc(title)} · Delomu</title><style>${STYLE}</style></head>
 <body${bodyClass ? ` class="${bodyClass}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script></body></html>
 `;
 }
 
 // crumbs: [[label, href?], ...]
-export function layout({ title, user, csrf, nav, crumbs = [], body }) {
+export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0 }) {
   if (!user) return doc(title, `<main class="auth">${body}</main>`);
   const trail = crumbs.map(([label, href], i) => (i === crumbs.length - 1 || !href
     ? `<span class="here">${esc(label)}</span>`
     : `<a href="${esc(href)}">${esc(label)}</a><span class="sep">/</span>`)).join('');
   return doc(title, `<div class="app">${rail({ user, csrf, nav })}
-<div><header class="topbar">${trail}</header><main class="content">${body}</main></div></div>`);
+<div><header class="topbar">${trail}</header><main class="content">${body}</main></div></div>`, '', refresh);
 }
 
 const notice = (text, kind = '') => (text ? `<div class="notice ${kind}" role="${kind ? 'status' : 'alert'}">${icon(kind === 'good' ? 'check' : 'alert')}<span>${esc(text)}</span></div>` : '');
@@ -302,7 +312,20 @@ ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
 </tbody></table></div>`;
 }
 
-export function homePage({ user, csrf, nav, now, deployments, review }) {
+// First-run guide: the three steps to a first risk scan, with a one-click sample customer.
+function onboarding(org, csrf) {
+  return `<section class="panel onboard"><div>
+<h2>Find what an AI will get wrong at a customer, before launch</h2>
+<p class="lede">Delomu reads the customer’s own policies, writes the messages most likely to break each rule, sends them to their AI and judges every answer against the exact clause.</p>
+<div class="acts"><form method="post" action="${esc(orgPath(org))}/sample"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<button class="btn primary" data-busy="Setting up…">${icon('spark')}Try it with a sample customer</button></form>
+<a class="btn" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Set up a real customer</a></div></div>
+<ol aria-label="How it works"><li><p><span class="strong">Connect the customer’s AI</span><br><span class="subtle">An HTTP endpoint, Intercom or Zendesk.</span></p></li>
+<li><p><span class="strong">Add their policies</span><br><span class="subtle">Refund rules, privacy terms, API docs.</span></p></li>
+<li><p><span class="strong">Run the risk scan</span><br><span class="subtle">About a minute. Every finding cites its clause.</span></p></li></ol></section>`;
+}
+
+export function homePage({ user, csrf, nav, now, deployments, review, canWrite }) {
   const queue = review.length
     ? `<div class="rows">${review.map(({ org, name, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
 ${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.rationale ? ` · ${esc(draft.rationale)}` : ''}</p></div>
@@ -313,6 +336,10 @@ ${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} fo
     ? `${deployments.length} deployment${deployments.length > 1 ? 's' : ''} · ${review.length} waiting for review · ${attention} with failing tests`
     : 'No deployments yet.';
   const orgs = nav.orgs ?? [];
+  if (!deployments.length && canWrite && orgs.length === 1) {
+    return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
+<div class="page-head"><div><h1>Welcome to Delomu</h1><p class="sub">Run your first risk scan in about two minutes.</p></div></div>${onboarding(orgs[0], csrf)}` });
+  }
   return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
 <div class="page-head"><div><h1>Home</h1><p class="sub num">${esc(summary)}</p></div>
 ${orgs.length === 1 ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(orgs[0]))}/new-deployment">${icon('plus')}New deployment</a></div>` : ''}</div>
@@ -328,7 +355,7 @@ export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, noti
 <div class="page-head"><div><h1>Deployments</h1><p class="sub">${esc(org.name)} · ${deployments.length} deployment${deployments.length === 1 ? '' : 's'}</p></div>
 ${canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}New deployment</a></div>` : ''}</div>
 ${notice(msg, 'good')}
-<section class="panel">${deployments.length ? deploymentsTable(deployments, { now }) : `<div class="emptystate"><span class="strong">No deployments yet</span>${canWrite ? 'Create one for each customer rollout.' : 'An engineer creates one for each customer rollout.'}</div>`}</section>` });
+${deployments.length ? `<section class="panel">${deploymentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No deployments yet</span>An engineer creates one for each customer rollout.</div></section>`}` });
 }
 
 export function newDeploymentPage({ user, csrf, nav, org, error, values = {} }) {
@@ -374,8 +401,8 @@ ${ov.steps.map(s => `<li class="step ${esc(s.state)}"><span class="dot">${s.stat
 }
 
 function deploymentShell(args, body) {
-  const { user, csrf, nav, org, name, title, flash, error } = args;
-  return layout({ title: title ? `${title} · ${name}` : name, user, csrf, nav: { ...nav, org, active: 'deployments' },
+  const { user, csrf, nav, org, name, title, flash, error, refresh } = args;
+  return layout({ title: title ? `${title} · ${name}` : name, user, csrf, nav: { ...nav, org, active: 'deployments' }, refresh,
     crumbs: [[org.name, orgPath(org)], ['Deployments', orgPath(org)], [name, title ? depPath(org, name) : undefined], ...(title ? [[title]] : [])],
     body: `${deploymentHeader(args)}${notice(error)}${notice(flash, 'good')}${body}` });
 }
@@ -508,6 +535,17 @@ export function riskScanPage(args) {
   const { org, name, ov, csrf, can, now } = args;
   const base = depPath(org, name);
   const scan = ov.scans[0];
+  if (args.job) {
+    const p = args.job.progress ?? {};
+    const pctDone = p.phase === 'probes' && p.total ? Math.round(10 + 90 * p.done / p.total) : 5;
+    const what = p.phase === 'probes'
+      ? `Sending ${p.total} probes for ${p.rules} rules to the customer’s AI and judging each answer · ${p.done} of ${p.total} done`
+      : 'Reading the policies and writing the messages most likely to break each rule';
+    const secs = Math.max(0, Math.round(((now?.getTime?.() ?? Date.now()) - args.job.startedAt) / 1000));
+    return deploymentShell({ ...args, tab: 'scan', title: 'Risk scan', refresh: 2 }, `<section class="panel scan-live" aria-live="polite">
+<p class="big">Scanning… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${pctDone}%"></i></div>
+<p class="muted num">${esc(what)}</p><p class="subtle" style="margin-top:6px">You can leave this page; the scan keeps running and the results appear here.</p></section>`);
+  }
   const runForm = can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn primary" data-busy="Scanning… about a minute">${icon('shield')}${scan ? 'Scan again' : 'Run risk scan'}</button></form>` : '';
   if (!scan) {

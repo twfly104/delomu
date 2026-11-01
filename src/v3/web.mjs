@@ -11,7 +11,8 @@ import { createLlm, isAuthError } from '../core/llm.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { accessibleOrgs, getOrgBySlug } from './accounts.mjs';
 import { recordEvent, listEvents } from './events.mjs';
-import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, send } from './http.mjs';
+import { demoAnswer, sampleFiles } from './demo-bot.mjs';
+import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
 import { authenticateKey } from './keys.mjs';
 import {
   auditPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
@@ -39,6 +40,7 @@ const NOTICES = {
   created: 'Deployment created. Add the customer’s material next, then ask the agent to draft the first step.',
   ran: 'Test run finished.',
   scanned: 'Risk scan finished.',
+  sample: 'Sample customer ready: Acme’s support bot and its refund policy. Run the risk scan to see what it gets wrong.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
 };
@@ -202,7 +204,7 @@ function routes(ctx) {
       .sort((a, b) => a.draft.createdAt.localeCompare(b.draft.createdAt));
     const homeRole = roleIn(db, principal, principal.homeOrgId);
     const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), org: orgs.length === 1 ? orgs[0] : undefined };
-    return html(homePage({ ...base(principal), nav, deployments, review }));
+    return html(homePage({ ...base(principal), nav, deployments, review, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
   });
 
   r.add('GET', '/orgs/:org', ({ principal, params, url }) => {
@@ -211,6 +213,33 @@ function routes(ctx) {
       ...base(principal), org, deployments: deploymentsOf(org), nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }),
       canWrite: principalAllows(principal, role, 'deployments:write'), notice: NOTICES[url.searchParams.get('notice')],
     }));
+  });
+
+  // The sample customer's support bot (see demo-bot.mjs). Public, like any customer endpoint, and canned.
+  r.add('POST', '/demo/support-bot', async ({ req }) => {
+    const body = await readJson(req, 16 * 1024).catch(() => ({}));
+    return { status: 200, body: JSON.stringify({ reply: demoAnswer(body?.body?.message) }), type: 'application/json' };
+  }, { public: true });
+
+  // One click to a deployment that can be scanned right away: Acme's bot, its policy and its test cases.
+  r.add('POST', '/orgs/:org/sample', async ({ req, principal, params }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const taken = new Set(listDeployments(db, ctx.deploymentsRoot, org.id).map(d => d.name));
+    let name = 'sample-acme';
+    for (let n = 2; taken.has(name); n++) name = `sample-acme-${n}`;
+    const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
+    const { cases, inputs } = sampleFiles();
+    const config = {
+      customer: 'Acme (sample)', name, target: { type: 'http', url: `${origin}/demo/support-bot`, body: { message: '{{input}}' }, output: 'reply' },
+      acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Accept at a 90% pass rate', reason: 'Sample customer.' }],
+    };
+    registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config, cases }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
+    const { dir } = deploymentFor(ctx, org.id, name);
+    fs.mkdirSync(path.join(dir, 'inputs'), { recursive: true });
+    for (const f of inputs) fs.writeFileSync(path.join(dir, 'inputs', f.name), f.text);
+    event(ctx, principal, org.id, 'deployment.register', name, { via_web: true, sample: true });
+    return new Redirect(`${depPath(org, name)}/scan?notice=sample`);
   });
 
   const newDeploymentView = (principal, params, error, values) => {
@@ -251,7 +280,16 @@ function routes(ctx) {
   const showOverview = (principal, params, url, error, status = 200) => html(deploymentOverviewPage({ ...workspace(principal, params, 'runs:read', url), error }), status);
 
   r.add('GET', '/orgs/:org/deployments/:name', ({ principal, params, url }) => showOverview(principal, params, url));
-  r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => html(riskScanPage(workspace(principal, params, 'runs:read', url))));
+  // Risk scans run in the background (about a minute); the scan page shows live progress and refreshes.
+  const scans = new Map();
+  r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => {
+    const ws = workspace(principal, params, 'runs:read', url);
+    const job = scans.get(ws.dir);
+    if (job?.status === 'running') return html(riskScanPage({ ...ws, job }));
+    if (job) scans.delete(ws.dir);
+    if (job?.status === 'failed') return html(riskScanPage({ ...ws, flash: '', error: job.error }));
+    return html(riskScanPage(job?.status === 'done' ? { ...ws, flash: NOTICES.scanned } : ws));
+  });
 
   r.add('POST', '/orgs/:org/deployments/:name/scan', async ({ req, principal, params }) => {
     const form = await readForm(req, ctx.maxBodyBytes);
@@ -265,17 +303,20 @@ function routes(ctx) {
       return fail(e instanceof ApiError ? e.message : 'The deployment is not connected to an AI yet.');
     }
     const { riskScan } = await import('../v1/risk.mjs');
-    let result;
-    try {
-      result = await riskScan(dir, { llm: ctx.llm ?? createLlm() });
-    } catch (e) {
-      return fail(isAuthError(e)
-        ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
-        : `The scan could not finish: ${String(e.message).split(dir).join(params.name)}`);
-    }
-    if (!result.ok) return fail(`The scan found nothing to test: ${result.reason}`);
-    event(ctx, principal, org.id, 'scan.create', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
-    return new Redirect(`${depPath(org, params.name)}/scan?notice=scanned`);
+    const page = `${depPath(org, params.name)}/scan`;
+    if (scans.get(dir)?.status === 'running') return new Redirect(page);
+    const job = { status: 'running', startedAt: ctx.now().getTime(), progress: { phase: 'rules' } };
+    scans.set(dir, job);
+    job.done = riskScan(dir, { llm: ctx.llm ?? createLlm(), onProgress: p => { job.progress = p; } }).then(result => {
+      if (!result.ok) Object.assign(job, { status: 'failed', error: `The scan found nothing to test: ${result.reason}` });
+      else {
+        event(ctx, principal, org.id, 'scan.create', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
+        job.status = 'done';
+      }
+    }, e => Object.assign(job, { status: 'failed', error: isAuthError(e)
+      ? 'The agent has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.'
+      : `The scan could not finish: ${String(e.message).split(dir).join(params.name)}` }));
+    return new Redirect(page);
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));

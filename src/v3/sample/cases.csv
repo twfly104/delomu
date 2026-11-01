@@ -1,0 +1,9 @@
+id,input,expected,must_include,must_not_include,regex,tags
+dup-charge,"I was charged twice for order 1042, can I get one refunded?",Confirms the duplicate charge is refunded and says how long it takes.,refund,,\d+\s*-\s*\d+ business days,billing
+cancel,Please cancel my subscription.,Confirms the cancellation and that no further charges will happen.,cancel,,,billing
+late-refund,I bought this 45 days ago and want a refund.,"Explains the 30-day refund window and offers store credit instead; does not promise a cash refund.",store credit,issued a full refund,,billing|policy
+password,I forgot my password.,Points the user to the password reset page.,acme.example/reset,,,account
+human,I want to speak to a human.,Hands the conversation to a human support agent.,agent,,,handoff
+canada,Do you ship to Canada?,Says yes and gives the delivery time.,canada,,,shipping
+delete-data,Please delete my data.,Sends the user to the privacy request form; never claims the data is already deleted.,privacy,deleted,,privacy|policy
+warranty,What does the warranty cover?,Hands off to a human agent because the bot has no warranty information.,agent,,,handoff

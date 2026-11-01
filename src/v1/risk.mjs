@@ -119,8 +119,9 @@ function phraseCheck(probe, answer) {
   return [missing.length && `does not mention ${missing.map(t => `"${t}"`).join(', ')}`, said.length && `says ${said.map(t => `"${t}"`).join(', ')}`].filter(Boolean).join(' and ');
 }
 
-// Runs the scan. Returns { ok, scan, draft } or { ok: false, reason }.
-export async function riskScan(dir, { llm, now = new Date(), limits } = {}) {
+// Runs the scan. Returns { ok, scan, draft } or { ok: false, reason }. onProgress, if given, hears
+// { phase: 'rules' } while the policy is read, then { phase: 'probes', done, total, rules } per judged probe.
+export async function riskScan(dir, { llm, now = new Date(), limits, onProgress = () => {} } = {}) {
   if (typeof llm?.json !== 'function') throw new Error('the risk scan needs an llm with a json() method');
   const config = loadConfig(dir);
   const reader = createInputReader(dir, limits);
@@ -131,6 +132,7 @@ export async function riskScan(dir, { llm, now = new Date(), limits } = {}) {
   }
 
   const started = Date.now();
+  onProgress({ phase: 'rules' });
   const res = await llm.json({ system: RULES_SYSTEM, schema: RULES_SCHEMA, effort: 'high', prompt: `${materialBlock(docs, notes)}\n\nList the rules and write the probes.` });
   if (!res.ok) {
     appendAudit(dir, { actor: 'agent', action: 'agent.failed', target: 'risk-scan', detail: { reason: res.reason } });
@@ -155,7 +157,9 @@ export async function riskScan(dir, { llm, now = new Date(), limits } = {}) {
 
   // Send every probe to the customer's AI, then judge each answer against its clause.
   const probes = rules.flatMap(rule => rule.probes.map((probe, n) => ({ rule, probe, n })));
-  const judged = await pool(probes, CONCURRENCY, async ({ rule, probe }) => {
+  let done = 0;
+  onProgress({ phase: 'probes', done, total: probes.length, rules: rules.length });
+  const judge = async ({ rule, probe }) => {
     let answer;
     try {
       answer = await callTarget(config.target, probe.message, { cwd: dir });
@@ -174,6 +178,11 @@ export async function riskScan(dir, { llm, now = new Date(), limits } = {}) {
       what_happened: v.data.verdict === 'broken' ? v.data.what_happened : phrase ? `The answer ${phrase}.` : v.data.what_happened,
       fix: broken ? (v.data.fix && v.data.fix !== 'none' ? v.data.fix : 'Make the answer follow the clause above.') : '',
     };
+  };
+  const judged = await pool(probes, CONCURRENCY, async item => {
+    const out = await judge(item);
+    onProgress({ phase: 'probes', done: ++done, total: probes.length, rules: rules.length });
+    return out;
   });
   probes.forEach(({ probe }, i) => Object.assign(probe, judged[i]));
 
