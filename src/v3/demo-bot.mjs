@@ -18,7 +18,7 @@ const SYSTEM = `You are Acme's friendly customer support assistant. Answer the c
 export async function aiAnswer(message, { client = new Anthropic() } = {}) {
   const response = await client.messages.create({
     model: DEMO_BOT_MODEL,
-    max_tokens: 400,
+    max_tokens: 1024,
     system: SYSTEM,
     messages: [{ role: 'user', content: String(message ?? '').slice(0, MAX_MESSAGE) || 'Hello' }],
   });

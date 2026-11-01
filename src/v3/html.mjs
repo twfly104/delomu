@@ -223,7 +223,6 @@ details.menu[open]>summary{background:var(--hover)}
 .menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:280px;padding:6px;display:grid;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 32px rgb(16 16 24/.14),0 2px 6px rgb(16 16 24/.06)}
 .menu-pop form{margin:0}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
 .agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px}.row-inline select{flex:1;min-width:0}
-.meter.indet i{width:28%}
 .conn{display:none}
 form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=type][value=command]:checked) .conn-command,form:has(input[name=type][value=intercom]:checked) .conn-intercom,form:has(input[name=type][value=zendesk]:checked) .conn-zendesk{display:block;animation:rise .24s cubic-bezier(.2,.75,.25,1) both}
 @media (prefers-reduced-motion:no-preference){
@@ -234,7 +233,6 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
   .btn{transition:background .15s,border-color .15s,transform .08s}.btn:active{transform:scale(.97)}
   .rows a.row,tbody tr,.tabs a,.rail a{transition:background .12s,color .12s}
   .menu-pop{animation:pop .14s ease-out both;transform-origin:top right}
-  .meter.indet i{animation:indet 1.3s cubic-bezier(.4,0,.2,1) infinite}
   .step.current .dot,.step.review .dot{animation:pulse 2s ease-in-out infinite}
 }
 .stages{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
@@ -257,7 +255,6 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 @media (max-width:760px){.page-head .actions{margin-left:0}.rule-head{flex-direction:column}.rule-head .tags{flex-direction:row;align-items:center}.stages{grid-template-columns:1fr}.stages li+li{border-left:0;border-top:1px solid var(--line)}.verdict{font-size:24px}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
-@keyframes indet{from{transform:translateX(-110%)}to{transform:translateX(380%)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 `;
@@ -691,13 +688,17 @@ export function riskScanPage(args) {
   const shell = (body, refresh) => deploymentShell({ ...args, tab: 'scan', title: 'Check results', refresh }, body);
   if (args.job) {
     const p = args.job.progress ?? {};
-    const pctDone = p.phase === 'probes' && p.total ? Math.round(10 + 90 * p.done / p.total) : 5;
-    const what = p.phase === 'probes'
-      ? `Sending ${p.total} test messages for ${p.rules} rules to your AI and judging each answer · ${p.done} of ${p.total} done`
-      : 'Reading your policies and writing the customer messages most likely to break each rule';
     const secs = Math.max(0, Math.round(((now?.getTime?.() ?? Date.now()) - args.job.startedAt) / 1000));
+    // Step 1 (reading the policies, usually 20-40 s) has no count to report, so it fills the first 40% with
+    // elapsed time, easing toward 40% without passing it; step 2 fills the rest as answers are judged. The page
+    // reloads every 2 s, so the bar only ever moves forward.
+    const probing = p.phase === 'probes' && p.total;
+    const pctDone = probing ? Math.round(40 + 60 * p.done / p.total) : Math.round(40 * (1 - Math.exp(-secs / 25)));
+    const what = probing
+      ? `Step 2 of 2 · Sending ${p.total} test messages for ${p.rules} rules to your AI and judging each answer · ${p.done} of ${p.total} done`
+      : 'Step 1 of 2 · Reading your policies and writing the customer messages most likely to break each rule';
     return shell(`<section class="panel scan-live" aria-live="polite">
-<p class="big">Checking… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter${p.phase === 'probes' ? '' : ' indet'}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${pctDone}%"></i></div>
+<p class="big">Checking… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${Math.max(2, pctDone)}%"></i></div>
 <p class="muted num">${esc(what)}</p><p class="subtle" style="margin-top:6px">You can leave this page; the check keeps running and the results appear here.</p></section>`, 2);
   }
   if (!scan) {
