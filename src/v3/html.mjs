@@ -842,7 +842,7 @@ export function billingPage({ user, csrf, nav, org, billing: b, salesContact, fl
   }
 
   const notConfigured = b.configured ? '' : `<section class="panel"><div class="emptystate"><span class="strong">Billing is not configured on this server</span>
-Every organization is on the Free plan. The operator turns on paid plans by setting <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_WEBHOOK_SECRET</code>, <code>STRIPE_PRICE_TEAM</code> and <code>STRIPE_PRICE_EXTRA</code>, or grants Enterprise with <code>delomu admin plan</code>.</div></section>`;
+Every organization is on the Free plan. The operator turns on paid plans by setting <code>STRIPE_SECRET_KEY</code>, <code>STRIPE_WEBHOOK_SECRET</code>, <code>STRIPE_PRICE_TEAM</code> and <code>STRIPE_PRICE_EXTRA</code>, or grants Vendor or Enterprise with <code>delomu admin plan</code>.</div></section>`;
 
   // Colour carries state: green within the plan, amber billed as extra (Team), red at a hard limit (Free).
   const usageRow = (label, used, limit, overage, detail) => {
