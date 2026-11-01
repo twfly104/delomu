@@ -100,6 +100,37 @@ const MIGRATIONS = [
   // A web session opened with an API key ends when that key is revoked.
   `ALTER TABLE sessions ADD COLUMN api_key_id TEXT REFERENCES api_keys(id);
    CREATE INDEX sessions_api_key ON sessions (api_key_id);`,
+  // Billing (src/v3/billing.mjs): each org's plan and Stripe subscription, the Stripe events already
+  // applied (webhooks can arrive twice), and one meter event per extra active deployment per month.
+  `CREATE TABLE billing_accounts (
+     org_id TEXT PRIMARY KEY REFERENCES orgs(id),
+     plan TEXT NOT NULL CHECK (plan IN ('free', 'team', 'enterprise')),
+     status TEXT NOT NULL DEFAULT 'none',
+     stripe_customer_id TEXT UNIQUE,
+     stripe_subscription_id TEXT UNIQUE,
+     current_period_end TEXT,
+     cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+     payment_failed_at TEXT,
+     stripe_event_created INTEGER NOT NULL DEFAULT 0,
+     updated_at TEXT NOT NULL
+   );
+   CREATE TABLE stripe_events (
+     id TEXT PRIMARY KEY,
+     type TEXT NOT NULL,
+     created INTEGER NOT NULL,
+     received_at TEXT NOT NULL,
+     note TEXT NOT NULL DEFAULT ''
+   );
+   CREATE TABLE billing_usage_reports (
+     org_id TEXT NOT NULL REFERENCES orgs(id),
+     month TEXT NOT NULL,
+     deployment TEXT NOT NULL,
+     identifier TEXT NOT NULL UNIQUE,
+     created_at TEXT NOT NULL,
+     reported_at TEXT,
+     error TEXT,
+     PRIMARY KEY (org_id, month, deployment)
+   );`,
 ];
 
 export function openDb(dataDir) {

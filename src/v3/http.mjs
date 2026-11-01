@@ -14,7 +14,7 @@ export const ERROR_STATUS = {
 
 // Thrown anywhere in a handler; becomes { error: { type, message, code?, param? } } with the matching status.
 export class ApiError extends Error {
-  constructor(type, message, { status, code, param, headers } = {}) {
+  constructor(type, message, { status, code, param, headers, extra } = {}) {
     super(message);
     if (!(type in ERROR_STATUS)) throw new Error(`unknown error type ${type}`);
     this.type = type;
@@ -22,12 +22,14 @@ export class ApiError extends Error {
     this.code = code;
     this.param = param;
     this.headers = headers;
+    this.extra = extra; // more fields for the error object, e.g. { upgrade_url }
   }
 
   toJSON() {
     const error = { type: this.type, message: this.message };
     if (this.code) error.code = this.code;
     if (this.param) error.param = this.param;
+    if (this.extra) Object.assign(error, this.extra);
     return { error };
   }
 }
