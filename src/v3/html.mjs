@@ -198,7 +198,29 @@ details.history .note{font-style:italic}
 .onboard li::before{content:counter(s);flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:600;background:var(--surface);border:1px solid var(--line-strong);color:var(--text-2)}
 .onboard li p{margin:0}.onboard .acts{display:flex;gap:10px;flex-wrap:wrap}
 @media (max-width:760px){.onboard{grid-template-columns:1fr}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.btn.ghost{border-color:transparent;background:none;justify-content:flex-start;width:100%}.btn.ghost:hover{background:var(--hover)}
+details.menu{position:relative}.content>.page-head{position:relative;z-index:5}details.menu>summary{list-style:none}details.menu>summary::-webkit-details-marker{display:none}
+details.menu[open]>summary{background:var(--hover)}
+.menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:280px;padding:6px;display:grid;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 32px rgb(16 16 24/.14),0 2px 6px rgb(16 16 24/.06)}
+.menu-pop form{margin:0}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
+.agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px}.row-inline select{flex:1;min-width:0}
+.meter.indet i{width:28%}
+@media (prefers-reduced-motion:no-preference){
+  .content>*{animation:rise .34s cubic-bezier(.2,.75,.25,1) both}
+  .content>*:nth-child(2){animation-delay:.03s}.content>*:nth-child(3){animation-delay:.06s}.content>*:nth-child(4){animation-delay:.09s}.content>*:nth-child(n+5){animation-delay:.12s}
+  .live .content>*{animation:none}
+  .notice{animation:rise .3s cubic-bezier(.2,.75,.25,1) both}
+  .btn{transition:background .15s,border-color .15s,transform .08s}.btn:active{transform:scale(.97)}
+  .rows a.row,tbody tr,.tabs a,.rail a{transition:background .12s,color .12s}
+  .menu-pop{animation:pop .14s ease-out both;transform-origin:top right}
+  .meter.indet i{animation:indet 1.3s cubic-bezier(.4,0,.2,1) infinite}
+  .step.current .dot,.step.review .dot{animation:pulse 2s ease-in-out infinite}
+}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}}
+@keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
+@keyframes indet{from{transform:translateX(-110%)}to{transform:translateX(380%)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 `;
 
 const pct = x => `${Math.round(x * 1000) / 10}%`;
@@ -263,7 +285,7 @@ export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0 
     ? `<span class="here">${esc(label)}</span>`
     : `<a href="${esc(href)}">${esc(label)}</a><span class="sep">/</span>`)).join('');
   return doc(title, `<div class="app">${rail({ user, csrf, nav })}
-<div><header class="topbar">${trail}</header><main class="content">${body}</main></div></div>`, '', refresh);
+<div><header class="topbar">${trail}</header><main class="content">${body}</main></div></div>`, refresh ? 'live' : '', refresh);
 }
 
 const notice = (text, kind = '') => (text ? `<div class="notice ${kind}" role="${kind ? 'status' : 'alert'}">${icon(kind === 'good' ? 'check' : 'alert')}<span>${esc(text)}</span></div>` : '');
@@ -403,19 +425,26 @@ ${section('Acceptance')}
 function deploymentHeader({ org, name, config, ov, tab, can, csrf }) {
   const base = depPath(org, name);
   const tabs = [['overview', 'Overview', base], ['scan', 'Risk scan', `${base}/scan`, ov.scans.length ? ov.scans[0].summary.broken : 0, true], ['runs', 'Runs', `${base}/runs`, ov.runs.length], ['drafts', 'Review', `${base}/drafts`, ov.pending.length, true], ['inputs', 'Customer material', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
-  const agentForm = can.write ? `<form method="post" action="${esc(base)}/agent" class="actions" style="margin:0">
-<input type="hidden" name="csrf" value="${esc(csrf)}"><label class="sr" for="task">Agent task</label>
-<select id="task" name="task" style="width:auto">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
-<button class="btn" data-busy="Agent is drafting…">${icon('spark')}Ask agent to draft</button></form>` : '';
-  const runForm = can.run ? `<form method="post" action="${esc(base)}/run" class="actions" style="margin:0"><input type="hidden" name="csrf" value="${esc(csrf)}">
-<label class="check"><input type="checkbox" name="judge" value="1" checked>Grade with judge</label>
-<button class="btn primary" data-busy="Running tests…">${icon('play')}Run tests</button></form>` : '';
+  const runForm = (cls, label) => `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
+<button class="btn ${cls}" data-busy="Running tests…">${icon('play')}${label}</button></form>`;
+  // One primary action: the next thing this rollout needs. Everything else lives in the More menu.
+  const next = ov.next.action;
+  const primary = next === 'review' && can.review ? `<a class="btn primary" href="${esc(base)}/drafts">${icon('inbox')}Review drafts</a>`
+    : next === 'inputs' && can.write ? `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add customer material</a>`
+      : next === 'scan' && tab !== 'scan' ? `<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Run risk scan</a>`
+        : can.run ? runForm('primary', 'Run tests') : '';
+  const more = can.write || can.run ? `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
+${can.run && !primary.includes('/run"') ? runForm('ghost', 'Run tests, graded by the judge') : ''}
+${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<label for="task" class="subtle">Ask the agent to draft</label><div class="row-inline"><select id="task" name="task">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
+<button class="btn" data-busy="Drafting…">${icon('spark')}Draft</button></div></form>` : ''}</div></details>` : '';
+  const via = { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? '';
   return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${ov.latest ? verdictBadge(ov.latest.summary.verdict) : '<span class="badge plain">Not run</span>'}</div>
-<p class="sub">${esc([config.customer, config.target?.type === 'http' ? 'HTTP endpoint' : config.target?.type === 'command' ? 'Command' : '', `needs ${pct(config.acceptance?.minPassRate ?? 0.9)} to pass`].filter(Boolean).join(' · '))}</p></div>
-<div class="actions">${agentForm}${runForm}</div></div>
-<section class="panel" aria-label="Rollout progress"><ol class="track" style="list-style:none;margin:0">
+<p class="sub">${esc([config.customer, via, `needs ${pct(config.acceptance?.minPassRate ?? 0.9)} to pass`].filter(Boolean).join(' · '))}</p></div>
+<div class="actions">${more}${primary}</div></div>
+${tab === 'overview' ? `<section class="panel" aria-label="Rollout progress"><ol class="track" style="list-style:none;margin:0">
 ${ov.steps.map(s => `<li class="step ${esc(s.state)}"><span class="dot">${s.state === 'done' ? icon('check', { size: 12 }) : ''}</span><p class="label">${esc(s.label)}</p><p class="detail">${esc(s.detail)}</p></li>`).join('')}
-</ol></section>
+</ol></section>` : ''}
 <nav class="tabs" aria-label="Deployment">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 
@@ -440,6 +469,14 @@ function historyChart(runs, goal) {
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Pass rate of the last ${shown.length} runs against the ${pct(goal)} goal">
 <line class="goal" x1="${pad}" x2="${W}" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}"/><text x="0" y="${(y(goal) + 4).toFixed(1)}">${Math.round(goal * 100)}%</text>${bars}</svg>`;
 }
+
+// Audit actions in plain words for the activity feed.
+const ACTIVITY = {
+  'deployment.register': 'created the deployment', 'input.upload': 'added customer material', 'scan.create': 'ran a risk scan',
+  'draft.create': 'drafted a proposal', 'draft.approve': 'approved a draft', 'draft.reject': 'rejected a draft', 'draft.edit': 'edited a draft',
+  'draft.apply': 'applied a draft', 'draft.approved': 'approved a draft', 'draft.rejected': 'rejected a draft', 'draft.edited': 'edited a draft', 'run.create': 'ran the tests', 'run.complete': 'finished a test run', 'agent.failed': 'could not finish a draft',
+  'library.harvest': 'added cases to the library', 'monitor.run': 're-ran the tests', 'alert.send': 'sent an alert',
+};
 
 export function deploymentOverviewPage(args) {
   const { org, name, ov, now, config, can } = args;
@@ -467,7 +504,7 @@ ${failing.length ? `<div class="panel-head" style="border-top:1px solid var(--li
   const feed = ov.activity.length ? `<ul class="feed">${ov.activity.map(e => {
     const agent = e.actor === 'agent';
     const who = agent ? 'Agent' : e.actor === 'system' ? 'System' : e.actor.replace(/^human:/, '').split('@')[0];
-    return `<li><span class="who-chip${agent ? ' agent' : ''}">${esc(who)}</span><span class="muted">${esc(e.action.replace(/[._]/g, ' '))}</span><span class="t">${esc(ago(e.ts, now))}</span></li>`;
+    return `<li><span class="who-chip${agent ? ' agent' : ''}">${esc(who)}</span><span class="muted">${esc(ACTIVITY[e.action] ?? e.action.replace(/[._]/g, ' '))}</span><span class="t">${esc(ago(e.ts, now))}</span></li>`;
   }).join('')}</ul>` : '<p class="panel-body subtle">Nothing yet.</p>';
 
   return deploymentShell({ ...args, tab: 'overview' }, `<div class="grid-2"><div>${result}</div>
@@ -563,7 +600,7 @@ export function riskScanPage(args) {
       : 'Reading the policies and writing the messages most likely to break each rule';
     const secs = Math.max(0, Math.round(((now?.getTime?.() ?? Date.now()) - args.job.startedAt) / 1000));
     return deploymentShell({ ...args, tab: 'scan', title: 'Risk scan', refresh: 2 }, `<section class="panel scan-live" aria-live="polite">
-<p class="big">Scanning… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${pctDone}%"></i></div>
+<p class="big">Scanning… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter${p.phase === 'probes' ? '' : ' indet'}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${pctDone}%"></i></div>
 <p class="muted num">${esc(what)}</p><p class="subtle" style="margin-top:6px">You can leave this page; the scan keeps running and the results appear here.</p></section>`);
   }
   const runForm = can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
