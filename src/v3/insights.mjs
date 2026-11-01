@@ -79,10 +79,10 @@ export function currentStep(steps) {
 export function nextAction(steps, { pending, runs, inputs, scans = 1 }) {
   if (pending) return { text: `${pending} draft${pending > 1 ? 's' : ''} from the agent ${pending > 1 ? 'are' : 'is'} waiting for your decision.`, action: 'review' };
   const step = currentStep(steps);
-  if (inputs && !scans) return { text: 'Run a risk scan: the agent reads the customer’s policies, writes the messages most likely to make the AI break them, and checks every answer.', action: 'scan' };
-  if (step.key === 'mapping' && !inputs) return { text: "Upload the customer's policies, API docs and a ticket export so the agent can start.", action: 'inputs' };
+  if (inputs && !scans) return { text: 'Run the check: Delomu reads your policies, writes the messages most likely to make your AI break them, and checks every answer.', action: 'scan' };
+  if (step.key === 'mapping' && !inputs) return { text: 'Add your policies, and a ticket export if you have one, so Delomu can start.', action: 'inputs' };
   if (['mapping', 'integration', 'cases'].includes(step.key) && step.state === 'todo') return { text: `Ask the agent to draft the ${step.label.toLowerCase()}.`, action: 'agent', task: step.key };
-  if (step.key === 'fixes' && !runs) return { text: 'Run the test set against the customer’s AI.', action: 'run' };
+  if (step.key === 'fixes' && !runs) return { text: 'Run the saved test set against your AI.', action: 'run' };
   if (step.key === 'fixes') return { text: 'Tests are below the agreed pass rate. Ask the agent to group the failures into fixes, then run again.', action: 'agent', task: 'fixes' };
   if (step.key === 'launch-report') return { text: 'Tests pass. Ask the agent to draft the launch report for sign-off.', action: 'agent', task: 'launch-report' };
   if (step.key === 'monitoring' && step.state === 'todo') return { text: 'Launched. Turn on monitoring (delomu watch) so any change re-runs the tests.', action: null };

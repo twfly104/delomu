@@ -1,6 +1,7 @@
 // Server-rendered pages for the web app. Every interpolated value goes through esc(); forms that change
 // state carry the session's CSRF token. Pages work without JavaScript; one small script (hashed into the
-// CSP by web.mjs) only marks a pressed button as busy during long actions such as test runs.
+// CSP by web.mjs) marks a pressed button busy during long actions, names chosen files, and reloads pages
+// that show live progress unless a menu is open or a field has focus (meta refresh is the no-script fallback).
 
 import crypto from 'node:crypto';
 import { esc } from '../report.mjs';
@@ -10,7 +11,7 @@ import { draftCard, reviewedRow } from './drafts-view.mjs';
 import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
 
-export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});";
+export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh;if(r)setInterval(function(){var a=document.activeElement;if(document.querySelector('details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;location.reload();},r*1000);";
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
 const STYLE = `@font-face{font-family:"Geist";src:url(/fonts/Geist-Variable.woff2) format("woff2");font-weight:100 900;font-display:swap}
@@ -25,7 +26,7 @@ ${TOKENS}
 .brand:hover{text-decoration:none}
 .nav{display:flex;flex-direction:column;gap:1px}
 .nav-title{padding:0 10px 6px;font-size:12px;font-weight:500;color:var(--text-3)}
-.nav a{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:var(--r-sm);color:var(--text-2);font-weight:450}
+.nav a{display:flex;align-items:center;gap:10px;min-height:32px;padding:6px 10px;line-height:1.35;border-radius:var(--r-sm);color:var(--text-2);font-weight:450}
 .nav a:hover{background:var(--hover);color:var(--text);text-decoration:none}
 .nav a[aria-current=page]{background:var(--hover);color:var(--text);font-weight:500}
 .nav .count{margin-left:auto;min-width:20px;height:18px;padding:0 6px;border-radius:9px;background:var(--line);color:var(--text-2);font-size:11px;font-weight:600;display:grid;place-items:center}
@@ -43,7 +44,7 @@ ${TOKENS}
 .page-head .actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
 .panel+.panel,.stack>*+*{margin-top:16px}
-.panel-head{display:flex;align-items:center;gap:10px;min-height:48px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.panel-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-height:48px;padding:10px 16px;border-bottom:1px solid var(--line)}
 .panel-head .aside{margin-left:auto;font-size:13px}
 .panel-body{padding:16px}
 .panel table th:first-child,.panel table td:first-child{padding-left:16px}.panel table th:last-child,.panel table td:last-child{padding-right:16px}
@@ -56,14 +57,14 @@ ${TOKENS}
 .field{display:block;margin-bottom:16px}.field>span{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
 .hint{margin-top:6px;font-size:12.5px;color:var(--text-3)}
 .form-section{margin:24px 0 12px;padding-top:16px;border-top:1px solid var(--line)}.form-section .hint{display:block;margin-top:2px;font-weight:400}
-input[type=text],input[type=password],input[type=url],input[type=number],select,textarea{width:100%;height:34px;padding:0 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font:14px var(--font);transition:border-color .15s,box-shadow .15s}
+input[type=text],input[type=email],input[type=tel],input[type=password],input[type=url],input[type=number],select,textarea{width:100%;height:34px;padding:0 10px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font:14px var(--font);transition:border-color .15s,box-shadow .15s}
 select{padding-right:28px}
 input:hover,select:hover,textarea:hover{border-color:var(--text-3)}
 input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
 input::placeholder,textarea::placeholder{color:var(--text-3)}
 textarea{height:auto;min-height:180px;padding:10px;font:12.5px/1.55 var(--mono);resize:vertical}
 input[type=file]{font:13px var(--font);color:var(--text-2)}
-.picker{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}.picker input{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0}.picker:focus-within .btn{box-shadow:var(--focus)}.picker .names{font-size:13px;color:var(--text-3);min-width:0;overflow-wrap:anywhere}
+.picker{position:relative;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}.picker input{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0}.picker:focus-within .btn{box-shadow:var(--focus)}.picker .names{font-size:13px;color:var(--text-3);min-width:0;overflow-wrap:anywhere}
 input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 12px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 13px var(--font);cursor:pointer}
 .choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}.choice label{flex:1;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);cursor:pointer}
 .choice label:has(input:checked){border-color:var(--accent);background:var(--accent-weak)}
@@ -159,7 +160,7 @@ details.history .note{font-style:italic}
 .auth-card .lede{text-align:center;color:var(--text-2);margin:6px 0 24px}
 .or{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text-3);font-size:12px}
 .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
-.errorpage{max-width:520px;margin:12vh auto 0;text-align:center}
+.errorpage{max-width:520px;margin:12vh auto 0;text-align:center}.errorpage>.i{margin:0 auto}
 .errorpage h1{margin:12px 0 8px}
 .scan-head{display:flex;align-items:flex-start;gap:16px;padding:20px;flex-wrap:wrap}
 .scan-head .big{font-size:22px;font-weight:600;letter-spacing:-0.02em}
@@ -175,7 +176,7 @@ details.history .note{font-style:italic}
 .probe{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
 .probe:last-child{border-bottom:0}
 .probe .cap{font-size:12px;color:var(--text-3);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-.bubble{padding:9px 12px;border-radius:10px;background:var(--sunken);line-height:1.5}
+.bubble{padding:9px 12px;border-radius:10px;background:var(--sunken);line-height:1.5;overflow-wrap:anywhere;white-space:pre-line}
 .bubble.ai{background:var(--surface);border:1px solid var(--line)}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line)}
 .stats>div{padding:16px;border-right:1px solid var(--line)}.stats>div:last-child{border-right:0}
@@ -196,8 +197,8 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 .verdict-line{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;font-size:13px}
 .verdict-line .fix{color:var(--text-2)}
 .tactic{font-size:12px;color:var(--text-3);font-style:italic}.tactic::before{content:"· ";font-style:normal}
-@media (max-width:760px){.probe{grid-template-columns:1fr}}
-@media (max-width:1000px){.grid-2{grid-template-columns:1fr}}
+@media (max-width:760px){.probe{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:1000px){.grid-2{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:860px){
   .app{grid-template-columns:minmax(0,1fr);background:none}
   .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;background:var(--rail);border-bottom:1px solid var(--line)}
@@ -253,6 +254,10 @@ details.kept summary{list-style:none;cursor:pointer;padding:10px 16px;font-size:
 details.kept summary:hover{background:var(--hover)}details.kept[open] summary{border-bottom:1px solid var(--line)}
 .agent-name{display:flex;gap:10px;align-items:center}.agent-name .av{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--sunken);border:1px solid var(--line);color:var(--text-2)}
 @media (max-width:760px){.page-head .actions{margin-left:0}.rule-head{flex-direction:column}.rule-head .tags{flex-direction:row;align-items:center}.stages{grid-template-columns:1fr}.stages li+li{border-left:0;border-top:1px solid var(--line)}.verdict{font-size:24px}}
+.clause,.harm,.verdict-line,.convo .why p,.rule-title h3{overflow-wrap:anywhere}
+.verdict.warn b{color:var(--warn);font-weight:600}
+.draft-body .kv td{overflow-wrap:anywhere}
+@media (max-width:760px){.draft-body .kv th{width:110px;white-space:normal}.rulelist li{flex-wrap:wrap}.rulelist .c{white-space:normal;margin-left:26px;width:100%}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
@@ -310,8 +315,8 @@ ${orgLinks}
 function doc(title, body, bodyClass = '', refresh = 0) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">${refresh ? `<meta http-equiv="refresh" content="${refresh}">` : ''}<link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>${esc(title)} · Delomu</title><style>${STYLE}</style></head>
-<body${bodyClass ? ` class="${bodyClass}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script></body></html>
+<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>${esc(title)} · Delomu</title><style>${STYLE}</style></head>
+<body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script></body></html>
 `;
 }
 
@@ -337,7 +342,7 @@ export function signupPage({ csrf, error, values = {} }) {
 <a class="brand" href="/login" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
 <h1>Test your support AI</h1><p class="lede">Find the policy rules your AI agent breaks, before your customers do. Free plan, no card.</p>
 ${notice(error)}
-<form method="post" action="/signup"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<form method="post" action="/signup" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(values.email ?? '')}" placeholder="you@company.com"></label>
 <label class="field"><span>Company</span><input type="text" name="company" required maxlength="60" autocomplete="organization" value="${esc(values.company ?? '')}" placeholder="Acme"></label>
 <button class="btn primary block" data-busy="Creating…">Create free account</button></form>
@@ -365,11 +370,11 @@ export function loginPage({ csrf, error, signup = false }) {
 <a class="brand" href="/login" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
 <h1>Sign in</h1><p class="lede">Continue with your company account.</p>
 ${notice(error)}
-<form method="get" action="/sso/start">
+<form method="get" action="/sso/start" novalidate>
 <label class="field"><span>Organization</span><input type="text" id="org" name="org" required maxlength="60" autocomplete="organization" placeholder="your-company"></label>
 <button class="btn primary block">Continue with single sign-on</button></form>
 <div class="or">or use an API key</div>
-<form method="post" action="/login"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<form method="post" action="/login" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>API key</span><input type="password" id="api_key" name="api_key" required autocomplete="off" placeholder="dk_…"></label>
 <button class="btn block">Sign in with API key</button></form>
 ${signup ? '<p class="subtle" style="margin-top:16px;text-align:center">New to Delomu? <a href="/signup">Create a free account</a></p>' : ''}
@@ -387,9 +392,9 @@ export function errorPage({ status, message, user, csrf, nav }) {
 function checkBadge(scan) {
   if (!scan) return '<span class="subtle">Not checked</span>';
   const s = scan.summary;
-  return s.broken
-    ? `<span class="badge bad num">${s.broken} of ${s.rules} rules broken</span>`
-    : `<span class="badge good num">All ${s.rules} rules kept</span>`;
+  if (s.broken) return `<span class="badge bad num">${s.broken} of ${s.rules} rules broken</span>`;
+  if (s.unjudged) return `<span class="badge warn num">${s.unjudged} answer${s.unjudged === 1 ? '' : 's'} to review</span>`;
+  return `<span class="badge good num">All ${s.rules} rules kept</span>`;
 }
 
 function liveCell(live) {
@@ -471,7 +476,7 @@ export function newDeploymentPage({ user, csrf, nav, org, error, values = {} }) 
   return layout({ title: 'Add an AI agent', user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [['AI agents', orgPath(org)], ['Add']], body: `
 <div class="page-head"><div><h1>Add an AI agent</h1><p class="sub">Connect the support AI you want to check. You add your policies next.</p></div></div>
 ${notice(error)}
-<form method="post" action="${esc(orgPath(org))}/new-deployment" class="panel" style="max-width:720px"><div class="panel-body">
+<form method="post" action="${esc(orgPath(org))}/new-deployment" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
 <label class="field"><span>Brand or team <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Support"></label>
@@ -498,18 +503,22 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 }
 
 // The three stages a support team moves through, each linking to its tab: policies in, a pre-launch check, live monitoring.
-function stages({ base, ov }) {
+function stages({ base, ov, checking }) {
   const scan = ov.scans[0];
+  const s = scan?.summary;
   const w = ov.live?.week;
+  const n = x => x.toLocaleString('en-US');
+  const docs = ov.inputs.filter(f => !f.name.toLowerCase().endsWith('.csv')).length;
+  const exports = ov.inputs.length - docs;
   const items = [
-    { href: `${base}/inputs`, label: 'Policies', state: ov.inputs.length ? 'done' : 'todo',
-      det: ov.inputs.length ? `${ov.inputs.length} document${ov.inputs.length === 1 ? '' : 's'}` : 'Add the rules your AI must follow' },
+    { href: `${base}/inputs`, label: 'Policies', state: docs ? 'done' : 'todo',
+      det: docs ? [`${docs} document${docs === 1 ? '' : 's'}`, exports && `${exports} ticket export${exports === 1 ? '' : 's'}`].filter(Boolean).join(' · ') : 'Add the rules your AI must follow' },
     { href: `${base}/scan`, label: 'Pre-launch check',
-      state: !scan ? 'todo' : scan.summary.broken ? 'bad' : 'done',
-      det: !scan ? 'Not run yet' : scan.summary.broken ? `${scan.summary.broken} of ${scan.summary.rules} rules broken` : `All ${scan.summary.rules} rules kept` },
+      state: checking ? 'todo' : !scan ? 'todo' : s.broken ? 'bad' : s.unjudged ? 'bad' : 'done',
+      det: checking ? 'Checking now…' : !scan ? 'Not run yet' : s.broken ? `${s.broken} of ${s.rules} rules broken` : s.unjudged ? `${s.unjudged} answer${s.unjudged === 1 ? '' : 's'} to review` : `All ${s.rules} rules kept` },
     { href: `${base}/live`, label: 'Live monitoring',
       state: !w?.checked ? 'todo' : w.flagged ? 'bad' : 'done',
-      det: !w?.checked ? 'Not connected' : w.flagged ? `${w.flagged} of ${w.checked} chats broke a rule` : `${w.checked} chats checked, all kept` },
+      det: !w?.checked ? 'Not connected' : w.flagged ? `${n(w.flagged)} of ${n(w.checked)} chats broke a rule` : `${n(w.checked)} chats checked, all kept` },
   ];
   return `<ol class="stages" aria-label="Progress">${items.map((s, i) => `<li class="${s.state}"><a href="${esc(s.href)}">
 <span class="st" aria-hidden="true">${s.state === 'done' ? icon('check', { size: 12 }) : s.state === 'bad' ? '!' : i + 1}</span>
@@ -517,13 +526,14 @@ function stages({ base, ov }) {
 }
 
 // The shared header of every agent page: name and status, one primary action, the stages and four tabs.
-function deploymentHeader({ org, name, config, ov, tab, can, csrf }) {
+function deploymentHeader({ org, name, config, ov, tab, can, csrf, checking }) {
   const base = depPath(org, name);
   const scan = ov.scans[0];
   const tabs = [['scan', 'Check results', `${base}/scan`, scan ? scan.summary.broken : 0, true], ['live', 'Live', `${base}/live`, ov.live?.week.flagged ?? 0, true], ['inputs', 'Policies', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
   const primary = !ov.inputs.length
     ? (can.write ? `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add policies</a>` : '')
-    : can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
+    : checking ? `<button class="btn primary" disabled aria-busy="true">${icon('shield')}Checking…</button>`
+      : can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn primary" data-busy="Starting…">${icon('shield')}${scan ? 'Run check again' : 'Run check'}</button></form>` : '';
   const item = (href, label, ic, n) => `<a class="btn ghost" href="${esc(href)}">${icon(ic)}${esc(label)}${n ? ` <span class="subtle num" style="margin-left:auto">${n}</span>` : ''}</a>`;
   const more = `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
@@ -534,10 +544,10 @@ ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick
 <label for="task" class="subtle">Ask the agent to draft</label><div class="row-inline"><select id="task" name="task">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
 <button class="btn" data-busy="Drafting…">${icon('spark')}Draft</button></div></form>` : ''}</div></details>`;
   const via = { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? 'Not connected';
-  return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
+  return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${checking ? '<span class="badge accent">Checking…</span>' : checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
 <p class="sub">${esc([config.customer, via].filter(Boolean).join(' · '))}</p></div>
 <div class="actions">${more}${primary}</div></div>
-${stages({ base, ov })}
+${stages({ base, ov, checking })}
 <nav class="tabs" aria-label="AI agent">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 
@@ -565,7 +575,7 @@ function historyChart(runs, goal) {
 
 // Audit actions in plain words for the activity feed.
 const ACTIVITY = {
-  'deployment.register': 'created the deployment', 'input.upload': 'added customer material', 'scan.create': 'ran a risk scan',
+  'deployment.register': 'created the deployment', 'input.upload': 'added policies', 'scan.create': 'ran a check',
   'draft.create': 'drafted a proposal', 'draft.approve': 'approved a draft', 'draft.reject': 'rejected a draft', 'draft.edit': 'edited a draft',
   'draft.apply': 'applied a draft', 'draft.approved': 'approved a draft', 'draft.rejected': 'rejected a draft', 'draft.edited': 'edited a draft', 'run.create': 'ran the tests', 'run.complete': 'finished a test run', 'agent.failed': 'could not finish a draft',
   'library.harvest': 'added cases to the library', 'monitor.run': 're-ran the tests', 'alert.send': 'sent an alert', 'live.flag': 'flagged a live conversation',
@@ -587,12 +597,12 @@ ${failing.length ? `<div class="panel-head" style="border-top:1px solid var(--li
     const why = c.error ? `No answer: ${c.error}` : (c.checks.find(k => k.status !== 'pass')?.reason ?? '');
     return `<li><code>${esc(c.id)}</code><span class="muted">${esc(why)}</span></li>`;
   }).join('')}</ul>${failing.length > 8 ? `<p class="panel-body subtle">${failing.length - 8} more in the report.</p>` : ''}` : ''}</section>`
-    : `<section class="panel"><div class="emptystate"><span class="strong">No test runs yet</span>${can.run ? 'Run the test set to see how the customer’s AI does.' : 'An engineer runs the tests.'}</div></section>`;
+    : `<section class="panel"><div class="emptystate"><span class="strong">No test runs yet</span>${can.run ? 'Run the saved test set from the More menu to see how your AI does.' : 'An engineer runs the tests.'}</div></section>`;
 
   const nextBtn = {
     review: `<a class="btn primary" href="${esc(base)}/drafts">${icon('inbox')}Review drafts</a>`,
-    inputs: `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add customer material</a>`,
-    scan: `<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Open risk scan</a>`,
+    inputs: `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add policies</a>`,
+    scan: `<a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Open check results</a>`,
   }[ov.next.action] ?? '';
   const feed = ov.activity.length ? `<ul class="feed">${ov.activity.map(e => {
     const agent = e.actor === 'agent';
@@ -614,7 +624,7 @@ ${runs.map(r => `<tr><td><span class="strong">Run ${r.number}</span><div class="
 <td>${verdictBadge(r.summary.verdict)}</td><td class="num">${r.summary.pass}/${r.summary.total} <span class="subtle">(${esc(pct(r.summary.passRate))})</span></td>
 <td class="num hide-sm">${r.summary.fail + r.summary.error}</td><td class="hide-sm muted">${esc(r.judge === 'off' ? 'Rules only' : r.judge)}</td>
 <td style="text-align:right"><a href="${esc(base)}/runs/${esc(encodeURIComponent(r.runId))}/report.html">Report</a></td></tr>`).join('\n')}
-</tbody></table></div></section>` : `<section class="panel"><div class="emptystate"><span class="strong">No runs yet</span>Use Run tests above.</div></section>`;
+</tbody></table></div></section>` : `<section class="panel"><div class="emptystate"><span class="strong">No runs yet</span>Run the saved test set from the More menu.</div></section>`;
   return deploymentShell({ ...args, tab: 'runs', title: 'Runs' }, body);
 }
 
@@ -626,7 +636,7 @@ export function draftsPage(args) {
   const done = ov.drafts.filter(d => d.status !== 'pending').sort((a, b) => String(b.reviewedAt).localeCompare(String(a.reviewedAt)));
   const body = `<p class="muted" style="margin-bottom:16px">The agent proposes; a person approves, edits or rejects. Nothing changes until a draft is approved, and every decision goes into the audit log.</p>
 ${pending.length ? `<div class="stack">${pending.map(d => draftCard(d, { action: `${base}/drafts/${encodeURIComponent(d.id)}/review`, csrf, canReview: can.review, when })).join('')}</div>`
-    : `<section class="panel"><div class="emptystate"><span class="strong">Nothing waiting for review</span>${can.write ? 'Use Ask agent to draft above to start the next step.' : 'New drafts from the agent appear here.'}</div></section>`}
+    : `<section class="panel"><div class="emptystate"><span class="strong">Nothing waiting for review</span>${can.write ? 'Ask the agent to draft one from the More menu.' : 'New drafts from the agent appear here.'}</div></section>`}
 ${done.length ? `<h2 style="margin:32px 0 12px">Decided</h2><section class="panel">${done.map(d => reviewedRow(d, { when })).join('')}</section>` : ''}`;
   return deploymentShell({ ...args, tab: 'drafts', title: 'Review' }, body);
 }
@@ -637,11 +647,11 @@ export function inputsPage(args) {
   const { org, name, ov, csrf, can, now } = args;
   const base = depPath(org, name);
   const files = ov.inputs.length ? `<table><thead><tr><th>File</th><th>Size</th><th class="hide-sm">Added</th></tr></thead><tbody>
-${ov.inputs.map(f => `<tr><td><span style="display:inline-flex;gap:8px;align-items:center">${icon('file')}${esc(f.name)}</span></td><td class="num muted">${esc(size(f.size))}</td><td class="hide-sm subtle">${esc(ago(f.modified, now))}</td></tr>`).join('')}
+${ov.inputs.map(f => `<tr><td><span style="display:inline-flex;gap:8px;align-items:center">${icon('file')}${esc(f.name)}</span></td><td class="num muted nowrap">${esc(size(f.size))}</td><td class="hide-sm subtle">${esc(ago(f.modified, now))}</td></tr>`).join('')}
 </tbody></table>` : `<div class="emptystate"><span class="strong">No policies yet</span>Add the documents your AI must follow: refund, cancellation and privacy policies, help-center articles. A ticket export named tickets.csv lets you send sample traffic.</div>`;
-  const upload = can.write ? `<form method="post" action="${esc(base)}/inputs" enctype="multipart/form-data" class="panel" style="margin-top:16px"><div class="panel-head"><h2>Add files</h2></div><div class="panel-body">
+  const upload = can.write ? `<form method="post" action="${esc(base)}/inputs" enctype="multipart/form-data" class="panel" style="margin-top:16px" novalidate><div class="panel-head"><h2>Add files</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
-<label class="field picker"><span class="sr">Files</span><input type="file" id="files" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"><span class="btn" aria-hidden="true">${icon('file')}Choose files</span><span class="names" data-files-for="files" aria-live="polite">No file chosen</span></label>
+<label class="picker"><span class="sr">Files</span><input type="file" id="files" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"><span class="btn" aria-hidden="true">${icon('file')}Choose files</span><span class="names" data-files-for="files" aria-live="polite">No file chosen</span></label>
 <p class="hint" style="margin:-8px 0 14px">Markdown, text, CSV, JSON, YAML or HTML, up to 1 MB each. A file with the same name is replaced.</p>
 <button class="btn primary" data-busy="Uploading…">${icon('upload')}Upload</button></div></form>` : '';
   return deploymentShell({ ...args, tab: 'inputs', title: 'Policies' }, `<section class="panel">${files}</section>${upload}`);
@@ -669,10 +679,10 @@ export function auditPage({ user, csrf, nav, now, org, events, audits }) {
   const actor = a => (a === 'agent' ? '<span class="who-chip agent">Agent</span>' : a === 'system' ? '<span class="who-chip">System</span>' : esc(a.replace(/^human:/, '')));
   return layout({ title: `Audit · ${org.name}`, user, csrf, nav: { ...nav, org, active: 'audit' }, crumbs: [[org.name, orgPath(org)], ['Audit log']], body: `
 <div class="page-head"><div><h1>Audit log</h1><p class="sub">Every sign-in, run and decision. Export as CSV from <code>GET /v1/orgs/${esc(org.id)}/audit_events.csv</code>.</p></div></div>
-<section class="panel"><div class="panel-head"><h2>Deployment records</h2><span class="aside subtle">Each record is hash-chained; an edit breaks the chain</span></div>
+<section class="panel"><div class="panel-head"><h2>AI agent records</h2><span class="aside subtle">Each record is hash-chained; an edit breaks the chain</span></div>
 ${audits.length ? `<table><thead><tr><th>Deployment</th><th>Entries</th><th>Integrity</th></tr></thead><tbody>
 ${audits.map(a => `<tr><td class="strong">${esc(a.name)}</td><td class="num">${a.entries.length}</td><td>${a.verify.ok ? '<span class="badge good">Intact</span>' : `<span class="badge bad">Broken at entry ${esc(a.verify.brokenAt)}</span> <span class="muted">${esc(a.verify.reason)}</span>`}</td></tr>`).join('\n')}
-</tbody></table>` : '<p class="panel-body subtle">No deployments.</p>'}</section>
+</tbody></table>` : '<p class="panel-body subtle">No AI agents.</p>'}</section>
 <section class="panel"><div class="panel-head"><h2>Organization events</h2><span class="aside subtle num">Latest ${events.length}</span></div>
 <div class="scroll"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Target</th><th class="hide-sm">IP</th></tr></thead><tbody>
 ${events.map(e => `<tr><td class="nowrap"><span title="${esc(fmtDate(e.ts))}">${esc(ago(e.ts, now))}</span></td><td>${actor(e.actor)}</td><td>${esc(e.action.replace(/[._]/g, ' '))}</td><td class="muted">${esc(e.target)}</td><td class="hide-sm subtle mono">${esc(e.ip)}</td></tr>`).join('\n')}
@@ -694,9 +704,10 @@ export function riskScanPage(args) {
     // reloads every 2 s, so the bar only ever moves forward.
     const probing = p.phase === 'probes' && p.total;
     const pctDone = probing ? Math.round(40 + 60 * p.done / p.total) : Math.round(40 * (1 - Math.exp(-secs / 25)));
+    const slow = !probing && secs > 45 ? ' · Taking longer than usual; still working' : '';
     const what = probing
       ? `Step 2 of 2 · Sending ${p.total} test messages for ${p.rules} rules to your AI and judging each answer · ${p.done} of ${p.total} done`
-      : 'Step 1 of 2 · Reading your policies and writing the customer messages most likely to break each rule';
+      : `Step 1 of 2 · Reading your policies and writing the customer messages most likely to break each rule${slow}`;
     return shell(`<section class="panel scan-live" aria-live="polite">
 <p class="big">Checking… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${Math.max(2, pctDone)}%"></i></div>
 <p class="muted num">${esc(what)}</p><p class="subtle" style="margin-top:6px">You can leave this page; the check keeps running and the results appear here.</p></section>`, 2);
@@ -709,36 +720,43 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
   }
   const s = scan.summary;
   const order = { high: 0, medium: 1, low: 2 };
+  // A rule is broken if any answer broke it; it needs a person when no answer broke it but some answer could
+  // not be judged (no reply from the AI, or no verdict); only then is it kept.
   const isBroken = r => r.probes.some(p => p.status === 'broken');
+  const isUnsure = r => !isBroken(r) && r.probes.some(p => p.status === 'unjudged' || p.status === 'error');
   const broken = scan.rules.filter(isBroken).sort((a, b) => order[a.severity] - order[b.severity]);
-  const kept = scan.rules.filter(r => !isBroken(r));
+  const unsure = scan.rules.filter(isUnsure);
+  const kept = scan.rules.filter(r => !isBroken(r) && !isUnsure(r));
   const exchange = p => `<div class="probe ${esc(p.status)}">
 <div><p class="cap">Customer wrote <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
 <div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div></div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
 <span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p></div>`;
   const ruleCard = rule => {
-    const bad = rule.probes.filter(p => p.status === 'broken');
-    const ok = rule.probes.filter(p => p.status !== 'broken');
+    const bad = rule.probes.filter(p => p.status !== 'kept');
+    const ok = rule.probes.filter(p => p.status === 'kept');
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
     return `<section class="panel"><div class="rule-head">
 <div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(rule.rule)}</h3></div>
 <p class="clause"><cite>${esc(rule.clause)}</cite>“${esc(rule.quote)}”</p>
 <p class="harm"><b>Risk with a real customer:</b> ${esc(rule.harm)}</p></div>
-<div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">Broken in ${bad.length} of ${rule.probes.length}</span></div></div>
+<div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">${bad.some(p => p.status === 'broken') ? `Broken in ${bad.filter(p => p.status === 'broken').length} of ${rule.probes.length}` : `${bad.length} of ${rule.probes.length} need review`}</span></div></div>
 ${bad.map(exchange).join('')}
 ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(exchange).join('')}</details>` : ''}</section>`;
   };
   const draft = scan.draftId && ov.drafts.find(d => d.id === scan.draftId);
   const verdict = s.broken
     ? `<p class="verdict bad num"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
-    : `<p class="verdict good num"><b>All ${s.rules}</b> policy rules kept</p>`;
+    : unsure.length
+      ? `<p class="verdict warn num"><b>${unsure.length}</b> <span class="of">of ${s.rules}</span> rules could not be checked</p>`
+      : `<p class="verdict good num"><b>All ${s.rules}</b> policy rules kept</p>`;
   return shell(`<section class="panel scan-head">
 <div>${verdict}
-<p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
+<p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
 <p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div></section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
+${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
 ${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li>${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(r.clause)} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);
 }
 
@@ -772,7 +790,7 @@ export function livePage(args) {
     : `<p class="panel-body subtle">${w.checked ? 'Every checked answer kept every rule.' : 'No conversations yet. Connect the help desk, or send sample traffic.'}</p>`;
   const stats = `<section class="panel"><div class="panel-head"><h2>Last 7 days</h2><span class="aside subtle num">${n(live.checkedThisMonth)} checked this month</span>${replay}</div>
 <div class="stats"><div><p class="v num">${n(w.checked)}</p><p class="k">Conversations checked</p></div>
-<div><p class="v num${w.flagged ? ' bad' : ''}">${n(w.flagged)}</p><p class="k">Broke a rule${w.checked ? ` · ${rate}%` : ''}</p></div>
+<div><p class="v num${w.flagged ? ' bad' : ''}">${n(w.flagged)}</p><p class="k">Broke a rule${w.checked ? ` · ${w.flagged && rate === 0 ? '<1' : rate}%` : ''}</p></div>
 <div><p class="v num${live.rules.length ? ' bad' : ''}">${live.rules.length} <span class="subtle" style="font-size:15px;font-weight:400">of ${scan.rules.length}</span></p><p class="k">Policy rules broken</p></div></div>
 ${bars}</section>`;
   const badge = c => (c.status === 'flagged' ? '<span class="badge bad">Broke a rule</span>' : c.status === 'ok' ? '<span class="badge good">Kept</span>' : '<span class="badge warn">Check</span>');
@@ -787,11 +805,11 @@ ${bars}</section>`;
 <p class="muted" style="margin-bottom:10px">Send each finished exchange from Intercom, Zendesk or your own code. Emails, phone numbers, card numbers and keys are removed before anything is stored or judged.</p>
 <pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p></div></section>`;
   const area = (field, label, h) => `<label class="field"><span>${label}</span><textarea name="${field}" required maxlength="4000" style="min-height:${h}px;font:14px/1.5 var(--font)">${esc(draft?.[field] ?? '')}</textarea></label>`;
-  const check = can.live ? `<section class="panel"><div class="panel-head"><h2>Check one conversation</h2></div><form method="post" action="${esc(base)}/live/check" class="panel-body stack" style="gap:10px">
+  const check = can.live ? `<section class="panel"><div class="panel-head"><h2>Check one conversation</h2></div><form method="post" action="${esc(base)}/live/check" class="panel-body stack" style="gap:10px" novalidate>
 <input type="hidden" name="csrf" value="${esc(csrf)}">${area('message', 'Customer message', 64)}${area('answer', 'The AI’s answer', 88)}
 <div><button class="btn" data-busy="Checking…">${icon('pulse')}Check against the rules</button></div></form></section>` : '';
   const alerts = can.write ? `<section class="panel"><div class="panel-head"><h2>Alerts</h2>${settings.webhook ? '<span class="badge good">On</span>' : '<span class="badge plain">Off</span>'}</div>
-<form method="post" action="${esc(base)}/live/settings" class="panel-body stack" style="gap:10px"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<form method="post" action="${esc(base)}/live/settings" class="panel-body stack" style="gap:10px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Slack or Teams webhook</span><input type="url" name="webhook" value="${esc(settings.webhook)}" placeholder="https://hooks.slack.com/services/…"><p class="hint">Posts when a high-risk rule breaks, at most once an hour per rule.</p></label>
 <div><button class="btn">Save</button></div></form></section>` : '';
   return shell(`<div class="grid-2"><div class="stack">${stats}${feed}</div>
@@ -799,7 +817,7 @@ ${bars}</section>`;
 }
 
 const usd = n => `$${Number(n).toLocaleString('en-US')}`;
-const limitText = n => (n === null ? 'Unlimited' : String(n));
+const limitText = n => (n === null ? 'Unlimited' : Number(n).toLocaleString('en-US'));
 
 // The org's plan, this month's usage against its limits, upgrade and manage actions, and the plans side
 // by side. billing: summary() from billing.mjs.
@@ -835,14 +853,14 @@ Every organization is on the Free plan. The operator turns on paid plans by sett
       else if (overage) badge = '<span class="badge good">All included used</span>';
       else badge = '<span class="badge bad">Limit reached</span>';
     }
-    return `<tr><th scope="row">${esc(label)}</th><td class="num"><span class="strong">${used}</span> <span class="subtle">of ${esc(limitText(limit))}</span></td><td>${badge}</td><td class="hide-sm muted">${esc(detail)}</td></tr>`;
+    return `<tr><th scope="row">${esc(label)}</th><td class="num"><span class="strong">${Number(used).toLocaleString('en-US')}</span> <span class="subtle">of ${esc(limitText(limit))}</span></td><td>${badge}</td><td class="hide-sm muted">${esc(detail)}</td></tr>`;
   };
   const extraNote = b.extra ? ` · ${b.extra} extra × ${usd(plan.extraActiveDeploymentUsd)} = ${usd(b.extraUsd)} on the next invoice` : '';
   const usage = `<section class="panel"><div class="panel-head"><h2>This month</h2><span class="aside subtle num">${esc(b.month)} (UTC)</span></div>
 <div class="scroll"><table><thead><tr><th>Usage</th><th>Used</th><th>Status</th><th class="hide-sm">Detail</th></tr></thead><tbody>
-${usageRow('Active deployments', b.active.length, plan.includedActiveDeployments, plan.extraActiveDeploymentUsd !== null,
-    b.active.length ? `${b.active.join(', ')}${extraNote}` : 'A deployment is active once it has a test run this month.')}
-${usageRow('Risk scans', b.scans, plan.scansPerMonth, false, 'Completed scans this month, across all deployments.')}
+${usageRow('Active AI agents', b.active.length, plan.includedActiveDeployments, plan.extraActiveDeploymentUsd !== null,
+    b.active.length ? `${b.active.join(', ')}${extraNote}` : 'An AI agent is active once it has a test run this month.')}
+${usageRow('Checks', b.scans, plan.scansPerMonth, false, 'Completed pre-launch checks this month, across all AI agents.')}
 ${usageRow('Live conversations', b.conversations ?? 0, plan.conversationsPerMonth ?? null, false, 'Real conversations checked by live monitoring this month.')}
 </tbody></table></div></section>`;
 
@@ -850,9 +868,9 @@ ${usageRow('Live conversations', b.conversations ?? 0, plan.conversationsPerMont
   const price = p => (p.monthlyUsd === null ? 'Contact sales' : p.monthlyUsd === 0 ? '$0' : `${usd(p.monthlyUsd)} / month`);
   const rows = [
     ['Price', price],
-    ['Active deployments a month', p => (p.includedActiveDeployments === null ? 'Unlimited' : `${p.includedActiveDeployments} included`)],
-    ['Each extra active deployment', p => (p.extraActiveDeploymentUsd !== null ? `${usd(p.extraActiveDeploymentUsd)} / month` : p.includedActiveDeployments === null ? 'Included' : 'Not available')],
-    ['Risk scans a month', p => limitText(p.scansPerMonth)],
+    ['Active AI agents a month', p => (p.includedActiveDeployments === null ? 'Unlimited' : `${p.includedActiveDeployments} included`)],
+    ['Each extra active AI agent', p => (p.extraActiveDeploymentUsd !== null ? `${usd(p.extraActiveDeploymentUsd)} / month` : p.includedActiveDeployments === null ? 'Included' : 'Not available')],
+    ['Checks a month', p => limitText(p.scansPerMonth)],
     ['Live conversations a month', p => (p.conversationsPerMonth === null ? 'Unlimited' : p.conversationsPerMonth.toLocaleString('en-US'))],
     ['How to get it', p => p.how],
   ];

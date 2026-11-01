@@ -154,6 +154,7 @@ function routes(ctx) {
       nav: navFor(principal, { canAudit: allow('audit:read') }),
       can: { write: allow('deployments:write'), run: allow('runs:create'), review: allow('drafts:review') },
       flash: NOTICES[url?.searchParams.get('notice')] ?? '',
+      checking: scans.get(dir)?.status === 'running',
     };
   }
 
