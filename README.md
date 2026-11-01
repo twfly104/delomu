@@ -101,6 +101,36 @@ hash-chained `audit.jsonl`; `delomu audit <dir> --verify` checks it was not alte
 
 `node bin/delomu.mjs help` lists every command.
 
+## Connecting a help-desk AI (Intercom, Zendesk)
+
+When the customer's support AI lives inside a help desk, Delomu can talk to it there instead of through an
+HTTP endpoint. Pick Intercom or Zendesk in the web "New deployment" form, or set `target` in `delomu.json`.
+Credentials are always `${ENV_VAR}` references; on the v3 server they must start with `CUSTOMER_`.
+
+**Intercom** (Fin or a bot), via the Intercom REST API:
+
+```json
+"target": { "type": "intercom", "token": "${CUSTOMER_INTERCOM_TOKEN}", "contactExternalId": "delomu-test", "timeoutMs": 60000 }
+```
+
+Each test case starts a new conversation from the test contact (found by external id, created if missing),
+then polls the conversation until a bot or teammate replies, and uses that first reply as plain text. Internal
+notes are ignored. `pollMs` defaults to 2000 and `timeoutMs` to 60000; for EU or AU workspaces set `baseUrl`
+to `https://api.eu.intercom.io` or `https://api.au.intercom.io`.
+
+**Zendesk** (an AI agent in Zendesk messaging), via the Sunshine Conversations API v2:
+
+```json
+"target": { "type": "zendesk", "subdomain": "acme", "appId": "<app id>", "keyId": "${CUSTOMER_ZENDESK_KEY_ID}", "secret": "${CUSTOMER_ZENDESK_SECRET}" }
+```
+
+Create the key in Admin Center under Apps and integrations, Conversations API. Each test case creates a fresh
+test user (`delomu-<uuid>`) and personal conversation, posts the input as that user, and waits for the first
+business-authored reply. The base URL is `https://{subdomain}.zendesk.com/sc` unless `baseUrl` is set.
+
+Both connectors are tested only against local mock servers that follow the published API docs; confirm with
+one or two cases on the customer's real workspace before a full run.
+
 ## Demo and tests
 
 `npm run demo` runs a fictional support bot (`examples/mock-bot.mjs`) with three planted bugs against
@@ -113,6 +143,7 @@ hash-chained `audit.jsonl`; `delomu audit <dir> --verify` checks it was not alte
 | `bin/delomu.mjs` | CLI; loads every command file in `src/commands/` |
 | `src/core/` | shared: Claude calls, audit log, draft review store |
 | `src/*.mjs` | v0: test set, adapters, grading, judge, runs, report |
+| `src/connectors/` | help-desk targets: Intercom and Zendesk (Sunshine Conversations) |
 | `src/v1/` … `src/v4/` | one folder per version, with its commands in `src/commands/vN.mjs` |
 | `examples/` | the Acme demo deployment and mock bot |
 | `Dockerfile` | the v3 server image |

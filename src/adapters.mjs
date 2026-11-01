@@ -6,8 +6,13 @@
 //   output is a dot path into the JSON response (e.g. "choices.0.message.content"); empty = whole body.
 // target.type "command": { command, timeoutMs? }
 //   the input is written to stdin; stdout is the answer. Runs in the deployment folder.
+// target.type "intercom": { token, contactExternalId?, pollMs?, timeoutMs?, baseUrl? }  see connectors/intercom.mjs
+// target.type "zendesk":  { appId, keyId, secret, subdomain | baseUrl, pollMs?, timeoutMs? }  see connectors/zendesk.mjs
+//   both start a conversation in the help desk and wait for the AI agent's reply; secrets are ${ENV_VAR} references.
 
 import { spawn } from 'node:child_process';
+import { callIntercom } from './connectors/intercom.mjs';
+import { callZendesk } from './connectors/zendesk.mjs';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -75,5 +80,7 @@ function callCommand(target, input, cwd) {
 export async function callTarget(target, input, { cwd } = {}) {
   if (target?.type === 'http') return callHttp(target, input);
   if (target?.type === 'command') return callCommand(target, input, cwd);
-  throw new Error(`unknown target type "${target?.type}" (use "http" or "command")`);
+  if (target?.type === 'intercom') return callIntercom(target, input);
+  if (target?.type === 'zendesk') return callZendesk(target, input);
+  throw new Error(`unknown target type "${target?.type}" (use "http", "command", "intercom" or "zendesk")`);
 }

@@ -257,9 +257,19 @@ function routes(ctx) {
     const pass = Number(form.pass || 90);
     if (!(pass > 0 && pass <= 100)) return fail('Required pass rate must be between 1 and 100.');
     let target;
+    const field = k => String(form[k] ?? '').trim();
     if (form.type === 'command') {
-      if (!String(form.command ?? '').trim()) return fail('Enter the command that runs the customer’s AI.');
-      target = { type: 'command', command: String(form.command).trim() };
+      if (!field('command')) return fail('Enter the command that runs the customer’s AI.');
+      target = { type: 'command', command: field('command') };
+    } else if (form.type === 'intercom') {
+      if (!field('intercom_token')) return fail('Enter the environment variable that holds the Intercom access token, for example ${CUSTOMER_INTERCOM_TOKEN}.');
+      target = { type: 'intercom', token: field('intercom_token') };
+      if (field('intercom_contact')) target.contactExternalId = field('intercom_contact');
+    } else if (form.type === 'zendesk') {
+      if (!field('zendesk_subdomain')) return fail('Enter the Zendesk subdomain, the part before .zendesk.com.');
+      if (!field('zendesk_app_id')) return fail('Enter the Sunshine Conversations app ID.');
+      if (!field('zendesk_key_id') || !field('zendesk_secret')) return fail('Enter the environment variables that hold the Zendesk API key ID and secret.');
+      target = { type: 'zendesk', subdomain: field('zendesk_subdomain').replace(/\.zendesk\.com$/i, ''), appId: field('zendesk_app_id'), keyId: field('zendesk_key_id'), secret: field('zendesk_secret') };
     } else {
       if (!/^https?:\/\//i.test(String(form.url ?? ''))) return fail('Enter the full endpoint URL, starting with https://.');
       target = { type: 'http', url: String(form.url).trim(), body: { message: '{{input}}' } };
