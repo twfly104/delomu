@@ -203,7 +203,7 @@ describe('billing not configured', () => {
     assert.equal(refused.json.error.type, 'permission_error');
     assert.equal(refused.json.error.code, 'plan_limit_active_deployments');
     assert.equal(refused.json.error.upgrade_url, `/orgs/${o.org.id}/billing`);
-    assert.match(refused.json.error.message, /Free plan includes 1 active deployment a month, and first is already active/);
+    assert.match(refused.json.error.message, /Free plan includes 1 active AI agent a month, and first is already active/);
     await new Promise(r => setTimeout(r, 1100)); // run ids have one-second resolution
     assert.equal((await run(srv, key, o.org.id, 'first')).status, 201, 'the active one can run again');
 
