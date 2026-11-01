@@ -10,7 +10,7 @@ import { draftCard, reviewedRow } from './drafts-view.mjs';
 import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
 
-export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});";
+export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});";
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
 const STYLE = `@font-face{font-family:"Geist";src:url(/fonts/Geist-Variable.woff2) format("woff2");font-weight:100 900;font-display:swap}
@@ -63,6 +63,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:var
 input::placeholder,textarea::placeholder{color:var(--text-3)}
 textarea{height:auto;min-height:180px;padding:10px;font:12.5px/1.55 var(--mono);resize:vertical}
 input[type=file]{font:13px var(--font);color:var(--text-2)}
+.picker{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}.picker input{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0}.picker:focus-within .btn{box-shadow:var(--focus)}.picker .names{font-size:13px;color:var(--text-3);min-width:0;overflow-wrap:anywhere}
 input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 12px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 13px var(--font);cursor:pointer}
 .choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}.choice label{flex:1;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);cursor:pointer}
 .choice label:has(input:checked){border-color:var(--accent);background:var(--accent-weak)}
@@ -643,7 +644,7 @@ ${ov.inputs.map(f => `<tr><td><span style="display:inline-flex;gap:8px;align-ite
 </tbody></table>` : `<div class="emptystate"><span class="strong">No policies yet</span>Add the documents your AI must follow: refund, cancellation and privacy policies, help-center articles. A ticket export named tickets.csv lets you send sample traffic.</div>`;
   const upload = can.write ? `<form method="post" action="${esc(base)}/inputs" enctype="multipart/form-data" class="panel" style="margin-top:16px"><div class="panel-head"><h2>Add files</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
-<label class="field"><span class="sr">Files</span><input type="file" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"></label>
+<label class="field picker"><span class="sr">Files</span><input type="file" id="files" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"><span class="btn" aria-hidden="true">${icon('file')}Choose files</span><span class="names" data-files-for="files" aria-live="polite">No file chosen</span></label>
 <p class="hint" style="margin:-8px 0 14px">Markdown, text, CSV, JSON, YAML or HTML, up to 1 MB each. A file with the same name is replaced.</p>
 <button class="btn primary" data-busy="Uploading…">${icon('upload')}Upload</button></div></form>` : '';
   return deploymentShell({ ...args, tab: 'inputs', title: 'Policies' }, `<section class="panel">${files}</section>${upload}`);

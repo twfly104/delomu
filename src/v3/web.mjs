@@ -16,7 +16,7 @@ import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.m
 import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
-import { demoAnswer, sampleFiles } from './demo-bot.mjs';
+import { aiAnswer, demoAnswer, sampleFiles } from './demo-bot.mjs';
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
@@ -282,9 +282,22 @@ function routes(ctx) {
   });
 
   // The sample customer's support bot (see demo-bot.mjs). Public, like any customer endpoint, and canned.
+  // With an Anthropic key the sample bot is a real AI, so it is rate limited per client and in total.
+  const realBot = Boolean(ctx.demoBotClient || ctx.env?.ANTHROPIC_API_KEY);
+  const botPerClient = createRateLimiter({ capacity: 40, refillPerSec: 1 / 3 });
+  const botTotal = createRateLimiter({ capacity: 600, refillPerSec: 600 / 86400 });
   r.add('POST', '/demo/support-bot', async ({ req }) => {
     const body = await readJson(req, 16 * 1024).catch(() => ({}));
-    return { status: 200, body: JSON.stringify({ reply: demoAnswer(body?.body?.message) }), type: 'application/json' };
+    const message = body?.body?.message;
+    const json = (status, value) => ({ status, body: JSON.stringify(value), type: 'application/json' });
+    if (!realBot) return json(200, { reply: demoAnswer(message) });
+    if (!botPerClient(ctx.clientIp(req)).ok || !botTotal('all').ok) return json(429, { error: 'The sample bot is busy. Try again in a minute.' });
+    try {
+      return json(200, { reply: await aiAnswer(message, ctx.demoBotClient ? { client: ctx.demoBotClient } : undefined) });
+    } catch (e) {
+      console.error(`sample bot failed: ${e.message}`);
+      return json(502, { error: 'The sample bot is unavailable right now.' });
+    }
   }, { public: true });
 
   // One click to a deployment that can be scanned right away: Acme's bot, its policy and its test cases.
@@ -297,7 +310,7 @@ function routes(ctx) {
     const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
     const { cases, inputs } = sampleFiles();
     const config = {
-      customer: 'Acme (sample)', name, target: { type: 'http', url: `${origin}/demo/support-bot`, body: { message: '{{input}}' }, output: 'reply' },
+      customer: realBot ? 'Acme (sample, real AI)' : 'Acme (sample)', name, target: { type: 'http', url: `${origin}/demo/support-bot`, body: { message: '{{input}}' }, output: 'reply' },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Accept at a 90% pass rate', reason: 'Sample customer.' }],
     };
     registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config, cases }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
