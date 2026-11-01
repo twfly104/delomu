@@ -20,7 +20,7 @@ const nowSec = () => Math.floor(Date.now() / 1000);
 // ---- Units ----------------------------------------------------------------------------------------
 
 test('plans: one table with the agreed limits and prices', () => {
-  assert.deepEqual(Object.keys(PLANS), ['free', 'team', 'enterprise']);
+  assert.deepEqual(Object.keys(PLANS), ['free', 'team', 'vendor', 'enterprise']);
   assert.equal(PLANS.free.includedActiveDeployments, 1);
   assert.equal(PLANS.free.scansPerMonth, 3);
   assert.equal(PLANS.free.extraActiveDeploymentUsd, null);
@@ -252,6 +252,26 @@ describe('billing not configured', () => {
     const page = await (await get(`/orgs/${o.org.id}/billing`, owner.cookie)).text();
     assert.match(page, /<span class="badge good">Enterprise<\/span>/);
     assert.match(page, /<span class="strong">2<\/span> <span class="subtle">of Unlimited/);
+    const db2 = openDb(srv.dataDir);
+    try { setPlanByOperator(db2, o.org.id, 'free'); } finally { db2.close(); }
+  });
+
+  test('operator-granted Vendor: $1,500 with 5 client AI agents, extra ones counted at $200, never blocked', async () => {
+    const db = openDb(srv.dataDir);
+    try {
+      assert.deepEqual(setPlanByOperator(db, o.org.id, 'vendor'), { before: 'free', after: 'vendor' });
+      assert.equal(getAccount(db, o.org.id).status, 'contract');
+    } finally {
+      db.close();
+    }
+    assert.equal((await run(srv, o.keys['eng@free.test'], o.org.id, 'second')).status, 201);
+    const { signIn, get } = webClient(srv, o.keys);
+    const owner = await signIn('owner@free.test');
+    const page = await (await get(`/orgs/${o.org.id}/billing`, owner.cookie)).text();
+    assert.match(page, /<span class="badge good">Vendor<\/span>/);
+    assert.match(page, /\$1,500 \/ month/);
+    assert.match(page, /\$200 \/ month/);
+    assert.match(page, /<span class="strong">2<\/span> <span class="subtle">of 5/);
     const db2 = openDb(srv.dataDir);
     try { setPlanByOperator(db2, o.org.id, 'free'); } finally { db2.close(); }
   });

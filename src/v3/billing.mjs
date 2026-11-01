@@ -33,6 +33,12 @@ export const PLANS = Object.freeze({
     id: 'team', name: 'Team', monthlyUsd: 499, includedActiveDeployments: 5, extraActiveDeploymentUsd: 99,
     scansPerMonth: null, conversationsPerMonth: 10000, how: 'Self-serve with a card (Stripe Checkout)',
   }),
+  // For AI vendors deploying their agent to many clients: one AI agent per client, priced per client.
+  // Sold by contract and invoiced monthly, like Enterprise; extra clients are counted on the Billing page.
+  vendor: Object.freeze({
+    id: 'vendor', name: 'Vendor', monthlyUsd: 1500, includedActiveDeployments: 5, extraActiveDeploymentUsd: 200,
+    scansPerMonth: null, conversationsPerMonth: 50000, how: 'For AI vendors deploying to clients; contact sales, invoiced monthly',
+  }),
   enterprise: Object.freeze({
     id: 'enterprise', name: 'Enterprise', monthlyUsd: null, includedActiveDeployments: null, extraActiveDeploymentUsd: null,
     scansPerMonth: null, conversationsPerMonth: null, how: 'Contact sales; invoiced',
@@ -169,12 +175,15 @@ function upsertAccount(db, orgId, fields, now) {
 }
 
 // Operator override (CLI): Enterprise is sold by contract, so it is set here, not through Stripe.
+// Plans an operator grants by contract; Stripe subscription events never change them.
+const CONTRACT_PLANS = new Set(['vendor', 'enterprise']);
+
 export function setPlanByOperator(db, orgId, plan, now = new Date()) {
-  if (!['free', 'enterprise'].includes(plan)) throw new Error('plan must be free or enterprise (Team is bought through Stripe Checkout)');
+  if (!CONTRACT_PLANS.has(plan) && plan !== 'free') throw new Error('plan must be free, vendor or enterprise (Team is bought through Stripe Checkout)');
   if (!db.prepare('SELECT 1 FROM orgs WHERE id = ?').get(orgId)) throw new Error(`no org ${orgId}`);
   const current = getAccount(db, orgId);
   if (plan === 'free' && current?.plan === 'team') throw new Error('this org pays for Team through Stripe; cancel it in the Customer Portal instead');
-  const change = upsertAccount(db, orgId, { plan, status: plan === 'enterprise' ? 'contract' : 'none' }, now);
+  const change = upsertAccount(db, orgId, { plan, status: CONTRACT_PLANS.has(plan) ? 'contract' : 'none' }, now);
   recordEvent(db, { orgId, actor: 'system', action: 'billing.plan_change', target: orgId, detail: { from: change.before, to: plan, via: 'operator' } }, now);
   return change;
 }
@@ -230,6 +239,7 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
   function planOf(orgId) {
     const account = getAccount(db, orgId);
     if (account?.plan === 'enterprise') return PLANS.enterprise;
+    if (account?.plan === 'vendor') return PLANS.vendor;
     if (!config) return PLANS.free;
     if (account?.plan === 'team' && TEAM_STATUSES.has(account.status)) return PLANS.team;
     return PLANS.free;
@@ -431,7 +441,7 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
         const orgId = [obj.metadata?.org_id].find(orgExists) ?? orgBySubscription(obj.id) ?? orgByCustomer(idOf(obj.customer));
         if (!orgId) return 'ignored: no matching org';
         const current = getAccount(db, orgId);
-        if (current?.plan === 'enterprise') return `org ${orgId}: on Enterprise, subscription event ignored`;
+        if (CONTRACT_PLANS.has(current?.plan)) return `org ${orgId}: on ${PLANS[current.plan].name}, subscription event ignored`;
         if (current && created < (current.stripe_event_created ?? 0)) return `org ${orgId}: older than the last applied event, ignored`;
         if (current?.stripe_subscription_id && obj.id && obj.id !== current.stripe_subscription_id && event.type !== 'customer.subscription.created') {
           return `org ${orgId}: event for another subscription (${obj.id}), ignored`;

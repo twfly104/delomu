@@ -1,5 +1,5 @@
 // v3 commands: run the multi-tenant server (API + web UI), bootstrap the first org on a new install, and
-// set an org's plan by hand (Enterprise is sold by contract, not through Stripe Checkout).
+// set an org's plan by hand (Vendor and Enterprise are sold by contract, not through Stripe Checkout).
 
 import path from 'node:path';
 import { flag, need } from './args.mjs';
@@ -8,7 +8,7 @@ import { bootstrap } from '../v3/bootstrap.mjs';
 import { setPlanByOperator } from '../v3/billing.mjs';
 import { openDb } from '../v3/db.mjs';
 
-const ADMIN_USAGE = 'admin bootstrap --org NAME --email EMAIL [--kind customer|partner] [--data DIR]\n       delomu admin plan --org ORG_ID --plan free|enterprise [--data DIR]';
+const ADMIN_USAGE = 'admin bootstrap --org NAME --email EMAIL [--kind customer|partner] [--data DIR]\n       delomu admin plan --org ORG_ID --plan free|vendor|enterprise [--data DIR]';
 
 const dataDirFrom =value => path.resolve(value ?? process.env.DELOMU_DATA ?? 'data');
 

@@ -131,6 +131,24 @@ const MIGRATIONS = [
      error TEXT,
      PRIMARY KEY (org_id, month, deployment)
    );`,
+  // The Vendor plan (AI vendors, priced per client). SQLite cannot change a CHECK in place, so the table is
+  // rebuilt with the same columns and its rows copied over.
+  `CREATE TABLE billing_accounts_v2 (
+     org_id TEXT PRIMARY KEY REFERENCES orgs(id),
+     plan TEXT NOT NULL CHECK (plan IN ('free', 'team', 'vendor', 'enterprise')),
+     status TEXT NOT NULL DEFAULT 'none',
+     stripe_customer_id TEXT UNIQUE,
+     stripe_subscription_id TEXT UNIQUE,
+     current_period_end TEXT,
+     cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+     payment_failed_at TEXT,
+     stripe_event_created INTEGER NOT NULL DEFAULT 0,
+     updated_at TEXT NOT NULL
+   );
+   INSERT INTO billing_accounts_v2 SELECT org_id, plan, status, stripe_customer_id, stripe_subscription_id, current_period_end,
+     cancel_at_period_end, payment_failed_at, stripe_event_created, updated_at FROM billing_accounts;
+   DROP TABLE billing_accounts;
+   ALTER TABLE billing_accounts_v2 RENAME TO billing_accounts;`,
 ];
 
 export function openDb(dataDir) {

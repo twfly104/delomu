@@ -864,7 +864,7 @@ ${usageRow('Checks', b.scans, plan.scansPerMonth, false, 'Completed pre-launch c
 ${usageRow('Live conversations', b.conversations ?? 0, plan.conversationsPerMonth ?? null, false, 'Real conversations checked by live monitoring this month.')}
 </tbody></table></div></section>`;
 
-  const cols = ['free', 'team', 'enterprise'].map(id => PLAN_VIEW[id]);
+  const cols = ['free', 'team', 'vendor', 'enterprise'].map(id => PLAN_VIEW[id]);
   const price = p => (p.monthlyUsd === null ? 'Contact sales' : p.monthlyUsd === 0 ? '$0' : `${usd(p.monthlyUsd)} / month`);
   const rows = [
     ['Price', price],
@@ -878,7 +878,7 @@ ${usageRow('Live conversations', b.conversations ?? 0, plan.conversationsPerMont
   const cta = p => {
     if (p.id === plan.id) return '<span class="badge accent">Current plan</span>';
     if (p.id === 'team' && plan.id === 'free' && b.configured) return form('checkout', 'Upgrade', true);
-    if (p.id === 'enterprise') return sales ? `<a class="btn" href="${esc(sales)}">Contact sales</a>` : '<span class="subtle">Ask your Delomu contact</span>';
+    if (p.id === 'enterprise' || p.id === 'vendor') return sales ? `<a class="btn" href="${esc(sales)}">Contact sales</a>` : '<span class="subtle">Ask your Delomu contact</span>';
     return '';
   };
   const pricing = `<section class="panel"><div class="panel-head"><h2>Plans</h2><span class="aside subtle">Prices in USD, billed monthly</span></div>
