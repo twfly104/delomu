@@ -11,6 +11,10 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export const DEFAULT_MODEL = 'claude-opus-5-5';
 export const DEFAULT_META_MODEL = 'muse-spark-1.3';
+// Live monitoring judges every real conversation, so it uses a cheaper Claude model than the pre-launch check.
+// DELOMU_LIVE_MODEL overrides it; on the Meta provider a Claude name falls back to the Meta default.
+export const DEFAULT_LIVE_MODEL = 'claude-sonnet-5-5';
+export const liveModel = (env = process.env) => env.DELOMU_LIVE_MODEL || DEFAULT_LIVE_MODEL;
 const META_BASE_URL = 'https://api.meta.ai/v1';
 const META_TIMEOUT_MS = 180_000;
 const META_RETRIES = 3;

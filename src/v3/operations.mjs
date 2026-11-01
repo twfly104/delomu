@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { getDraft, listDrafts, reviewDraft } from '../core/drafts.mjs';
-import { createLlm, isAuthError } from '../core/llm.mjs';
+import { createLlm, isAuthError, liveModel } from '../core/llm.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { checkConversation } from '../v1/live.mjs';
 import { runDeployment } from '../run.mjs';
@@ -75,7 +75,7 @@ export async function checkLiveConversation(ctx, principal, orgId, name, input) 
   ctx.billing?.checkConversationQuota(orgId);
   let result;
   try {
-    result = await checkConversation(dir, input, { llm: ctx.llm ?? createLlm(), now: ctx.now(), log: ctx.log });
+    result = await checkConversation(dir, input, { llm: ctx.llm ?? createLlm({ model: liveModel() }), now: ctx.now(), log: ctx.log });
   } catch (e) {
     if (isAuthError(e)) throw new ApiError('api_error', 'The judge has no model credentials on this server. Set ANTHROPIC_API_KEY or MODEL_API_KEY and restart.', { status: 503, code: 'no_model' });
     throw e;

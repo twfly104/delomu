@@ -118,3 +118,11 @@ test('llm: Meta provider request shape, retries, refusals and auth errors', asyn
   await assert.rejects(notFound.json({ system: 's', prompt: 'p', schema }), /set DELOMU_META_MODEL to one of: model-a, model-c\.$/);
   assert.deepEqual(urls, ['https://llm.example/v1/chat/completions', 'https://llm.example/v1/models']);
 });
+
+test('llm: live monitoring uses Sonnet 5.5 unless DELOMU_LIVE_MODEL says otherwise; Meta keeps its own default', async () => {
+  const { liveModel } = await import('../src/core/llm.mjs');
+  assert.equal(liveModel({}), 'claude-sonnet-5-5');
+  assert.equal(liveModel({ DELOMU_LIVE_MODEL: 'claude-opus-5-5' }), 'claude-opus-5-5');
+  assert.equal(createLlm({ provider: 'anthropic', model: liveModel({}), client: {} }).model, 'claude-sonnet-5-5');
+  assert.equal(createLlm({ provider: 'meta', model: liveModel({}), env: { MODEL_API_KEY: 'k' } }).model, 'muse-spark-1.3');
+});
