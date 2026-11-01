@@ -748,7 +748,7 @@ ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.len
   const draft = scan.draftId && ov.drafts.find(d => d.id === scan.draftId);
   // Before and after: a re-check runs the earlier check's exact messages again after a fix.
   const before = scan.recheckOf ? ov.scans.find(x => x.id === scan.recheckOf) : null;
-  const compare = before ? `<p class="meta num" style="color:var(--text)"><span class="strong">After the fix:</span> ${before.summary.broken} → ${s.broken} rules broken, ${before.summary.failed} → ${s.failed} messages failed, on the same ${s.probes} messages.</p>` : '';
+  const compare = before ? `<p class="meta num" style="color:var(--text)"><span class="strong">${args.fix?.status === 'reverted' ? 'After undoing the fix' : 'After the fix'}:</span> ${before.summary.broken} → ${s.broken} rules broken, ${before.summary.failed} → ${s.failed} messages failed, on the same ${s.probes} messages.</p>` : '';
   const worse = before && (s.broken > before.summary.broken || s.failed > before.summary.failed);
   const applied = args.fix?.scanId === scan.recheckOf && args.fix?.status === 'applied';
   const worseNotice = !worse ? '' : `<div class="notice" style="margin-top:16px">${icon('alert')}<span>The fix made it worse on the same messages. ${applied && can.write ? 'Undo it to put back the instructions from before, then check again.' : 'Undo the change in your help desk, then check again.'}

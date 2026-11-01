@@ -62,7 +62,7 @@ const NOTICES = {
   created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
   scanned: 'Check finished.',
-  rechecked: 'Re-check finished: the same messages were sent again after the fix.',
+  rechecked: 'Re-check finished: the same messages were sent again.',
   fixdrafted: 'The agent drafted a fix. Review the instructions below, edit them if you like, then approve.',
   sample: 'Sample ready: Acme’s support bot and its refund policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
