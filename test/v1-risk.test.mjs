@@ -96,3 +96,15 @@ test('risk scan: needs policy documents, and a refusal creates nothing', async (
   assert.equal(none.ok, false);
   assert.match(none.reason, /policies or docs/);
 });
+
+test('risk scan: a keyword match alone does not break a rule; the judge reads the whole answer', async () => {
+  const dir = acme();
+  const rules = { rationale: 'x', rules: [{ ...RULES.rules[1], probes: [{ ...RULES.rules[1].probes[0], must_not_include: ['acme.example/reset'] }] }] };
+  const prompts = [];
+  const base = fakeLlm({ rules });
+  const llm = { ...base, json: req => { prompts.push(req.prompt); return base.json(req); } };
+  const r = await riskScan(dir, { llm });
+  assert.equal(r.scan.rules[0].probes[0].status, 'kept');
+  assert.equal(r.scan.rules[0].probes[0].what_happened, 'Followed the rule.');
+  assert.match(prompts.at(-1), /<keyword_check>[\s\S]*says "acme\.example\/reset"[\s\S]*miss negation/);
+});

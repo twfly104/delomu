@@ -166,16 +166,19 @@ export async function riskScan(dir, { llm, now = new Date(), limits, onProgress 
     } catch (e) {
       return { status: 'error', answer: '', what_happened: `No answer from the AI: ${e.message}`, fix: 'Check the integration before launch.' };
     }
+    // A keyword match is a hint for the judge, not a verdict: "I can't confirm it has been erased" contains
+    // "has been erased" and keeps the rule. The judge reads the whole answer and decides.
     const phrase = phraseCheck(probe, answer);
+    const hint = phrase ? `\n\n<keyword_check>\nA simple keyword check noticed that the answer ${neutral(phrase)}. Keyword checks miss negation and paraphrase; decide from what the whole answer actually tells the customer.\n</keyword_check>` : '';
     const v = await llm.json({
       system: JUDGE_SYSTEM, schema: VERDICT_SCHEMA, effort: 'medium',
-      prompt: `<clause source="${neutral(rule.clause)}">\n${neutral(rule.quote)}\nRule: ${neutral(rule.rule)}\n</clause>\n\n<customer_message>\n${neutral(probe.message)}\n</customer_message>\n\n<answer>\n${neutral(answer)}\n</answer>`,
+      prompt: `<clause source="${neutral(rule.clause)}">\n${neutral(rule.quote)}\nRule: ${neutral(rule.rule)}\n</clause>\n\n<customer_message>\n${neutral(probe.message)}\n</customer_message>\n\n<answer>\n${neutral(answer)}\n</answer>${hint}`,
     });
     if (!v.ok) return { status: 'unjudged', answer, what_happened: 'The judge did not give a verdict; a person must review this answer.', fix: '' };
-    const broken = v.data.verdict === 'broken' || Boolean(phrase);
+    const broken = v.data.verdict === 'broken';
     return {
       status: broken ? 'broken' : 'kept', answer,
-      what_happened: v.data.verdict === 'broken' ? v.data.what_happened : phrase ? `The answer ${phrase}.` : v.data.what_happened,
+      what_happened: v.data.what_happened,
       fix: broken ? (v.data.fix && v.data.fix !== 'none' ? v.data.fix : 'Make the answer follow the clause above.') : '',
     };
   };
