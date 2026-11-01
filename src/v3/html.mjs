@@ -206,6 +206,8 @@ details.menu[open]>summary{background:var(--hover)}
 .menu-pop form{margin:0}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
 .agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px}.row-inline select{flex:1;min-width:0}
 .meter.indet i{width:28%}
+.conn{display:none}
+form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=type][value=command]:checked) .conn-command,form:has(input[name=type][value=intercom]:checked) .conn-intercom,form:has(input[name=type][value=zendesk]:checked) .conn-zendesk{display:block;animation:rise .24s cubic-bezier(.2,.75,.25,1) both}
 @media (prefers-reduced-motion:no-preference){
   .content>*{animation:rise .34s cubic-bezier(.2,.75,.25,1) both}
   .content>*:nth-child(2){animation-delay:.03s}.content>*:nth-child(3){animation-delay:.06s}.content>*:nth-child(4){animation-delay:.09s}.content>*:nth-child(n+5){animation-delay:.12s}
@@ -405,22 +407,22 @@ ${notice(error)}
 <label class="field"><span>Customer</span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Inc."></label>
 <div class="field"><span>How Delomu reaches the customer's AI</span><div class="choice">
 ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"${type === c.type ? ' checked' : ''}><span><span class="strong">${esc(c.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(c.hint)}</span></span></label>`).join('\n')}
-</div><p class="hint">Fill in the section for the connection you picked; the other sections are ignored.</p></div>
-${section('HTTP endpoint')}
+</div></div>
+<div class="conn conn-http">
 <label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://ai.customer.example/chat"></label>
 <label class="field"><span>Authorization header</span><input type="text" name="auth" value="${v('auth')}" placeholder="Bearer \${CUSTOMER_API_KEY}"><p class="hint">Reference a server environment variable; never paste a key here.</p></label>
 <label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
-${section('Command')}
+</div><div class="conn conn-command">
 <label class="field"><span>Command</span><input type="text" name="command" value="${v('command')}" placeholder="node bot.mjs"></label>
-${section('Intercom', 'Each test starts a new conversation from a test contact and waits for Fin or a teammate to reply.')}
+</div><div class="conn conn-intercom">${section('Intercom', 'Each test starts a new conversation from a test contact and waits for Fin or a teammate to reply.')}
 <label class="field"><span>Access token</span><input type="text" name="intercom_token" value="${v('intercom_token')}" placeholder="\${CUSTOMER_INTERCOM_TOKEN}"><p class="hint">A server environment variable holding the Intercom access token; never paste the token here.</p></label>
 <label class="field"><span>Test contact external ID</span><input type="text" name="intercom_contact" maxlength="120" value="${v('intercom_contact')}" placeholder="delomu-test"><p class="hint">Optional. Created on the first test if it does not exist.</p></label>
-${section('Zendesk', 'Uses Sunshine Conversations: each test creates a test user and conversation, then waits for the AI agent to reply.')}
+</div><div class="conn conn-zendesk">${section('Zendesk', 'Uses Sunshine Conversations: each test creates a test user and conversation, then waits for the AI agent to reply.')}
 <label class="field"><span>Zendesk subdomain</span><input type="text" name="zendesk_subdomain" maxlength="63" value="${v('zendesk_subdomain')}" placeholder="acme"><p class="hint">The part before <code>.zendesk.com</code>.</p></label>
 <label class="field"><span>App ID</span><input type="text" name="zendesk_app_id" maxlength="64" value="${v('zendesk_app_id')}" placeholder="5f8a3c…"></label>
 <label class="field"><span>API key ID</span><input type="text" name="zendesk_key_id" value="${v('zendesk_key_id')}" placeholder="\${CUSTOMER_ZENDESK_KEY_ID}"></label>
 <label class="field"><span>API key secret</span><input type="text" name="zendesk_secret" value="${v('zendesk_secret')}" placeholder="\${CUSTOMER_ZENDESK_SECRET}"><p class="hint">Both reference server environment variables; never paste the key here.</p></label>
-${section('Acceptance')}
+</div>${section('Acceptance')}
 <label class="field"><span>Required pass rate (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label>
 </div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Creating…">Create deployment</button></div></form>` });
 }
