@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createLlm } from '../src/core/llm.mjs';
 import { readAudit } from '../src/core/audit.mjs';
 import { riskScan, recheck, listScans } from '../src/v1/risk.mjs';
-import { draftFix, approveFix, getFix, instructionsTarget } from '../src/v1/fix.mjs';
+import { draftFix, approveFix, getFix, instructionsTarget, revertFix } from '../src/v1/fix.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 function acme() {
@@ -27,7 +27,7 @@ function fakeLlm(prompts = []) {
     prompts.push({ system: req.system, prompt });
     let a;
     if (prompt.includes('List the rules')) a = RULES;
-    else if (req.system.includes('smallest change to a support AI')) a = { instructions: 'After 30 days, offer store credit only; never say a cash refund was issued.', summary: 'Covers the refund window.' };
+    else if (req.system.includes('smallest change to a support AI')) a = { instructions: 'After 30 days, offer store credit only; never say a cash refund was issued.', summary: 'Covers the refund window.', gaps: [{ clause: 'refund-policy.md §6', need: 'Connect a hand-off to a human agent.' }] };
     else if (/<answer>\n.*issued a full refund/s.test(prompt)) a = { verdict: 'broken', what_happened: 'Promised cash.', fix: 'Offer store credit after 30 days.' };
     else a = { verdict: 'kept', what_happened: 'Followed the rule.', fix: 'none' };
     return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(a) }] };
@@ -47,6 +47,9 @@ test('fix loop: draft one change for the broken rules, approve it, re-check the 
   assert.equal(drafted.ok, true);
   assert.equal(getFix(dir).status, 'proposed');
   assert.deepEqual(getFix(dir).rules, ['refund-window']);
+  assert.deepEqual(getFix(dir).gaps, [{ clause: 'refund-policy.md §6', need: 'Connect a hand-off to a human agent.' }]);
+  assert.match(prompts.at(-1).system, /do not tell it to refuse/);
+  assert.throws(() => revertFix(dir, { actor: 'human:a@b.test' }), /no fix applied by Delomu/);
   assert.match(prompts.at(-1).prompt, /Promised cash\.[\s\S]*Offer store credit after 30 days/);
 
   // The example bot is a command target: Delomu cannot change it, so the person applies it by hand.
@@ -82,4 +85,11 @@ test('approving a fix on an HTTP target that takes instructions writes them into
   assert.equal(saved.body.instructions, 'Offer store credit after 30 days.');
   assert.equal(saved.body.message, '{{input}}');
   assert.equal(getFix(dir).status, 'applied');
+
+  // A worse re-check can be undone: the instructions from before the fix (none here) come back.
+  revertFix(dir, { actor: 'human:a@b.test' });
+  const reverted = JSON.parse(fs.readFileSync(file, 'utf8')).target;
+  assert.equal('instructions' in reverted.body, false);
+  assert.equal(reverted.body.message, '{{input}}');
+  assert.equal(getFix(dir).status, 'reverted');
 });

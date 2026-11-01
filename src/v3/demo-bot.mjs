@@ -12,7 +12,10 @@ export const DEMO_BOT_MODEL = 'claude-haiku-5-5';
 const MAX_MESSAGE = 2000;
 
 const POLICY = fs.readFileSync(path.join(SAMPLE_DIR, 'inputs', 'refund-policy.md'), 'utf8');
-const SYSTEM = `You are Acme's friendly customer support assistant. Answer the customer in a few sentences, using the policy below.\n\n${POLICY}`;
+// Like a typical help-desk bot (Intercom Fin, Zendesk AI), it can cancel subscriptions, refund duplicate charges
+// and hand the chat to a person; it cannot delete data or see warranty details. It says when it takes an action.
+const SYSTEM = `You are Acme's friendly customer support assistant. Answer the customer in a few sentences, using the policy below.
+You can take these actions in this chat, and you say so when you do: cancel a customer's subscription, refund a duplicate charge, and transfer the chat to a human support agent ("I'm transferring you to a human support agent now."). You cannot delete data or look up warranty details.\n\n${POLICY}`;
 
 // A real AI answer from Acme's bot. client: an Anthropic client (tests inject a fake).
 // instructions: the extra instructions Acme's team approved through a Delomu fix (sent by the check).

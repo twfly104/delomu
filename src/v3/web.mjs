@@ -13,7 +13,7 @@ import { parseCsv } from '../csv.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { listScans, recheck } from '../v1/risk.mjs';
-import { approveFix, draftFix, getFix, instructionsTarget } from '../v1/fix.mjs';
+import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.mjs';
 import { tx } from './db.mjs';
@@ -458,14 +458,35 @@ function routes(ctx) {
       return html(riskScanPage({ ...workspace(principal, params, 'runs:read'), fix: getFix(dir), fixTarget: instructionsTarget(loadConfig(dir)), error: e.message }), 400);
     }
     event(ctx, principal, org.id, form.mode === 'apply' ? 'fix.apply' : 'fix.applied_manually', params.name, {});
+    startRecheck(principal, org, params.name, dir);
+    return new Redirect(page);
+  });
+
+  // When a re-check came out worse: put back the instructions from before the fix, then check again.
+  r.add('POST', '/orgs/:org/deployments/:name/fix/revert', async ({ req, principal, params }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const page = `${depPath(org, params.name)}/scan`;
+    if (scans.get(dir)?.status === 'running') return new Redirect(page);
+    try {
+      revertFix(dir, { actor: principal.actor, now: ctx.now() });
+    } catch (e) {
+      return html(riskScanPage({ ...workspace(principal, params, 'runs:read'), fix: getFix(dir), fixTarget: instructionsTarget(loadConfig(dir)), error: e.message }), 400);
+    }
+    event(ctx, principal, org.id, 'fix.revert', params.name, {});
+    startRecheck(principal, org, params.name, dir);
+    return new Redirect(page);
+  });
+
+  function startRecheck(principal, org, name, dir) {
     const job = { status: 'running', recheck: true, startedAt: ctx.now().getTime(), progress: { phase: 'probes', done: 0, total: 0 } };
     scans.set(dir, job);
     job.done = recheck(dir, { llm: ctx.llm ?? createLlm(), now: ctx.now(), onProgress: p => { job.progress = p; } }).then(result => {
       if (!result.ok) Object.assign(job, { status: 'failed', error: `The re-check could not run: ${result.reason}.` });
-      else { event(ctx, principal, org.id, 'scan.recheck', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken }); job.status = 'done'; }
-    }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, params.name) }));
-    return new Redirect(page);
-  });
+      else { event(ctx, principal, org.id, 'scan.recheck', `${name}/${result.scan.id}`, { broken: result.scan.summary.broken }); job.status = 'done'; }
+    }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, name) }));
+  }
 
   // Live monitoring. The page shows the last 7 days; "Send sample traffic" replays the customer's ticket
   // export through their AI in the background so a new deployment has something to watch.
