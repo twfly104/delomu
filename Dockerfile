@@ -15,7 +15,7 @@ COPY src ./src
 
 # The data volume holds delomu.db and every org's deployment folders; run as the image's non-root user.
 RUN mkdir -p /data && chown node:node /data
-VOLUME ["/data"]
+# Mount a volume at /data (docker run -v ..., or the host's volume feature); no VOLUME line so hosts like Railway accept the image.
 USER node
 
 EXPOSE 8080
