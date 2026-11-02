@@ -32,6 +32,8 @@ MODEL_API_KEY=your-meta-key node bin/delomu.mjs scan examples/acme-support
 
 Or run the web app: `docs/v3.md` (Docker) and open the deployment's **Risk scan** tab.
 
+**New here?** [docs/quickstart.md](docs/quickstart.md) walks through both ways in: AI vendors rolling out to clients, and teams running their own agent.
+
 ## Versions
 
 | Version | What it adds | Docs |

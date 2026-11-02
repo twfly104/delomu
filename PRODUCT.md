@@ -31,6 +31,9 @@ Tests are built from the company's own policies and graded against the exact cla
 - Everything rendered is escaped; forms carry CSRF tokens; tenants never cross org boundaries.
 - Runs are synchronous today and can take tens of seconds.
 
+## Agents that act
+Added 2026-11-03: most new agents take actions (refunds, cancellations, codes, hand-offs). Delomu judges what the agent did as well as what it said, writes tests against the client's test account, and can check an action before it runs (the action guard). Show actions plainly under the reply as "What it did".
+
 ## Evidence on Hand
 - Demo data only: in the web app, the made-up Tallyfox support assistant (`src/v3/demo-bot.mjs`, `src/v3/sample/`, which has deliberate bugs); for the CLI and older tests, the fictional Acme bot in `examples/`. Its scan results are a demonstration, never evidence of real-world error rates. No real customers, logos, testimonials or usage numbers exist; never invent them.
 
