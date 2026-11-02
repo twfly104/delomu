@@ -4,6 +4,7 @@
 //   body is a JSON template; any string equal to or containing {{input}} gets the input.
 //   headers values may use ${ENV_VAR} so keys never live in the config file.
 //   output is a dot path into the JSON response (e.g. "choices.0.message.content"); empty = whole body.
+//   actions, optional, is a dot path to what the agent did (tool calls such as refunds), judged with the words.
 // target.type "command": { command, timeoutMs? }
 //   the input is written to stdin; stdout is the answer. Runs in the deployment folder.
 // target.type "intercom": { token, contactExternalId?, pollMs?, timeoutMs?, baseUrl? }  see connectors/intercom.mjs
@@ -57,9 +58,16 @@ async function callHttp(target, input) {
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
-  if (!target.output) return text;
-  const value = pickPath(JSON.parse(text), target.output);
-  return typeof value === 'string' ? value : JSON.stringify(value);
+  if (!target.output && !target.actions) return { answer: text };
+  const json = JSON.parse(text);
+  const value = target.output ? pickPath(json, target.output) : json;
+  const out = { answer: typeof value === 'string' ? value : JSON.stringify(value) };
+  if (target.actions) {
+    let actions;
+    try { actions = pickPath(json, target.actions); } catch { actions = []; }
+    out.actions = (Array.isArray(actions) ? actions : actions == null ? [] : [actions]).slice(0, 20);
+  }
+  return out;
 }
 
 function callCommand(target, input, cwd) {
@@ -94,10 +102,15 @@ function withSecrets(target, cwd) {
 }
 
 export async function callTarget(rawTarget, input, { cwd } = {}) {
+  return (await callTargetFull(rawTarget, input, { cwd })).answer;
+}
+
+// The answer and, when the target reports them, the actions the agent took ({ answer, actions? }).
+export async function callTargetFull(rawTarget, input, { cwd } = {}) {
   const target = withSecrets(rawTarget, cwd);
   if (target?.type === 'http') return callHttp(target, input);
-  if (target?.type === 'command') return callCommand(target, input, cwd);
-  if (target?.type === 'intercom') return callIntercom(target, input);
-  if (target?.type === 'zendesk') return callZendesk(target, input);
+  if (target?.type === 'command') return { answer: await callCommand(target, input, cwd) };
+  if (target?.type === 'intercom') return { answer: await callIntercom(target, input) };
+  if (target?.type === 'zendesk') return { answer: await callZendesk(target, input) };
   throw new Error(`unknown target type "${target?.type}" (use "http", "command", "intercom" or "zendesk")`);
 }

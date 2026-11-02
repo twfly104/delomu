@@ -439,6 +439,7 @@ function routes(ctx) {
       target = { type: 'http', url: String(form.url).trim(), body: { message: '{{input}}' } };
       if (field('api_key')) target.headers = { authorization: `Bearer ${keyRef(field('api_key'), 'API_KEY')}` };
       if (String(form.output ?? '').trim()) target.output = String(form.output).trim();
+      if (field('actions')) target.actions = field('actions');
     }
     const agentKind = Object.hasOwn(AGENT_KINDS, String(form.agentKind ?? '')) ? String(form.agentKind) : 'support';
     const config = { customer: String(form.customer ?? '').trim() || undefined, name: String(form.name ?? ''), agentKind, target, acceptance: { minPassRate: pass / 100 }, decisions: [] };

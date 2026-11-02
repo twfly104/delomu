@@ -197,6 +197,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 .probe.broken .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
 .verdict-line{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;font-size:13px}
 .verdict-line .fix{color:var(--text-2)}
+.acts-taken{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font-size:12.5px}.acts-taken .cap{margin:0 2px 0 0}.acts-taken code{padding:2px 7px;border-radius:6px;background:var(--sunken);border:1px solid var(--line)}
 .tactic{font-size:12px;color:var(--text-3);font-style:italic}.tactic::before{content:"· ";font-style:normal}
 @media (max-width:760px){.probe{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:1000px){.grid-2{grid-template-columns:minmax(0,1fr)}}
@@ -627,6 +628,7 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 <label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://bot.example.com/chat"></label>
 <label class="field"><span>API key <span class="subtle" style="font-weight:400">(if your endpoint needs one)</span></span><input type="password" name="api_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Sent as a Bearer token. Saved encrypted for this agent and never shown again.</p></label>
 <label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
+<label class="field"><span>Field holding the actions <span class="subtle" style="font-weight:400">(if your agent takes actions)</span></span><input type="text" name="actions" value="${v('actions')}" placeholder="actions"><p class="hint">Dot path to the list of tool calls it made, such as refunds or cancellations. Delomu judges what it did, not only what it said.</p></label>
 </div><div class="conn conn-openai">${section('OpenAI-compatible API', 'Each test message is sent as the user turn of a chat completion; the answer is the first choice.')}
 <label class="field"><span>Chat completions URL</span><input type="url" name="openai_url" value="${v('openai_url')}" placeholder="https://api.openai.com/v1/chat/completions"></label>
 <label class="field"><span>Model</span><input type="text" name="openai_model" maxlength="120" value="${v('openai_model')}" placeholder="the model your agent uses"></label>
@@ -877,7 +879,7 @@ export function settingsPage(args) {
   const rows = [
     ['Customer', config.customer], ['Connection', CONNECTIONS.find(c => c.type === (t.preset ?? t.type))?.label ?? t.type], ['Model', t.preset === 'openai' ? t.body?.model : undefined],
     ['URL', t.url ?? t.baseUrl], ['Command', t.command], ['Zendesk subdomain', t.subdomain], ['App ID', t.appId],
-    ['Test contact', t.contactExternalId], ['Credentials', [t.token, t.keyId, t.secret].filter(s => /^\$\{[A-Za-z0-9_]+\}$/.test(s ?? '')).join(', ')], ['Saved keys', (args.keys ?? []).map(k => `${k.name} (saved ${k.savedAt.slice(0, 10)})`).join(', ')], ['Answer at', t.output], ['Timeout', t.timeoutMs ? `${t.timeoutMs / 1000} s` : undefined],
+    ['Test contact', t.contactExternalId], ['Credentials', [t.token, t.keyId, t.secret].filter(s => /^\$\{[A-Za-z0-9_]+\}$/.test(s ?? '')).join(', ')], ['Saved keys', (args.keys ?? []).map(k => `${k.name} (saved ${k.savedAt.slice(0, 10)})`).join(', ')], ['Answer at', t.output], ['Actions at', t.actions], ['Timeout', t.timeoutMs ? `${t.timeoutMs / 1000} s` : undefined],
     ['Required pass rate', pct(config.acceptance?.minPassRate ?? 0.9)],
   ].filter(([, v]) => v);
   const headers = Object.entries(t.headers ?? {});
@@ -915,6 +917,13 @@ ${events.map(e => `<tr><td class="nowrap"><span title="${esc(fmtDate(e.ts))}">${
 }
 
 const SEVERITY = { high: ['bad', 'High risk'], medium: ['warn', 'Medium risk'], low: ['plain', 'Low risk'] };
+
+// What the agent did, under its reply: one chip per tool call, or a plain "No actions" when it reported none.
+const ACTION_LABEL = a => [a.tool ?? a.name ?? 'action', ...Object.values(a.input ?? a.arguments ?? {}).filter(x => typeof x !== 'object').slice(0, 3)].join(' · ');
+function actionList(actions) {
+  if (!Array.isArray(actions)) return '';
+  return `<p class="acts-taken"><span class="cap">What it did</span>${actions.length ? actions.map(a => `<code>${esc(String(ACTION_LABEL(a ?? {})).slice(0, 120))}</code>`).join('') : '<span class="subtle">No actions</span>'}</p>`;
+}
 
 export function riskScanPage(args) {
   const { org, name, ov, csrf, can, now } = args;
@@ -963,7 +972,7 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
   const kept = scan.rules.filter(r => !isBroken(r) && !isUnsure(r));
   const exchange = p => `<div class="probe ${esc(p.status)}">
 <div><p class="cap">Customer wrote <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
-<div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div></div>
+<div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
 <span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p></div>`;
   const ruleCard = rule => {
@@ -1068,7 +1077,7 @@ ${dayChart(live.days)}${bars}</section>`;
   const why = c => (c.violations.length ? `<div class="why">${c.violations.map(v => `<p><span class="badge ${esc((SEVERITY[v.severity] ?? SEVERITY.medium)[0])}">${esc(v.clause)}</span> ${esc(v.what_happened)}<br><span class="fix"><span class="strong">Fix</span> ${esc(v.fix)}</span></p>`).join('')}</div>`
     : c.status === 'unjudged' ? '<p class="subtle" style="margin-top:8px">The judge gave no verdict; a person should read this one.</p>' : '');
   const convo = c => `<div class="convo ${esc(c.status)}"><p class="meta-line">${badge(c)}<span title="${esc(fmtDate(c.at))}">${esc(ago(c.at, now))}</span><span>· ${esc(c.source)}</span>${c.externalId ? `<span class="mono">· ${esc(c.externalId)}</span>` : ''}</p>
-<div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Your AI</p><div class="bubble ai">${esc(c.answer)}</div></div></div>${why(c)}</div>`;
+<div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Your AI</p><div class="bubble ai">${esc(c.answer)}</div>${actionList(c.actions)}</div></div>${why(c)}</div>`;
   const recent = [...live.recent].sort((a, b) => (b.status === 'flagged') - (a.status === 'flagged')).slice(0, 20);
   const feed = recent.length ? `<section class="panel"><div class="panel-head"><h2>Conversations</h2><span class="aside subtle">Rule breaks first · newest 20</span></div>${recent.map(convo).join('')}</section>` : '';
   const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $DELOMU_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": "Can I get a refund after 45 days?", "answer": "…", "id": "ticket-123"}'`;

@@ -50,6 +50,7 @@ export function validateTarget(target) {
       else if (SENSITIVE_HEADER.test(name) && !usesEnvOnly(value)) p.push(`header ${name} must take its value from \${ENV_VAR}, not a literal`);
     }
     if (target.output !== undefined && typeof target.output !== 'string') p.push('output must be a dot path string');
+    if (target.actions !== undefined && typeof target.actions !== 'string') p.push('actions must be a dot path string');
   } else if (target.type === 'command') {
     if (!isText(target.command)) p.push('command target needs a non-empty command');
     else if (/[\r\n]/.test(target.command)) p.push('command must be a single line');
