@@ -147,18 +147,18 @@ test('evidence through the server: permission, CSP, range and a 400 for bad date
     const eng = await signIn('eng@ev.test');
     const org = `/orgs/${o.org.id}`;
     await fetch(`${srv.base}${org}/sample`, { method: 'POST', redirect: 'manual', headers: { cookie: eng.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf: eng.csrf }) });
-    const dir = path.join(srv.deploymentsRoot, o.org.id, 'sample-acme');
+    const dir = path.join(srv.deploymentsRoot, o.org.id, 'sample-tallyfox');
     const today = new Date().toISOString().slice(0, 10);
     writeScan(dir, { id: `${today}T00-00-00-000Z-eeee`, createdAt: `${today}T00:00:00.000Z`, documents: ['policy.md'], model: 'fake', seconds: 1, summary: { rules: 1, broken: 1, probes: 1, kept: 0, failed: 1, unjudged: 0, highRiskBroken: 1 }, rules: [rule('refund', `Never ${HOSTILE}`, ['broken'])] });
 
-    const url = `${srv.base}${org}/deployments/sample-acme/evidence.html`;
-    assert.match(await (await fetch(`${srv.base}${org}/deployments/sample-acme/scan`, { headers: { cookie: eng.cookie } })).text(), /sample-acme\/evidence\.html/);
+    const url = `${srv.base}${org}/deployments/sample-tallyfox/evidence.html`;
+    assert.match(await (await fetch(`${srv.base}${org}/deployments/sample-tallyfox/scan`, { headers: { cookie: eng.cookie } })).text(), /sample-tallyfox\/evidence\.html/);
     const viewer = await signIn('view@ev.test');
     const res = await fetch(url, { headers: { cookie: viewer.cookie } });
     assert.equal(res.status, 200);
     assert.match(res.headers.get('content-security-policy'), /default-src 'none'/);
     const html = await res.text();
-    assert.match(html, /Evidence pack: sample-acme/);
+    assert.match(html, /Evidence pack: sample-tallyfox/);
     assert.match(html, /<td class="num">1<\/td><td class="num">1<\/td>/);
     assert.doesNotMatch(html, /<script>/);
 

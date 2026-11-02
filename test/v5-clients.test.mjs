@@ -113,3 +113,15 @@ test('client status puts the clients that need someone first', () => {
   assert.ok(clientStatus([{ ov: ov({ pending: 1 }) }]).rank < clientStatus([]).rank);
   assert.equal(ranks.length, 6);
 });
+
+test('a vendor can open a sample client with the sample assistant in it', async () => {
+  const cookie = await signUp({ email: 'fde@samplevendor.test', company: 'SampleVendor', kind: 'vendor' });
+  const vendor = (await get('/', cookie)).headers.get('location');
+  const page = await (await get(vendor, cookie)).text();
+  assert.match(page, /Open a sample client/);
+  const res = await post(`${vendor}/clients/sample`, cookie, { csrf: csrfOf(page) });
+  assert.equal(res.status, 303);
+  assert.match(res.headers.get('location'), /\/deployments\/sample-tallyfox\/rollout$/);
+  const list = await (await get(vendor, cookie)).text();
+  assert.match(list, /Tallyfox \(sample client\)/);
+});

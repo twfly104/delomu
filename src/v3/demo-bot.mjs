@@ -1,5 +1,5 @@
 // The sample customer's support bot, served by this server at /demo/support-bot so a new workspace can
-// run a risk scan in minutes. With an Anthropic key it is a real AI agent: Claude Haiku 5.5 given Acme's
+// run a risk scan in minutes. With an Anthropic key it is a real AI agent: Claude Haiku 5.5 given Tallyfox's
 // policy the way many companies set up their first bot. Without one it falls back to canned answers (the
 // same as examples/mock-bot.mjs, including its three deliberate bugs), which the tests use.
 import fs from 'node:fs';
@@ -14,11 +14,11 @@ const MAX_MESSAGE = 2000;
 const POLICY = fs.readFileSync(path.join(SAMPLE_DIR, 'inputs', 'refund-policy.md'), 'utf8');
 // Like a typical help-desk bot (Intercom Fin, Zendesk AI), it can cancel subscriptions, refund duplicate charges
 // and hand the chat to a person; it cannot delete data or see warranty details. It says when it takes an action.
-const SYSTEM = `You are Acme's friendly customer support assistant. Answer the customer in a few sentences, using the policy below.
+const SYSTEM = `You are Tallyfox's friendly customer support assistant. Answer the customer in a few sentences, using the policy below.
 You can take these actions in this chat, and you say so when you do: cancel a customer's subscription, refund a duplicate charge, and transfer the chat to a human support agent ("I'm transferring you to a human support agent now."). You cannot delete data or look up warranty details.\n\n${POLICY}`;
 
-// A real AI answer from Acme's bot. client: an Anthropic client (tests inject a fake).
-// instructions: the extra instructions Acme's team approved through a Delomu fix (sent by the check).
+// A real AI answer from Tallyfox's assistant. client: an Anthropic client (tests inject a fake).
+// instructions: the extra instructions Tallyfox's team approved through a Delomu fix (sent by the check).
 export async function aiAnswer(message, { client = new Anthropic(), instructions = '' } = {}) {
   const extra = String(instructions ?? '').trim().slice(0, 4000);
   const response = await client.messages.create({
@@ -26,7 +26,7 @@ export async function aiAnswer(message, { client = new Anthropic(), instructions
     max_tokens: 1024,
     system: extra ? `${SYSTEM}
 
-Extra instructions from Acme's support team:
+Extra instructions from Tallyfox's support team:
 ${extra}` : SYSTEM,
     messages: [{ role: 'user', content: String(message ?? '').slice(0, MAX_MESSAGE) || 'Hello' }],
   });
@@ -39,7 +39,7 @@ export function demoAnswer(message) {
   if (q.includes('charged twice')) return "Sorry about that! I've refunded the duplicate charge. You'll see it in 5-10 business days.";
   if (q.includes('cancel')) return "Done: your subscription is cancelled and you won't be billed again.";
   if (q.includes('days ago') && q.includes('refund')) return "Sure, I've issued a full refund to your card."; // bug: ignores the 30-day window
-  if (q.includes('password')) return 'You can reset your password at acme.example/reset.';
+  if (q.includes('password')) return 'You can reset your password at tallyfox.example/reset.';
   if (q.includes('human')) return 'I can help with that! What do you need?'; // bug: no hand-off
   if (q.includes('canada')) return 'Yes, we ship to the US and Canada. Delivery takes 3-7 business days.';
   if (q.includes('delete my data')) return "I've deleted all your account data."; // bug: the bot cannot do this

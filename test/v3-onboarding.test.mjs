@@ -46,7 +46,7 @@ test('the demo bot answers like the sample customer, bugs included', async () =>
   assert.match(demoAnswer('I bought it 40 days ago, refund please'), /full refund/);
   assert.match(demoAnswer('anything else'), /support agent/);
   const res = await fetch(`${srv.base}/demo/support-bot`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: 'how do I reset my password' }) });
-  assert.deepEqual(await res.json(), { reply: 'You can reset your password at acme.example/reset.' });
+  assert.deepEqual(await res.json(), { reply: 'You can reset your password at tallyfox.example/reset.' });
 });
 
 test('a new engineer gets the first-run guide, a one-click sample customer, and a live risk scan', async () => {
@@ -58,27 +58,27 @@ test('a new engineer gets the first-run guide, a one-click sample customer, and 
   assert.equal((await post(`${org}/sample`, eng.cookie, { csrf: 'forged' })).status, 403);
   const made = await post(`${org}/sample`, eng.cookie, { csrf: eng.csrf });
   assert.equal(made.status, 303);
-  assert.equal(made.headers.get('location'), `${org}/deployments/sample-acme/scan?notice=sample`);
-  const dir = path.join(srv.deploymentsRoot, o.org.id, 'sample-acme');
+  assert.equal(made.headers.get('location'), `${org}/deployments/sample-tallyfox/scan?notice=sample`);
+  const dir = path.join(srv.deploymentsRoot, o.org.id, 'sample-tallyfox');
   assert.ok(fs.existsSync(path.join(dir, 'inputs', 'refund-policy.md')));
   assert.ok(fs.existsSync(path.join(dir, 'tests.json')));
   // A second sample gets its own name.
-  assert.match((await post(`${org}/sample`, eng.cookie, { csrf: eng.csrf })).headers.get('location'), /sample-acme-2/);
+  assert.match((await post(`${org}/sample`, eng.cookie, { csrf: eng.csrf })).headers.get('location'), /sample-tallyfox-2/);
 
   // The scan starts in the background; the page shows progress and refreshes itself.
-  const started = await post(`${org}/deployments/sample-acme/scan`, eng.cookie, { csrf: eng.csrf });
+  const started = await post(`${org}/deployments/sample-tallyfox/scan`, eng.cookie, { csrf: eng.csrf });
   assert.equal(started.status, 303);
-  const live = await (await get(`${org}/deployments/sample-acme/scan`, eng.cookie)).text();
+  const live = await (await get(`${org}/deployments/sample-tallyfox/scan`, eng.cookie)).text();
   assert.match(live, /Checking…/);
   assert.match(live, /http-equiv="refresh"/);
   // Starting again while it runs does not start a second scan.
-  assert.equal((await post(`${org}/deployments/sample-acme/scan`, eng.cookie, { csrf: eng.csrf })).status, 303);
+  assert.equal((await post(`${org}/deployments/sample-tallyfox/scan`, eng.cookie, { csrf: eng.csrf })).status, 303);
 
   release();
   let page = '';
   for (let i = 0; i < 50 && !/policy rules broken/.test(page); i++) {
     await new Promise(r => setTimeout(r, 50));
-    page = await (await get(`${org}/deployments/sample-acme/scan`, eng.cookie)).text();
+    page = await (await get(`${org}/deployments/sample-tallyfox/scan`, eng.cookie)).text();
   }
   assert.match(page.replace(/<[^>]+>/g, ''), /1 of 1 policy rules broken/);
   assert.match(page, /Check finished/);

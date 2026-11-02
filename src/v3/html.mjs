@@ -352,7 +352,7 @@ export function signupPage({ csrf, error, values = {} }) {
 ${notice(error)}
 <form method="post" action="/signup" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(values.email ?? '')}" placeholder="you@company.com"></label>
-<label class="field"><span>Company</span><input type="text" name="company" required maxlength="60" autocomplete="organization" value="${esc(values.company ?? '')}" placeholder="Acme"></label>
+<label class="field"><span>Company</span><input type="text" name="company" required maxlength="60" autocomplete="organization" value="${esc(values.company ?? '')}" placeholder="Your company"></label>
 <div class="field"><span>What do you do?</span><div class="choice">
 ${SIGNUP_KINDS.map(k => `<label><input type="radio" name="kind" value="${k.id}"${(values.kind ?? 'company') === k.id ? ' checked' : ''}><span><span class="strong">${esc(k.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(k.hint)}</span></span></label>`).join('\n')}
 </div></div>
@@ -522,7 +522,7 @@ export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage
   const add = canManage ? `<form method="post" action="${esc(orgPath(org))}/clients" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <h2 style="margin:0 0 4px">Add a client</h2><p class="subtle" style="margin:0 0 12px">Each client gets its own workspace: its policies, checks and conversations stay apart from every other client.</p>
-<label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="Acme Bank"></label>
+<label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="The client’s company name"></label>
 <button class="btn primary" data-busy="Adding…">${icon('plus')}Add client</button></div></form>` : '';
   const stats = clients.length ? `<div class="stats"><div><p class="v num">${clients.length}</p><p class="k">Clients · ${agents} AI agent${agents === 1 ? '' : 's'}</p></div>
 <div><p class="v num${need ? ' bad' : ''}">${need}</p><p class="k">Need attention</p></div>
@@ -533,7 +533,7 @@ export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage
 ${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th><th class="hide-sm">Engineer hours</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
-</tbody></table></div>` : '<div class="emptystate"><span class="strong">No clients yet</span>Add a client to set up its workspace, then connect the AI you deploy for it.</div>'}</section>
+</tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>Add a client below, or open a sample client to see a rollout first.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/sample" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">${icon('spark')}Open a sample client</button></form>` : ''}</div>`}</section>
 ${add}
 ${own.length ? `<section class="panel"><div class="panel-head"><h2>Your own AI agents</h2></div>${agentsTable(own, { now })}</section>` : ''}` });
 }
@@ -556,7 +556,7 @@ ${notice(error)}
 <form method="post" action="${esc(orgPath(org))}/new-deployment" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
-<label class="field"><span>Client or brand <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Bank"><p class="hint">If you deploy this AI for a client, their name goes on the customer report.</p></label>
+<label class="field"><span>Client or brand <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="The client’s company name"><p class="hint">If you deploy this AI for a client, their name goes on the customer report.</p></label>
 <label class="field"><span>What this AI does</span><select name="agentKind">${Object.entries(AGENT_KINDS).map(([id, k]) => `<option value="${id}"${(values.agentKind ?? 'support') === id ? ' selected' : ''}>${esc(k.label)}</option>`).join('')}</select><p class="hint">The check looks hardest where this kind of AI usually breaks policy, for example discounts for a sales AI.</p></label>
 <div class="field"><span>Where your AI agent runs</span><div class="choice">
 ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"${type === c.type ? ' checked' : ''}><span><span class="strong">${esc(c.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(c.hint)}</span></span></label>`).join('\n')}

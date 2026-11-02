@@ -17,7 +17,7 @@ test('without a model the sample bot gives its canned answers', async () => {
   assert.deepEqual(await (await ask(canned.base, 'I bought this 45 days ago, refund please')).json(), { reply: "Sure, I've issued a full refund to your card." });
 });
 
-test('with a model the sample bot is a real AI given Acme\'s policy, and is rate limited', async () => {
+test('with a model the sample bot is a real AI given Tallyfox\'s policy, and is rate limited', async () => {
   const res = await ask(real.base, 'x'.repeat(5000));
   assert.deepEqual(await res.json(), { reply: 'Purchases older than 30 days get store credit.' });
   assert.equal(calls[0].model, DEMO_BOT_MODEL);
@@ -34,5 +34,5 @@ test('approved fix instructions reach the sample bot\'s system prompt', async ()
   after(() => fresh.close());
   const res = await fetch(`${fresh.base}/demo/support-bot`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': '203.0.113.77' }, body: JSON.stringify({ message: 'hi', instructions: 'Always offer store credit after 30 days.' }) });
   assert.equal(res.status, 200);
-  assert.match(calls.at(-1).system, /Extra instructions from Acme's support team:\nAlways offer store credit after 30 days\./);
+  assert.match(calls.at(-1).system, /Extra instructions from Tallyfox's support team:\nAlways offer store credit after 30 days\./);
 });

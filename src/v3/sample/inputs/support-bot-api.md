@@ -1,13 +1,13 @@
-# Acme Support Bot: integration guide (fictional, for the Delomu demo)
+# Tallyfox support assistant: integration guide
 
-The Acme support bot is a command-line program. It answers one customer message per call.
+The Tallyfox support assistant is a command-line program. It answers one customer message per call.
 
 ## Calling the bot
 - Command: `node ../mock-bot.mjs` (run from the deployment folder, so the path is relative to it).
 - Input: the customer's message as plain UTF-8 text on standard input.
 - Output: the bot's answer as plain text on standard output. Exit code 0 on success.
 - No authentication is needed for the local build. The hosted build will use an API key that
-  Acme will provide as the environment variable `ACME_BOT_API_KEY`; it is not available yet.
+  Tallyfox will provide as the environment variable `TALLYFOX_BOT_API_KEY`; it is not available yet.
 
 ## Example
 ```

@@ -116,7 +116,7 @@ const until = async (fn, test) => { let v; for (let i = 0; i < 100; i++) { v = a
 test('live through the server: sample traffic, the API, the page, viewers and the plan limit', async () => {
   const eng = await signIn('eng@live.test');
   const org = `/orgs/${o.org.id}`;
-  const dep = `${org}/deployments/sample-acme`;
+  const dep = `${org}/deployments/sample-tallyfox`;
   await post(`${org}/sample`, eng.cookie, { csrf: eng.csrf });
 
   // Before a scan the page explains what is needed.
@@ -133,7 +133,7 @@ test('live through the server: sample traffic, the API, the page, viewers and th
   assert.match(page, /conversations:write/);
 
   // The API: a help desk posts one exchange, then lists the flagged ones.
-  const api = `${srv.base}/v1/orgs/${o.org.id}/deployments/sample-acme/conversations`;
+  const api = `${srv.base}/v1/orgs/${o.org.id}/deployments/sample-tallyfox/conversations`;
   const auth = { authorization: `Bearer ${o.keys['eng@live.test']}`, 'content-type': 'application/json' };
   const made = await fetch(api, { method: 'POST', headers: auth, body: JSON.stringify({ message: 'Day 45, refund to card?', answer: 'Done, full refund issued.', id: 'zd-77' }) });
   assert.equal(made.status, 201);
@@ -152,7 +152,7 @@ test('live through the server: sample traffic, the API, the page, viewers and th
   assert.equal((await fetch(api, { method: 'POST', headers: { ...auth, authorization: `Bearer ${o.keys['view@live.test']}` }, body: '{}' })).status, 403);
 
   // Free includes 200 live conversations a month; the next one is refused with an upgrade link.
-  const file = path.join(srv.deploymentsRoot, o.org.id, 'sample-acme', 'live', `${new Date().toISOString().slice(0, 7)}.jsonl`);
+  const file = path.join(srv.deploymentsRoot, o.org.id, 'sample-tallyfox', 'live', `${new Date().toISOString().slice(0, 7)}.jsonl`);
   fs.appendFileSync(file, '{}\n'.repeat(200));
   const over = await fetch(api, { method: 'POST', headers: auth, body: JSON.stringify({ message: 'hi', answer: 'hello' }) });
   assert.equal(over.status, 402);

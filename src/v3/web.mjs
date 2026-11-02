@@ -74,7 +74,7 @@ const NOTICES = {
   rechecked: 'Re-check finished: the same messages were sent again.',
   fixdrafted: 'The agent drafted a fix. Review the instructions below, edit them if you like, then approve.',
   client: 'Client workspace ready. Connect the AI you deploy for this client, or try the sample bot first.',
-  sample: 'Sample ready: Acme’s support bot and its refund policy. Run the check to see which rules it breaks.',
+  sample: 'Sample ready: Tallyfox’s support assistant and its billing policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
   policychange: 'Your policies changed, so the check is running again on the new wording.',
@@ -352,17 +352,16 @@ function routes(ctx) {
     }
   }, { public: true });
 
-  // One click to a deployment that can be scanned right away: Acme's bot, its policy and its test cases.
-  r.add('POST', '/orgs/:org/sample', async ({ req, principal, params }) => {
-    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
-    const { org } = access(ctx, principal, params.org, 'deployments:write');
+  // One click to a deployment that can be scanned right away: Tallyfox's assistant, its policy and its test cases.
+  // A deployment that can be checked right away: Tallyfox's assistant, its policy and its test cases.
+  function addSample(principal, org, req) {
     const taken = new Set(listDeployments(db, ctx.deploymentsRoot, org.id).map(d => d.name));
-    let name = 'sample-acme';
-    for (let n = 2; taken.has(name); n++) name = `sample-acme-${n}`;
+    let name = 'sample-tallyfox';
+    for (let n = 2; taken.has(name); n++) name = `sample-tallyfox-${n}`;
     const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
     const { cases, inputs } = sampleFiles();
     const config = {
-      customer: realBot ? 'Acme (sample, real AI)' : 'Acme (sample)', name, target: { type: 'http', url: `${origin}/demo/support-bot`, body: { message: '{{input}}' }, output: 'reply' },
+      customer: realBot ? 'Tallyfox (sample, real AI)' : 'Tallyfox (sample)', name, target: { type: 'http', url: `${origin}/demo/support-bot`, body: { message: '{{input}}' }, output: 'reply' },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Accept at a 90% pass rate', reason: 'Sample customer.' }],
     };
     registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config, cases }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
@@ -370,7 +369,25 @@ function routes(ctx) {
     fs.mkdirSync(path.join(dir, 'inputs'), { recursive: true });
     for (const f of inputs) fs.writeFileSync(path.join(dir, 'inputs', f.name), f.text);
     event(ctx, principal, org.id, 'deployment.register', name, { via_web: true, sample: true });
-    return new Redirect(`${depPath(org, name)}/scan?notice=sample`);
+    return name;
+  }
+
+  r.add('POST', '/orgs/:org/sample', async ({ req, principal, params }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    return new Redirect(`${depPath(org, addSample(principal, org, req))}/scan?notice=sample`);
+  });
+
+  // For an AI vendor: a sample client workspace with the sample assistant in it, so the Clients page has a
+  // client to open before any real one is added.
+  r.add('POST', '/orgs/:org/clients/sample', async ({ req, principal, params }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const { org } = access(ctx, principal, params.org, 'org:manage');
+    if (org.kind !== 'partner') throw notFound('page');
+    const client = createOrg(db, { name: 'Tallyfox (sample client)', kind: 'customer', partnerOrgId: org.id }, ctx.now());
+    event(ctx, principal, client.id, 'org.create', client.id, { name: client.name, partner_org_id: org.id, sample: true });
+    event(ctx, principal, org.id, 'client.add', client.id, { name: client.name, sample: true });
+    return new Redirect(`${depPath(client, addSample(principal, client, req))}/rollout`);
   });
 
   const newDeploymentView = (principal, params, error, values) => {

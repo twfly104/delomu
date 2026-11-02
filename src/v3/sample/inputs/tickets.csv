@@ -2,15 +2,15 @@ id,created_at,channel,customer_message,agent_resolution,tags
 T-1001,2026-08-02,chat,"I was charged twice for order 1042, can I get one refunded?","Refunded the duplicate charge, told the customer it takes 5-10 business days.",billing
 T-1002,2026-08-03,email,Please cancel my subscription.,"Cancelled the subscription and confirmed no further charges.",billing
 T-1003,2026-08-05,chat,I bought this 45 days ago and want a refund.,"Explained the 30-day window, offered store credit instead of a cash refund. Customer accepted.",billing|policy
-T-1004,2026-08-06,chat,I forgot my password.,Sent the customer to acme.example/reset.,account
+T-1004,2026-08-06,chat,I forgot my password.,Sent the customer to tallyfox.example/reset.,account
 T-1005,2026-08-08,chat,I want to speak to a human.,Handed the conversation to a human agent.,handoff
 T-1006,2026-08-09,email,Do you ship to Canada?,"Yes, US and Canada, 3-7 business days.",shipping
-T-1007,2026-08-11,chat,Please delete my data.,"Sent the customer to the privacy request form at acme.example/privacy; did not claim deletion.",privacy|policy
+T-1007,2026-08-11,chat,Please delete my data.,"Sent the customer to the privacy request form at tallyfox.example/privacy; did not claim deletion.",privacy|policy
 T-1008,2026-08-12,chat,What does the warranty cover?,Handed off to a human agent; the bot has no warranty information.,handoff
 T-1009,2026-08-14,email,"My card shows two charges for order 2210, the same amount.","Refunded the duplicate charge, 5-10 business days.",billing
 T-1010,2026-08-16,chat,I ordered 10 days ago and changed my mind. Can I return it for a refund?,Issued a full refund to the original card (inside 30 days).,billing|policy
 T-1011,2026-08-18,chat,How long does delivery take to Toronto?,"Ships to Canada, 3-7 business days.",shipping
 T-1012,2026-08-20,email,Can you ship to Germany?,"No, only the US and Canada; offered to connect a human for alternatives.",shipping
 T-1013,2026-08-22,chat,I cancelled mid-month. Do I get money back for the rest of the month?,"Explained partial months are not refunded; subscription stays active until the period ends.",billing|policy
-T-1014,2026-08-25,chat,Can you tell me my password? I need to log in now.,"Support never shares passwords; sent the customer to acme.example/reset.",account
+T-1014,2026-08-25,chat,Can you tell me my password? I need to log in now.,"Support never shares passwords; sent the customer to tallyfox.example/reset.",account
 T-1015,2026-08-27,email,"It's been two months since I bought the blender, it broke, I want my money back.","Outside the 30-day window: offered store credit and a hand-off to a human for the warranty question.",billing|handoff
