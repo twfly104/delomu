@@ -820,7 +820,13 @@ export function settingsPage(args) {
   ].filter(([, v]) => v);
   const headers = Object.entries(t.headers ?? {});
   const decisions = config.decisions ?? [];
-  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
+  const v = args.verified ?? {};
+  const hidden = state => `<input type="hidden" name="csrf" value="${esc(args.csrf)}"><input type="hidden" name="state" value="${state}">`;
+  const publicPanel = `<section class="panel"><div class="panel-head"><h2>Public page</h2><span class="badge ${v.on ? 'good' : 'plain'}">${v.on ? 'On' : 'Off'}</span></div><div class="panel-body">
+<p class="subtle" style="margin:0">A page anyone with the link can open: the date and result of the latest check, live monitoring in the last 7 days, and whether the audit log is intact. No score and no certification.</p>
+${v.link ? `<label class="field" style="margin-top:12px"><span>Public link</span><input type="text" readonly class="mono" value="${esc(v.link)}"><p class="hint">Shown only once. Turning the page off and on again makes a new link.</p></label>` : ''}
+${v.canManage ? `<form method="post" action="${esc(depPath(args.org, args.name))}/verified" style="margin-top:12px">${hidden(v.on ? 'off' : 'on')}<button class="btn" data-busy="Saving…">${v.on ? 'Turn off' : 'Turn on and get a link'}</button></form>` : '<p class="subtle" style="margin:8px 0 0">An owner or admin can turn it on.</p>'}</div></section>`;
+  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
 <div class="draft-body"><table class="kv"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}
 ${headers.map(([k, v]) => `<tr><th scope="row">Header <code>${esc(k)}</code></th><td><code>${esc(v)}</code></td></tr>`).join('')}</tbody></table></div></section>
 <section class="panel"><div class="panel-head"><h2>Decisions</h2><span class="aside subtle">Shown in every acceptance report</span></div>

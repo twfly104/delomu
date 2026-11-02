@@ -21,6 +21,7 @@ import { renderScanReport } from './scan-report.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug } from './accounts.mjs';
 import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
 import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
+import { verifiedFacts, verifiedPage } from './verified.mjs';
 import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
@@ -170,7 +171,7 @@ function routes(ctx) {
     return {
       ...base(principal), org, name: params.name, dir, config, ov: overview(dir, config),
       nav: navFor(principal, { canAudit: allow('audit:read') }),
-      can: { write: allow('deployments:write'), run: allow('runs:create'), review: allow('drafts:review') },
+      can: { write: allow('deployments:write'), run: allow('runs:create'), review: allow('drafts:review'), manage: allow('org:manage') },
       flash: NOTICES[url?.searchParams.get('notice')] ?? '',
       checking: scans.get(dir)?.status === 'running',
     };
@@ -756,7 +757,39 @@ function routes(ctx) {
 
   r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));
   r.add('GET', '/orgs/:org/deployments/:name/inputs', ({ principal, params, url }) => html(inputsPage(workspace(principal, params, 'deployments:read', url))));
-  r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => html(settingsPage(workspace(principal, params, 'deployments:read', url))));
+  const showSettings = (principal, params, url, link) => {
+    const ws = workspace(principal, params, 'deployments:read', url);
+    const verified = activeShares(db, ws.org.id, params.name, 'verified', ctx.now()).length > 0;
+    return html(settingsPage({ ...ws, verified: { on: verified, link, canManage: ws.can.manage } }));
+  };
+  r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => showSettings(principal, params, url));
+
+  // The public page (src/v3/verified.mjs), off by default. Owners and admins turn it on; each time makes a new
+  // link (only its hash is stored) and turning it off ends every link.
+  r.add('POST', '/orgs/:org/deployments/:name/verified', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'org:manage');
+    deploymentFor(ctx, org.id, params.name);
+    revokeShares(db, org.id, params.name, 'verified', ctx.now());
+    if (form.state !== 'on') {
+      event(ctx, principal, org.id, 'verified.off', params.name);
+      return new Redirect(`${depPath(org, params.name)}/settings`);
+    }
+    const { token } = createShare(db, { orgId: org.id, deployment: params.name, purpose: 'verified', createdBy: principal.actor }, ctx.now(), null);
+    event(ctx, principal, org.id, 'verified.on', params.name);
+    return showSettings(principal, params, null, `${returnBase(req)}/verified/${token}`);
+  });
+
+  r.add('GET', '/verified/:token', ({ params }) => {
+    const share = findShare(db, params.token, 'verified', ctx.now());
+    if (!share) throw notFound('page');
+    const org = getOrg(db, share.org_id);
+    const { dir } = deploymentFor(ctx, share.org_id, share.deployment);
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* the page works without it */ }
+    return html(verifiedPage({ company: config.customer ?? org.name, name: share.deployment, facts: verifiedFacts(dir, ctx.now()) }));
+  }, { public: true });
 
   // The latest check as a document for the customer or legal: print it, then Save as PDF.
   r.add('GET', '/orgs/:org/deployments/:name/scan/report.html', ({ principal, params }) => {
