@@ -71,3 +71,8 @@ test('the sample integration notes name the full endpoint so the integration dra
   const notes = storeSampleFiles('https://delomu.example').find(f => f.name === 'order-api.md').text;
   assert.match(notes, /POST https:\/\/delomu\.example\/demo\/store-agent/);
 });
+
+test('the sample agent never sends an empty message', async () => {
+  const client = { messages: { create: async () => ({ stop_reason: 'end_turn', content: [] }) } };
+  assert.equal((await storeAgentAnswer('hi', { client })).reply, 'Let me connect you with our care team.');
+});

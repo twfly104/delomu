@@ -86,7 +86,9 @@ export async function chat(message, { client = new Anthropic(), now = Date.now()
     const res = await client.messages.create({ model: MODEL, max_tokens: 1024, system: SYSTEM, tools: TOOLS, messages });
     const calls = res.content.filter(b => b.type === 'tool_use');
     if (res.stop_reason !== 'tool_use' || !calls.length) {
-      return { reply: res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim(), actions };
+      // A model can end a turn with no text; the customer must never get an empty message.
+      const reply = res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+      return { reply: reply || 'Let me connect you with our care team.', actions };
     }
     messages.push({ role: 'assistant', content: res.content });
     const results = [];
