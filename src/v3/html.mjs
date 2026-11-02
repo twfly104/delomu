@@ -260,6 +260,58 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .draft-body .kv td{overflow-wrap:anywhere}
 @media (max-width:760px){.draft-body .kv th{width:110px;white-space:normal}.rulelist li{flex-wrap:wrap}.rulelist .c{white-space:normal;margin-left:26px;width:100%}}
 .fixit .panel-body{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.fixit .panel-body>div{flex:1;min-width:260px}.fixit form.panel-body{display:flex;flex-direction:column;align-items:stretch}
+/* The check, as tiles. In progress: one tile per test message, lit red or green as its answer is judged.
+   Results: one tile per policy rule, with a pip per message, linking to the rule's findings. */
+.live-head{display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+.probegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(20px,1fr));gap:6px;max-width:640px}
+.pt{display:block;aspect-ratio:1;border-radius:5px;background:var(--sunken);border:1px solid var(--line)}
+.pt.kept{background:var(--good);border-color:var(--good)}.pt.broken{background:var(--bad);border-color:var(--bad)}
+.pt.unjudged,.pt.error{background:var(--warn);border-color:var(--warn)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:13px}.legend span{display:inline-flex;gap:6px;align-items:center}.legend .pt{width:10px;border-radius:3px}
+.scan-head{border-bottom:1px solid var(--line)}
+.rulemap{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;padding:16px}
+.rt{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;color:inherit;background:var(--surface);transition:border-color .15s,background .15s}
+.rt:hover{text-decoration:none;border-color:var(--line-strong)}
+.rt .t{font-size:13px;line-height:1.4;font-weight:500;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.rt .c{font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:8px;margin-top:auto}
+.rt .pips{display:flex;gap:3px;margin-left:auto}.rt .pips i{width:7px;height:7px;border-radius:2px;background:var(--line-strong)}
+.rt .pips i.kept{background:var(--good)}.rt .pips i.broken{background:var(--bad)}.rt .pips i.unjudged,.rt .pips i.error{background:var(--warn)}
+.rt.broken{background:var(--bad-weak);border-color:color-mix(in srgb,var(--bad) 28%,var(--line))}.rt.broken .c{color:var(--bad)}
+.rt.unsure{background:var(--warn-weak);border-color:color-mix(in srgb,var(--warn) 28%,var(--line))}
+:target>.rule-head,.rulelist li:target{background:var(--hover)}
+/* How it works, drawn: policy, the messages most likely to break it, your AI, a verdict per clause. */
+.flow{display:grid;grid-template-columns:auto 1fr auto 1fr auto 1fr auto;align-items:center;gap:0;padding:4px 0}
+.flow .node{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;font-size:12.5px;color:var(--text-2);width:84px}
+.flow .glyph{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line-strong);color:var(--text)}
+.flow .wire{height:1px;min-width:16px;margin-bottom:24px;background:var(--line-strong);transform-origin:left center}
+.flow .chips{display:flex;flex-direction:column;gap:4px}.flow .chips span{font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;white-space:nowrap}
+.flow .chips .bad{background:var(--bad-weak);color:var(--bad)}.flow .chips .good{background:var(--good-weak);color:var(--good)}
+@media (max-width:560px){.flow{grid-template-columns:1fr;justify-items:center}.flow .wire{width:1px;height:18px;transform-origin:center top}.flow .node{width:auto}}
+/* A client's agents as dots, one per agent, coloured by its latest state. */
+.dots{display:flex;gap:4px;align-items:center;margin-top:3px}.dots i{width:8px;height:8px;border-radius:50%;background:var(--line-strong)}
+.dots i.ok{background:var(--good)}.dots i.bad{background:var(--bad)}.dots i.warn{background:var(--warn)}.dots i.accent{background:var(--accent)}
+/* Live: each of the last 7 days as a bar, the red part the answers that broke a rule. */
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;padding:16px 16px 4px;align-items:end;height:132px;border-bottom:1px solid var(--line)}
+.days .day{display:flex;flex-direction:column;justify-content:flex-end;gap:6px;height:100%;text-align:center}
+.days .col{display:flex;flex-direction:column-reverse;border-radius:4px;overflow:hidden;min-height:2px;background:var(--line)}
+.days .col i{display:block;background:color-mix(in srgb,var(--text-3) 38%,var(--sunken))}.days .col i.f{background:var(--bad)}
+.days .lbl{font-size:11.5px;color:var(--text-3)}
+@media (prefers-reduced-motion:no-preference){
+  .pt.new{animation:land .5s cubic-bezier(.16,1,.3,1) both}
+  .pt.next{animation:wait 1.4s ease-in-out infinite}
+  .flow .node,.flow .wire{animation:rise .5s cubic-bezier(.16,1,.3,1) both}
+  .flow .wire{animation-name:draw}
+  .flow>:nth-child(2){animation-delay:.25s}.flow>:nth-child(3){animation-delay:.45s}.flow>:nth-child(4){animation-delay:.7s}
+  .flow>:nth-child(5){animation-delay:.9s}.flow>:nth-child(6){animation-delay:1.15s}.flow>:nth-child(7){animation-delay:1.35s}
+  .flow .chips span{animation:pop .3s cubic-bezier(.16,1,.3,1) both}.flow .chips span:nth-child(1){animation-delay:1.6s}.flow .chips span:nth-child(2){animation-delay:1.7s}.flow .chips span:nth-child(3){animation-delay:1.8s}
+  .rulemap .rt{animation:rise .4s cubic-bezier(.16,1,.3,1) both}.rulemap .rt:nth-child(n+2){animation-delay:.04s}.rulemap .rt:nth-child(n+4){animation-delay:.08s}.rulemap .rt:nth-child(n+7){animation-delay:.12s}
+  .days .col{transform-origin:bottom;animation:grow .5s cubic-bezier(.16,1,.3,1) both}
+}
+@keyframes land{from{opacity:0;transform:scale(.4)}}
+@keyframes wait{50%{background:color-mix(in srgb,var(--accent) 22%,var(--sunken));border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}}
+@keyframes draw{from{transform:scaleX(0)}}
+@keyframes grow{from{transform:scaleY(0)}}
+@media (max-width:560px){@keyframes draw{from{transform:scaleY(0)}}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
@@ -431,16 +483,22 @@ ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
 }
 
 // First-run guide: the three steps to a first check, with a one-click sample support bot.
+// How the check works, as a diagram that draws itself once: your policy, the messages most likely to break it,
+// your AI, and a verdict for each clause.
+const FLOW = `<div class="flow" role="img" aria-label="Delomu reads your policy, writes the messages most likely to break it, sends them to your AI and judges each answer against its clause.">
+<div class="node"><span class="glyph">${icon('file')}</span>Your policy</div><span class="wire"></span>
+<div class="node"><span class="glyph">${icon('spark')}</span>Hardest messages</div><span class="wire"></span>
+<div class="node"><span class="glyph">${icon('layers')}</span>Your AI</div><span class="wire"></span>
+<div class="node"><span class="chips"><span class="bad">§2 broken</span><span class="good">§3 kept</span><span class="good">§5 kept</span></span>Each clause</div></div>`;
+
 function onboarding(org, csrf) {
   return `<section class="panel onboard"><div>
 <h2>Find the rules your AI agent breaks, before your customers do</h2>
-<p class="lede">Delomu reads your policies, writes the messages most likely to make your AI break each rule, and checks every answer against the exact clause.</p>
+<p class="lede">About a minute, and every finding cites its clause.</p>
 <div class="acts"><form method="post" action="${esc(orgPath(org))}/sample"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn primary" data-busy="Setting up…">${icon('spark')}Try it on a sample support bot</button></form>
 <a class="btn" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Connect your AI agent</a></div></div>
-<ol aria-label="How it works"><li><p><span class="strong">Connect your AI agent</span><br><span class="subtle">Support, sales, billing or HR: Intercom Fin, Zendesk AI or your own bot.</span></p></li>
-<li><p><span class="strong">Add your policies</span><br><span class="subtle">Refunds, pricing and discounts, privacy, help articles.</span></p></li>
-<li><p><span class="strong">Run the check</span><br><span class="subtle">About a minute. Every finding cites its clause.</span></p></li></ol></section>`;
+${FLOW}</section>`;
 }
 
 export function homePage({ user, csrf, nav, now, deployments, review, canWrite }) {
@@ -514,14 +572,14 @@ export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage
   const live = clients.filter(c => clientStage(c.deployments) === 'Live').length;
   const fmtH = h => (h ? `${Math.round(h * 10) / 10} h` : '<span class="subtle">—</span>');
   const rows = rated.map(({ org: c, deployments: ds, status }) => `<tr>
-<td><a class="agent-name" href="${esc(orgPath(c))}"><span class="av">${icon('building')}</span><span><span class="strong">${esc(c.name)}</span><span class="subtle" style="display:block;font-size:12.5px">${ds.length} AI agent${ds.length === 1 ? '' : 's'}</span></span></a></td>
+<td><a class="agent-name" href="${esc(orgPath(c))}"><span class="av">${icon('building')}</span><span><span class="strong">${esc(c.name)}</span><span class="dots" title="${ds.length} AI agent${ds.length === 1 ? '' : 's'}">${ds.map(d => `<i class="${clientStatus([d]).cls === 'good' ? 'ok' : clientStatus([d]).cls === 'bad' ? 'bad' : clientStatus([d]).cls}" title="${esc(d.name)}: ${esc(clientStatus([d]).text)}"></i>`).join('') || '<span class="subtle" style="font-size:12.5px">No AI agent yet</span>'}</span></span></a></td>
 <td><span class="badge ${status.cls}${status.cls === 'accent' ? ' plain' : ''} num">${esc(status.text)}</span></td>
 <td class="hide-sm">${esc(clientStage(ds))}</td>
 <td class="hide-sm num">${fmtH(hours(ds))}</td>
 <td class="hide-sm subtle nowrap">${last(ds) ? esc(ago(last(ds), now)) : '—'}</td></tr>`).join('\n');
   const add = canManage ? `<form method="post" action="${esc(orgPath(org))}/clients" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
-<h2 style="margin:0 0 4px">Add a client</h2><p class="subtle" style="margin:0 0 12px">Each client gets its own workspace: its policies, checks and conversations stay apart from every other client.</p>
+<h2 style="margin:0 0 4px">Add a client</h2><p class="subtle" style="margin:0 0 12px">Each client gets its own workspace, kept apart from every other client.</p>
 <label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="The client’s company name"></label>
 <button class="btn primary" data-busy="Adding…">${icon('plus')}Add client</button></div></form>` : '';
   const stats = clients.length ? `<div class="stats"><div><p class="v num">${clients.length}</p><p class="k">Clients · ${agents} AI agent${agents === 1 ? '' : 's'}</p></div>
@@ -754,7 +812,7 @@ export function rolloutPage(args) {
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
   const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
-<p class="panel-body subtle" style="margin:0">The agent drafts the data mapping, the integration and the test set from this client’s material, then the policy check runs. Every draft waits for a person to approve, edit or reject it; nothing changes until then. Fixes and the launch report come after the first test run.</p>
+<p class="panel-body subtle" style="margin:0">Drafts the mapping, integration and test set, then runs the check. You approve every draft.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
 <p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>
@@ -863,17 +921,26 @@ export function riskScanPage(args) {
     const probing = p.phase === 'probes' && p.total;
     const pctDone = probing ? Math.round(40 + 60 * p.done / p.total) : Math.round(40 * (1 - Math.exp(-secs / 25)));
     const slow = !probing && secs > 45 ? ' · Taking longer than usual; still working' : '';
-    const what = probing
-      ? `Step 2 of 2 · Sending ${p.total} test messages for ${p.rules} rules to your AI and judging each answer · ${p.done} of ${p.total} done`
-      : `Step 1 of 2 · Reading your policies and writing the customer messages most likely to break each rule${slow}`;
+    // One tile per test message, lit as its answer is judged; the ones lit since the last reload animate in.
+    const marks = args.job.marks ?? [];
+    const nowMs = now?.getTime?.() ?? Date.now();
+    const count = st => marks.filter(m => m.status === st).length;
+    const tiles = probing ? Array.from({ length: p.total }, (_, i) => {
+      const m = marks[i];
+      return `<i class="pt${m ? ` ${esc(m.status)}${nowMs - m.at < 2600 ? ' new' : ''}` : i === marks.length ? ' next' : ''}"></i>`;
+    }).join('') : '';
+    const body = probing
+      ? `<div class="probegrid" role="img" aria-label="${p.done} of ${p.total} answers judged, ${count('broken')} broke a rule">${tiles}</div>
+<p class="legend muted num"><span><i class="pt broken"></i>${count('broken')} broke a rule</span><span><i class="pt kept"></i>${count('kept')} kept</span><span>${p.total - p.done} to go</span></p>`
+      : `<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${Math.max(2, pctDone)}%"></i></div>
+<p class="muted">Writing the messages most likely to break each rule${slow}.</p>`;
     return shell(`<section class="panel scan-live" aria-live="polite">
-<p class="big">Checking… <span class="subtle num" style="font-weight:400">${secs} s</span></p><div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${Math.max(2, pctDone)}%"></i></div>
-<p class="muted num">${esc(what)}</p><p class="subtle" style="margin-top:6px">You can leave this page; the check keeps running and the results appear here.</p></section>`, 2);
+<div class="live-head"><p class="big">${probing ? `Judging ${p.total} answers` : 'Reading your policies'}</p><span class="subtle num">${secs} s</span></div>${body}</section>`, 2);
   }
   if (!scan) {
     return shell(`<section class="panel"><div class="emptystate" style="padding:48px 16px">
 <span class="strong" style="font-size:16px;letter-spacing:-0.01em">Find the rules your AI breaks, before customers do</span>
-<p style="max-width:58ch;margin:8px auto 20px">Delomu reads your policies, writes the customer messages most likely to make your AI break each rule, sends them to it and checks every answer against the exact clause.</p>
+<div style="max-width:560px;margin:20px auto 24px">${FLOW}</div>
 ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Starting…">${icon('shield')}Run check</button></form>` : '') : `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add your policies first</a>`}</div></section>`);
   }
   const s = scan.summary;
@@ -894,7 +961,7 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
     const bad = rule.probes.filter(p => p.status !== 'kept');
     const ok = rule.probes.filter(p => p.status === 'kept');
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
-    return `<section class="panel"><div class="rule-head">
+    return `<section class="panel" id="r-${esc(rule.id)}"><div class="rule-head">
 <div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(rule.rule)}</h3></div>
 <p class="clause"><cite>${esc(rule.clause)}</cite>“${esc(rule.quote)}”</p>
 <p class="harm"><b>Risk with a real customer:</b> ${esc(rule.harm)}</p></div>
@@ -915,7 +982,7 @@ ${applied && can.write ? `<form method="post" action="${esc(base)}/fix/revert" s
   const target = args.fixTarget ?? { canApply: false };
   const fixPanel = !broken.length || !can.write ? '' : !fix || fix.status !== 'proposed'
     ? `<section class="panel fixit"><div class="panel-body"><div><h2>Fix it</h2>
-<p class="muted" style="margin-top:4px">The agent drafts one change to your AI's instructions covering the ${broken.length} broken rule${broken.length === 1 ? '' : 's'}. Nothing changes until you approve it; then the same ${s.probes} messages run again.</p></div>
+<p class="muted" style="margin-top:4px">One change to your AI\u2019s instructions for the ${broken.length} broken rule${broken.length === 1 ? '' : 's'}. You approve it first; then the same messages run again.</p></div>
 <form method="post" action="${esc(base)}/fix/draft"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Drafting… about 20 s">${icon('spark')}Draft a fix</button></form></div></section>`
     : `<section class="panel fixit"><form method="post" action="${esc(base)}/fix/approve" class="panel-body stack" style="gap:12px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p></div>
@@ -928,16 +995,31 @@ ${gaps(fix.gaps)}
     : unsure.length
       ? `<p class="verdict warn num"><b>${unsure.length}</b> <span class="of">of ${s.rules}</span> rules could not be checked</p>`
       : `<p class="verdict good num"><b>All ${s.rules}</b> policy rules kept</p>`;
-  return shell(`<section class="panel scan-head">
+  // Every rule at a glance, in the policy's order; each tile jumps to its findings.
+  const state = r => (isBroken(r) ? 'broken' : isUnsure(r) ? 'unsure' : 'kept');
+  const map = `<div class="rulemap">${scan.rules.map(r => `<a class="rt ${state(r)}" href="#r-${esc(r.id)}" title="${esc(r.rule)}"><span class="t">${esc(r.rule)}</span>
+<span class="c">${esc(r.clause)}<span class="pips">${r.probes.map(pr => `<i class="${esc(pr.status)}"></i>`).join('')}</span></span></a>`).join('')}</div>`;
+  return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
 <p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
-${compare}<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><a class="btn" style="margin-left:auto" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></section>
+${compare}<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><a class="btn" style="margin-left:auto" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div>${map}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li>${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(r.clause)} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(r.clause)} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);
+}
+
+// The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function dayChart(days) {
+  if (!days?.some(d => d.checked)) return '';
+  const max = Math.max(...days.map(d => d.checked));
+  return `<div class="days" role="img" aria-label="Conversations checked each day for the last 7 days">${days.map(d => {
+    const h = d.checked ? Math.max(4, Math.round(100 * d.checked / max)) : 0;
+    return `<div class="day" title="${esc(d.day)}: ${d.checked} checked, ${d.flagged} broke a rule"><div class="col" style="height:${h}%"><i style="flex:${d.checked - d.flagged}"></i><i class="f" style="flex:${d.flagged}"></i></div><span class="lbl">${WEEKDAY[new Date(`${d.day}T00:00:00Z`).getUTCDay()]}</span></div>`;
+  }).join('')}</div>`;
 }
 
 // Live monitoring: what the AI did with real customers in the last 7 days, against the policy rules.
@@ -972,7 +1054,7 @@ export function livePage(args) {
 <div class="stats"><div><p class="v num">${n(w.checked)}</p><p class="k">Conversations checked</p></div>
 <div><p class="v num${w.flagged ? ' bad' : ''}">${n(w.flagged)}</p><p class="k">Broke a rule${w.checked ? ` · ${w.flagged && rate === 0 ? '<1' : rate}%` : ''}</p></div>
 <div><p class="v num${live.rules.length ? ' bad' : ''}">${live.rules.length} <span class="subtle" style="font-size:15px;font-weight:400">of ${scan.rules.length}</span></p><p class="k">Policy rules broken</p></div></div>
-${bars}</section>`;
+${dayChart(live.days)}${bars}</section>`;
   const badge = c => (c.status === 'flagged' ? '<span class="badge bad">Broke a rule</span>' : c.status === 'ok' ? '<span class="badge good">Kept</span>' : '<span class="badge warn">Check</span>');
   const why = c => (c.violations.length ? `<div class="why">${c.violations.map(v => `<p><span class="badge ${esc((SEVERITY[v.severity] ?? SEVERITY.medium)[0])}">${esc(v.clause)}</span> ${esc(v.what_happened)}<br><span class="fix"><span class="strong">Fix</span> ${esc(v.fix)}</span></p>`).join('')}</div>`
     : c.status === 'unjudged' ? '<p class="subtle" style="margin-top:8px">The judge gave no verdict; a person should read this one.</p>' : '');

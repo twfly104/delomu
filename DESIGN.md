@@ -38,6 +38,15 @@ h1 24px at -0.03em, h2 15px, weight 600; `--mono` only for ids, code and data. N
 - **Check results** (the product's signature): a verdict line ("4 of 8 policy rules broken"), then each broken rule
   with its clause quoted, the risk, and every breaking exchange as Customer wrote / Your AI replied with the verdict
   and fix; messages handled correctly fold away; kept rules end the page as one list.
+- **Rule map** (top of check results): one tile per policy rule in the policy's order, tinted red when broken,
+  amber when it needs a person, plain when kept, with one pip per test message; each tile links to its findings.
+- **Check in progress**: one tile per test message, lit red or green as its answer is judged (newly lit tiles land
+  with a short scale-in; the next one breathes in accent). Step 1 keeps the plain meter.
+- **How it works**: a four-node diagram (your policy, hardest messages, your AI, a verdict per clause) that draws
+  itself once on the first-run and empty check pages; static under reduced motion.
+- **Client dots**: one dot per AI agent under each client's name, coloured by that agent's state.
+- **Daily bars** (Live): the last 7 days, height is conversations checked, the red cap those that broke a rule.
+- **Copy**: one line under a section heading; the picture carries the rest.
 - **Panel**: surface, 1px line, 10px radius, head row with title and a quiet aside. No nested cards.
 - **Buttons**: 32px, 6px radius; primary is accent-filled, secondary is outlined. Busy text via `data-busy`.
 - **Badges**: pill with a dot, coloured by state; `.plain` without the dot.

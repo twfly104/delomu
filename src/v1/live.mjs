@@ -102,6 +102,12 @@ export function liveSummary(dir, now = new Date()) {
     week: { checked: week.length, flagged: week.filter(c => c.status === 'flagged').length, unjudged: week.filter(c => c.status === 'unjudged').length },
     rules: [...byRule.values()].sort((a, b) => b.count - a.count || order[a.severity] - order[b.severity]),
     recent: all.slice(0, 50),
+    // The last 7 days one by one (UTC), oldest first, for the daily chart.
+    days: Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(now.getTime() - (6 - i) * 86_400_000).toISOString().slice(0, 10);
+      const on = week.filter(c => c.at.slice(0, 10) === day);
+      return { day, checked: on.length, flagged: on.filter(c => c.status === 'flagged').length };
+    }),
   };
 }
 

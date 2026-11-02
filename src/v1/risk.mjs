@@ -187,7 +187,7 @@ async function judgeProbes(dir, config, llm, rules, onProgress) {
   };
   const judged = await pool(probes, CONCURRENCY, async item => {
     const out = await judge(item);
-    onProgress({ phase: 'probes', done: ++done, total: probes.length, rules: rules.length });
+    onProgress({ phase: 'probes', done: ++done, total: probes.length, rules: rules.length, status: out.status });
     return out;
   });
   probes.forEach(({ probe }, i) => Object.assign(probe, judged[i]));
