@@ -33,6 +33,7 @@ export function loadConfig(dir) {
     judge: config.judge ?? {},
     concurrency: config.concurrency ?? 4,
     target: config.target,
+    agentKind: config.agentKind ?? 'support',
   };
 }
 

@@ -10,6 +10,7 @@ import { icon } from './icons.mjs';
 import { draftCard, reviewedRow } from './drafts-view.mjs';
 import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
+import { AGENT_KINDS } from '../v1/kinds.mjs';
 
 export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh;if(r)setInterval(function(){var a=document.activeElement;if(document.querySelector('details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;location.reload();},r*1000);";
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
@@ -432,13 +433,13 @@ ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
 // First-run guide: the three steps to a first check, with a one-click sample support bot.
 function onboarding(org, csrf) {
   return `<section class="panel onboard"><div>
-<h2>Find the rules your support AI breaks, before your customers do</h2>
-<p class="lede">Delomu reads your support policies, writes the customer messages most likely to make your AI break each rule, and checks every answer against the exact clause.</p>
+<h2>Find the rules your AI agent breaks, before your customers do</h2>
+<p class="lede">Delomu reads your policies, writes the messages most likely to make your AI break each rule, and checks every answer against the exact clause.</p>
 <div class="acts"><form method="post" action="${esc(orgPath(org))}/sample"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn primary" data-busy="Setting up…">${icon('spark')}Try it on a sample support bot</button></form>
 <a class="btn" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Connect your AI agent</a></div></div>
-<ol aria-label="How it works"><li><p><span class="strong">Connect your AI agent</span><br><span class="subtle">Intercom Fin, Zendesk AI or your own bot.</span></p></li>
-<li><p><span class="strong">Add your support policies</span><br><span class="subtle">Refunds, cancellations, privacy, help articles.</span></p></li>
+<ol aria-label="How it works"><li><p><span class="strong">Connect your AI agent</span><br><span class="subtle">Support, sales, billing or HR: Intercom Fin, Zendesk AI or your own bot.</span></p></li>
+<li><p><span class="strong">Add your policies</span><br><span class="subtle">Refunds, pricing and discounts, privacy, help articles.</span></p></li>
 <li><p><span class="strong">Run the check</span><br><span class="subtle">About a minute. Every finding cites its clause.</span></p></li></ol></section>`;
 }
 
@@ -458,7 +459,7 @@ ${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} fo
   return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
 <div class="page-head"><div><h1>AI agents</h1><p class="sub num">${esc(summary)}</p></div>
 ${orgs.length === 1 && canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(orgs[0]))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
-<section class="panel">${deployments.length ? agentsTable(deployments, { showOrg: orgs.length > 1, now }) : `<div class="emptystate"><span class="strong">No AI agents yet</span>Connect the support AI you want to check.</div>`}</section>
+<section class="panel">${deployments.length ? agentsTable(deployments, { showOrg: orgs.length > 1, now }) : `<div class="emptystate"><span class="strong">No AI agents yet</span>Connect the AI agent you want to check.</div>`}</section>
 ${queue}` });
 }
 
@@ -469,7 +470,7 @@ export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, noti
 <div class="page-head"><div><h1>AI agents</h1><p class="sub">${esc(org.name)} · ${deployments.length} agent${deployments.length === 1 ? '' : 's'}</p></div>
 ${canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
 ${notice(msg, 'good')}
-${deployments.length ? `<section class="panel">${agentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No AI agents yet</span>An admin connects the support AI to check.</div></section>`}` });
+${deployments.length ? `<section class="panel">${agentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No AI agents yet</span>An admin connects the AI agent to check.</div></section>`}` });
 }
 
 // An AI vendor's home (a partner org): one row per client workspace, with that client's agents rolled up.
@@ -513,12 +514,13 @@ export function newDeploymentPage({ user, csrf, nav, org, error, values = {} }) 
   const type = CONNECTIONS.some(c => c.type === values.type) ? values.type : 'http';
   const section = (title, hint = '') => `<h3 class="form-section">${esc(title)}${hint ? `<span class="hint">${esc(hint)}</span>` : ''}</h3>`;
   return layout({ title: 'Add an AI agent', user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [['AI agents', orgPath(org)], ['Add']], body: `
-<div class="page-head"><div><h1>Add an AI agent</h1><p class="sub">Connect the support AI you want to check. You add your policies next.</p></div></div>
+<div class="page-head"><div><h1>Add an AI agent</h1><p class="sub">Connect the AI agent you want to check. You add your policies next.</p></div></div>
 ${notice(error)}
 <form method="post" action="${esc(orgPath(org))}/new-deployment" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
 <label class="field"><span>Client or brand <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="Acme Bank"><p class="hint">If you deploy this AI for a client, their name goes on the customer report.</p></label>
+<label class="field"><span>What this AI does</span><select name="agentKind">${Object.entries(AGENT_KINDS).map(([id, k]) => `<option value="${id}"${(values.agentKind ?? 'support') === id ? ' selected' : ''}>${esc(k.label)}</option>`).join('')}</select><p class="hint">The check looks hardest where this kind of AI usually breaks policy, for example discounts for a sales AI.</p></label>
 <div class="field"><span>Where your AI agent runs</span><div class="choice">
 ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"${type === c.type ? ' checked' : ''}><span><span class="strong">${esc(c.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(c.hint)}</span></span></label>`).join('\n')}
 </div></div>

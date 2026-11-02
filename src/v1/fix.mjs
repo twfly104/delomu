@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { appendAudit } from '../core/audit.mjs';
 import { loadConfig } from '../deployment.mjs';
+import { kindInfo } from './kinds.mjs';
 import { neutral } from './agent.mjs';
 import { listScans } from './risk.mjs';
 
@@ -27,7 +28,7 @@ const FIX_SCHEMA = {
   additionalProperties: false,
 };
 
-const FIX_SYSTEM = `You write the smallest change to a support AI's instructions that makes it keep the company's policy
+const fixSystem = k => `You write the smallest change to ${k.one}'s instructions that makes it keep the company's policy
 rules it just broke in testing. Write instructions the AI can follow in any conversation, not answers to the test
 messages. Keep the company's wording for amounts, days and links. Do not invent policy, tools or contact details.
 Some rules need a capability, not words: a policy that says to cancel, refund, or hand off to a human assumes the AI
@@ -57,10 +58,11 @@ export async function draftFix(dir, { llm, now = new Date() } = {}) {
   if (!scan) return { ok: false, reason: 'run a check first' };
   const broken = scan.rules.filter(r => r.probes.some(p => p.status === 'broken'));
   if (!broken.length) return { ok: false, reason: 'the latest check found no broken rules to fix' };
-  const { current } = instructionsTarget(loadConfig(dir));
+  const config = loadConfig(dir);
+  const { current } = instructionsTarget(config);
   const findings = broken.map(r => `<rule clause="${neutral(r.clause)}">\n${neutral(r.rule)}\nPolicy: "${neutral(r.quote)}"\n${r.probes.filter(p => p.status === 'broken').map(p => `<finding>\nCustomer: ${neutral(p.message)}\nAI: ${neutral(p.answer)}\nWhat went wrong: ${neutral(p.what_happened)}\nSuggested: ${neutral(p.fix)}\n</finding>`).join('\n')}\n</rule>`).join('\n\n');
   const res = await llm.json({
-    system: FIX_SYSTEM, schema: FIX_SCHEMA, effort: 'high', maxTokens: 4000,
+    system: fixSystem(kindInfo(config)), schema: FIX_SCHEMA, effort: 'high', maxTokens: 4000,
     prompt: `<current_extra_instructions>\n${neutral(current) || '(none)'}\n</current_extra_instructions>\n\n${findings}\n\nWrite the updated block of extra instructions.`,
   });
   if (!res.ok) return { ok: false, reason: res.reason === 'refusal' ? 'the model declined to draft a fix' : 'the draft was cut off; try again' };

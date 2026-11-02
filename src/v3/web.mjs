@@ -13,6 +13,7 @@ import { parseCsv } from '../csv.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { listScans, recheck } from '../v1/risk.mjs';
+import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.mjs';
@@ -394,7 +395,8 @@ function routes(ctx) {
       if (String(form.auth ?? '').trim()) target.headers = { authorization: String(form.auth).trim() };
       if (String(form.output ?? '').trim()) target.output = String(form.output).trim();
     }
-    const config = { customer: String(form.customer ?? '').trim() || undefined, name: String(form.name ?? ''), target, acceptance: { minPassRate: pass / 100 }, decisions: [] };
+    const agentKind = Object.hasOwn(AGENT_KINDS, String(form.agentKind ?? '')) ? String(form.agentKind) : 'support';
+    const config = { customer: String(form.customer ?? '').trim() || undefined, name: String(form.name ?? ''), agentKind, target, acceptance: { minPassRate: pass / 100 }, decisions: [] };
     try {
       const d = registerDeployment(db, ctx.deploymentsRoot, org.id, { name: String(form.name ?? ''), config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
       event(ctx, principal, org.id, 'deployment.register', d.name, { via_web: true });

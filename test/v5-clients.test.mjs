@@ -1,5 +1,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { openDb } from '../src/v3/db.mjs';
 import { createBilling } from '../src/v3/billing.mjs';
 import { setPlanByOperator } from '../src/v3/billing.mjs';
@@ -80,4 +82,17 @@ test('only a vendor org can add clients', async () => {
   const page = await (await get('/', cookie)).text();
   const orgPath = /href="(\/orgs\/[^"/]+)\/new-deployment"/.exec(page)[1];
   assert.equal((await post(`${orgPath}/clients`, cookie, { csrf: csrfOf(page), name: 'X' })).status, 404);
+});
+
+test('the new agent form stores what the AI does', async () => {
+  const cookie = await signUp({ email: 'rev@salesco.test', company: 'SalesCo', kind: 'company' });
+  const home = await (await get('/', cookie)).text();
+  const orgPath = /href="(\/orgs\/[^"/]+)\/new-deployment"/.exec(home)[1];
+  const form = await (await get(`${orgPath}/new-deployment`, cookie)).text();
+  assert.match(form, /<option value="sales">Sales<\/option>/);
+  const res = await post(`${orgPath}/new-deployment`, cookie, { csrf: csrfOf(form), name: 'deal-bot', agentKind: 'sales', type: 'http', url: 'https://bot.example/chat' });
+  assert.equal(res.status, 303);
+  const orgId = decodeURIComponent(orgPath.split('/').pop());
+  const config = JSON.parse(fs.readFileSync(path.join(srv.deploymentsRoot, orgId, 'deal-bot', 'delomu.json'), 'utf8'));
+  assert.equal(config.agentKind, 'sales');
 });
