@@ -39,10 +39,12 @@ test('a client accepts an AI agent from a link, without an account, once', async
   fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
   page = await (await get(`${dep}/rollout`, cookie)).text();
-  const made = await (await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).text();
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  const made = await (await get(`${dep}/rollout`, cookie)).text();
   const link = /value="(http[^"]+\/signoff\/[^"]+)"/.exec(made)[1];
   const token = link.split('/signoff/')[1];
   assert.match(made, /Shown only once/);
+  assert.doesNotMatch(await (await get(`${dep}/rollout`, cookie)).text(), /Shown only once/, 'a reload does not show or make the link again');
   assert.match(made, /Revoke 1 open link/);
 
   // The client: no session cookie at all.
@@ -72,7 +74,8 @@ test('revoked and unknown links show nothing', async () => {
   fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
   const page = await (await get(`${dep}/rollout`, cookie)).text();
-  const made = await (await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).text();
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  const made = await (await get(`${dep}/rollout`, cookie)).text();
   const token = /\/signoff\/([^"]+)"/.exec(made)[1];
   assert.equal((await get(`/signoff/${token}`)).status, 200);
   assert.equal((await post(`${dep}/signoff/revoke`, cookie, { csrf: csrfOf(page) })).status, 303);

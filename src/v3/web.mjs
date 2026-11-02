@@ -585,10 +585,14 @@ function routes(ctx) {
     return html(metricsPage({ ...base(principal), org, m: deploymentMetrics(orgs.flatMap(deploymentsOf)), nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }) }));
   });
 
+  // A sign-off link just made, by session, shown once on the next Rollout page and then forgotten.
+  const freshLinks = new Map();
   const showRollout = (principal, params, url, extra = {}, status = 200) => {
     const ws = workspace(principal, params, 'runs:read', url);
+    const fresh = freshLinks.get(principal.token);
+    freshLinks.delete(principal.token);
     const job = rollouts.get(ws.dir);
-    const signoff = { latest: latestSignoff(ws.dir), active: activeShares(db, ws.org.id, params.name, 'signoff', ctx.now()).length, link: extra.link };
+    const signoff = { latest: latestSignoff(ws.dir), active: activeShares(db, ws.org.id, params.name, 'signoff', ctx.now()).length, link: extra.link ?? fresh };
     return html(rolloutPage({ ...ws, rollout: job, signoff, error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
   };
   r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => showRollout(principal, params, url));
@@ -604,7 +608,9 @@ function routes(ctx) {
     const { token, share } = createShare(db, { orgId: org.id, deployment: params.name, purpose: 'signoff', subject: scan.id, createdBy: principal.actor }, ctx.now());
     appendAudit(dir, { actor: principal.actor, action: 'signoff.link', target: scan.id, detail: { share: share.id, expires: share.expires_at } }, ctx.now());
     event(ctx, principal, org.id, 'signoff.link', params.name, { scan: scan.id, share: share.id });
-    return showRollout(principal, params, null, { link: `${returnBase(req)}/signoff/${token}` });
+    // Show the link once on the next page load, so reloading the page does not make another link.
+    freshLinks.set(principal.token, `${returnBase(req)}/signoff/${token}`);
+    return new Redirect(`${depPath(org, params.name)}/rollout`);
   });
 
   r.add('POST', '/orgs/:org/deployments/:name/signoff/revoke', async ({ req, principal, params }) => {

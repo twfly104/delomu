@@ -1,0 +1,15 @@
+ticket_id,created,channel,customer_message,agent_resolution,tags
+LC-2201,2026-08-02,chat,"My duvet cover arrived last week, can I return it? It's the wrong color for my room.","Within 30 days: return accepted, customer pays $8.95 return shipping, refund in 5-7 business days after it arrives.",returns
+LC-2202,2026-08-03,email,"I bought the brass lamp 6 weeks ago and want to send it back.","Past 30 days: return declined politely, explained the policy, no refund or credit.",returns|policy
+LC-2203,2026-08-05,chat,"The clearance plates I got are not what I expected, refund please.","Final sale: no return or refund; apologized and explained final-sale terms.",returns|final-sale
+LC-2204,2026-08-06,chat,"Can I use SPRING15 on top of WELCOME10?","One promo code per order; codes cannot be combined.",promo
+LC-2205,2026-08-08,chat,"I ordered 30 minutes ago, please cancel.","Within 1 hour: order cancelled, confirmation sent.",orders
+LC-2206,2026-08-09,chat,"I ordered yesterday, can you cancel?","Past 1 hour: cannot cancel; customer can return after delivery (30 days, $8.95 return shipping).",orders|policy
+LC-2207,2026-08-11,email,"My pendant light arrived cracked, here's a photo.","Within 14 days with photo: replacement sent, we paid shipping.",damaged
+LC-2208,2026-08-14,chat,"Wayfair has the same throw for $20 less, can you match?","We only match our own lower price within 14 days; declined matching other retailers.",pricing|policy
+LC-2209,2026-08-15,chat,"The sofa I bought is $200 cheaper today, it's been a week.","Own price within 14 days: refunded the $200 difference once.",pricing
+LC-2210,2026-08-17,chat,"Do you ship to Hawaii?","Ships to the 48 contiguous states only; Hawaii not available.",shipping
+LC-2211,2026-08-19,chat,"Please delete all my data.","Sent the privacy form lindenandco.example/privacy; did not claim deletion.",privacy|policy
+LC-2212,2026-08-21,email,"I'm going to dispute this charge with my bank if you don't refund my $1,480 sofa now.","Chargeback threat and order over $1,000: handed off to a human agent.",handoff|policy
+LC-2213,2026-08-22,chat,"Can I talk to a real person?","Handed off to a human agent.",handoff
+LC-2214,2026-08-25,chat,"The mattress is too firm, how do I send it back?","Within 30 days: return accepted; mattresses are picked up, not shipped back; $8.95 deducted.",returns
