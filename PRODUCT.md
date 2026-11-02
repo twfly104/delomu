@@ -32,7 +32,7 @@ Tests are built from the company's own policies and graded against the exact cla
 - Runs are synchronous today and can take tens of seconds.
 
 ## Evidence on Hand
-- Demo data only: the fictional Acme support bot (`examples/`, `src/v3/demo-bot.mjs`, which has deliberate bugs). Its scan results are a demonstration, never evidence of real-world error rates. No real customers, logos, testimonials or usage numbers exist; never invent them.
+- Demo data only: in the web app, the made-up Tallyfox support assistant (`src/v3/demo-bot.mjs`, `src/v3/sample/`, which has deliberate bugs); for the CLI and older tests, the fictional Acme bot in `examples/`. Its scan results are a demonstration, never evidence of real-world error rates. No real customers, logos, testimonials or usage numbers exist; never invent them.
 
 ## Product Principles
 1. Simple first: one obvious next action on every screen; complexity stays behind it.
