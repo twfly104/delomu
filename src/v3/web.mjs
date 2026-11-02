@@ -16,6 +16,7 @@ import { listScans, recheck } from '../v1/risk.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
+import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.mjs';
 import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
@@ -603,6 +604,19 @@ function routes(ctx) {
     let config = {};
     try { config = loadConfig(dir); } catch { /* the report works without it */ }
     return { status: 200, body: renderScanReport({ scan, name: params.name, customer: config.customer, org: org.name }), csp: REPORT_CSP };
+  });
+
+  // The agent's evidence pack over a date range (default: the last 90 days), for legal, risk and compliance.
+  r.add('GET', '/orgs/:org/deployments/:name/evidence.html', ({ principal, params, url }) => {
+    const { org } = access(ctx, principal, params.org, 'runs:read');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const now = ctx.now();
+    const range = evidenceRange({ from: url.searchParams.get('from'), to: url.searchParams.get('to') }, now);
+    if (!range.ok) throw new ApiError('invalid_request_error', range.reason);
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* the pack works without it */ }
+    const data = buildEvidence(dir, { from: range.from, to: range.to, now });
+    return { status: 200, body: renderEvidence(data, { name: params.name, customer: config.customer, org: org.name }), csp: REPORT_CSP };
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/runs/:run/report.html', ({ principal, params }) => {
