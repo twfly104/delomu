@@ -9,6 +9,8 @@ web
 ## Users
 Confirmed 2026-11-01: the main user is the **head of support or CX lead at a SaaS company** that runs an AI support agent (Intercom Fin, Zendesk AI or its own bot). They check that the AI follows the company's own written policies before launch and keep watching real conversations after. They are not engineers; plain language beats technical terms.
 
+Added 2026-11-02: **AI vendors** (heads of forward deployed or solutions engineering at companies that sell an AI agent to businesses) sign up as a partner org. Each client is its own workspace, and they use the Clients page, one-click rollout, client sign-off and deployment metrics. Same engine, same plain language; their pages may say rollout, client and engineer hours.
+
 Secondary: support operations people who connect the help desk and set alerts, and engineers at AI startups who still use the deeper test-run and agent-draft tools (kept behind the More menu).
 
 ## Product Purpose
