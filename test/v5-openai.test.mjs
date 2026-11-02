@@ -36,7 +36,7 @@ test('an OpenAI-compatible agent is connected from the form and answers each tes
   const csrf = csrfOf(form);
   assert.equal((await post(`${orgPath}/new-deployment`, cookie, { csrf, name: 'oa', type: 'openai', openai_url: `${chatBase}/v1/chat/completions` })).status, 400);
   const made = await post(`${orgPath}/new-deployment`, cookie, {
-    csrf, name: 'oa', type: 'openai', openai_url: `${chatBase}/v1/chat/completions`, openai_model: 'gpt-x', openai_auth: 'Bearer ${CUSTOMER_OA_KEY}', openai_system: 'You are Acme support.',
+    csrf, name: 'oa', type: 'openai', openai_url: `${chatBase}/v1/chat/completions`, openai_model: 'gpt-x', openai_key: 'test-key-not-real', openai_system: 'You are Acme support.',
   });
   assert.equal(made.status, 303);
   const dir = path.join(srv.deploymentsRoot, decodeURIComponent(orgPath.split('/').pop()), 'oa');
@@ -44,12 +44,10 @@ test('an OpenAI-compatible agent is connected from the form and answers each tes
   assert.equal(config.target.preset, 'openai');
   assert.equal(config.target.output, 'choices.0.message.content');
 
-  process.env.CUSTOMER_OA_KEY = 'test-key-not-real';
-  try {
-    assert.equal(await callTarget(config.target, 'Can I get a refund?'), 'You said: Can I get a refund?');
-  } finally {
-    delete process.env.CUSTOMER_OA_KEY;
-  }
+  // The pasted key is saved encrypted; the target names it and the server fills it in at call time.
+  assert.equal(config.target.headers.authorization, 'Bearer ${secret:API_KEY}');
+  assert.doesNotMatch(fs.readFileSync(path.join(dir, 'secrets.json'), 'utf8'), /test-key-not-real/);
+  assert.equal(await callTarget(config.target, 'Can I get a refund?', { cwd: dir }), 'You said: Can I get a refund?');
   assert.equal(seen[0].auth, 'Bearer test-key-not-real');
   assert.deepEqual(seen[0].body, { model: 'gpt-x', messages: [{ role: 'system', content: 'You are Acme support.' }, { role: 'user', content: 'Can I get a refund?' }] });
   assert.match(await (await get(`${orgPath}/deployments/oa/settings`, cookie)).text(), /OpenAI-compatible API/);

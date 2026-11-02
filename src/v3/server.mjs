@@ -3,6 +3,8 @@
 // options first, then environment variables, so the same code runs in tests, on a laptop and in a VPC.
 
 import { blockPrivateTargets } from '../core/netguard.mjs';
+import { setSecretResolver } from '../adapters.mjs';
+import { readSecret } from './secrets.mjs';
 import http from 'node:http';
 import path from 'node:path';
 import { createApiHandler } from './api.mjs';
@@ -48,6 +50,11 @@ export function createServer({
   // An internet-facing server (it has a public URL) never lets a tenant aim it at its own network: localhost,
   // the cloud metadata address, private ranges. DELOMU_ALLOW_PRIVATE_TARGETS=1 or 0 overrides that either way.
   const privateEnv = env.DELOMU_ALLOW_PRIVATE_TARGETS;
+  // Keys customers saved for their own AI are read here only, from the deployment folder of the call.
+  setSecretResolver((name, cwd) => {
+    if (!cwd) throw new Error('a saved key needs the AI agent it belongs to');
+    return readSecret(cwd, name, pepper);
+  });
   blockPrivateTargets(privateEnv === '0' || (privateEnv !== '1' && Boolean(baseUrl)));
 
   const db = openDb(dataDir);

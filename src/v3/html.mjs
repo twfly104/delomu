@@ -625,23 +625,23 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 </div></div>
 <div class="conn conn-http">
 <label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://bot.example.com/chat"></label>
-<label class="field"><span>Authorization header</span><input type="text" name="auth" value="${v('auth')}" placeholder="Bearer \${CUSTOMER_API_KEY}"><p class="hint">Reference a server environment variable; never paste a key here.</p></label>
+<label class="field"><span>API key <span class="subtle" style="font-weight:400">(if your endpoint needs one)</span></span><input type="password" name="api_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Sent as a Bearer token. Saved encrypted for this agent and never shown again.</p></label>
 <label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
 </div><div class="conn conn-openai">${section('OpenAI-compatible API', 'Each test message is sent as the user turn of a chat completion; the answer is the first choice.')}
 <label class="field"><span>Chat completions URL</span><input type="url" name="openai_url" value="${v('openai_url')}" placeholder="https://api.openai.com/v1/chat/completions"></label>
 <label class="field"><span>Model</span><input type="text" name="openai_model" maxlength="120" value="${v('openai_model')}" placeholder="the model your agent uses"></label>
-<label class="field"><span>Authorization header</span><input type="text" name="openai_auth" value="${v('openai_auth')}" placeholder="Bearer \${CUSTOMER_OPENAI_API_KEY}"><p class="hint">Reference a server environment variable; never paste a key here.</p></label>
+<label class="field"><span>API key</span><input type="password" name="openai_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Saved encrypted for this agent and never shown again.</p></label>
 <label class="field"><span>System prompt <span class="subtle" style="font-weight:400">(optional)</span></span><textarea name="openai_system" maxlength="20000" rows="4" style="min-height:96px">${v('openai_system')}</textarea><p class="hint">The agent’s own instructions, so the test sees what customers see.</p></label>
 </div><div class="conn conn-command">
 <label class="field"><span>Command</span><input type="text" name="command" value="${v('command')}" placeholder="node bot.mjs"></label>
 </div><div class="conn conn-intercom">${section('Intercom', 'Each test starts a new conversation from a test contact and waits for Fin or a teammate to reply.')}
-<label class="field"><span>Access token</span><input type="text" name="intercom_token" value="${v('intercom_token')}" placeholder="\${CUSTOMER_INTERCOM_TOKEN}"><p class="hint">A server environment variable holding the Intercom access token; never paste the token here.</p></label>
+<label class="field"><span>Access token</span><input type="password" name="intercom_token" autocomplete="off" placeholder="Paste the token"><p class="hint">From an app in your Intercom Developer Hub. Saved encrypted for this agent and never shown again.</p></label>
 <label class="field"><span>Test contact external ID</span><input type="text" name="intercom_contact" maxlength="120" value="${v('intercom_contact')}" placeholder="delomu-test"><p class="hint">Optional. Created on the first test if it does not exist.</p></label>
 </div><div class="conn conn-zendesk">${section('Zendesk', 'Uses Sunshine Conversations: each test creates a test user and conversation, then waits for the AI agent to reply.')}
 <label class="field"><span>Zendesk subdomain</span><input type="text" name="zendesk_subdomain" maxlength="63" value="${v('zendesk_subdomain')}" placeholder="acme"><p class="hint">The part before <code>.zendesk.com</code>.</p></label>
 <label class="field"><span>App ID</span><input type="text" name="zendesk_app_id" maxlength="64" value="${v('zendesk_app_id')}" placeholder="5f8a3c…"></label>
-<label class="field"><span>API key ID</span><input type="text" name="zendesk_key_id" value="${v('zendesk_key_id')}" placeholder="\${CUSTOMER_ZENDESK_KEY_ID}"></label>
-<label class="field"><span>API key secret</span><input type="text" name="zendesk_secret" value="${v('zendesk_secret')}" placeholder="\${CUSTOMER_ZENDESK_SECRET}"><p class="hint">Both reference server environment variables; never paste the key here.</p></label>
+<label class="field"><span>API key ID</span><input type="password" name="zendesk_key_id" autocomplete="off" placeholder="Paste the key ID"></label>
+<label class="field"><span>API key secret</span><input type="password" name="zendesk_secret" autocomplete="off" placeholder="Paste the secret"><p class="hint">Both are saved encrypted for this agent and never shown again.</p></label>
 </div><details class="edit" style="margin:8px -16px 0;padding:0 16px"><summary>Advanced</summary>
 <label class="field"><span>Required pass rate for test runs (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label></details>
 </div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Adding…">Add AI agent</button></div></form>` });
@@ -877,18 +877,23 @@ export function settingsPage(args) {
   const rows = [
     ['Customer', config.customer], ['Connection', CONNECTIONS.find(c => c.type === (t.preset ?? t.type))?.label ?? t.type], ['Model', t.preset === 'openai' ? t.body?.model : undefined],
     ['URL', t.url ?? t.baseUrl], ['Command', t.command], ['Zendesk subdomain', t.subdomain], ['App ID', t.appId],
-    ['Test contact', t.contactExternalId], ['Credentials', [t.token, t.keyId, t.secret].filter(s => /^\$\{[A-Za-z0-9_]+\}$/.test(s ?? '')).join(', ')], ['Answer at', t.output], ['Timeout', t.timeoutMs ? `${t.timeoutMs / 1000} s` : undefined],
+    ['Test contact', t.contactExternalId], ['Credentials', [t.token, t.keyId, t.secret].filter(s => /^\$\{[A-Za-z0-9_]+\}$/.test(s ?? '')).join(', ')], ['Saved keys', (args.keys ?? []).map(k => `${k.name} (saved ${k.savedAt.slice(0, 10)})`).join(', ')], ['Answer at', t.output], ['Timeout', t.timeoutMs ? `${t.timeoutMs / 1000} s` : undefined],
     ['Required pass rate', pct(config.acceptance?.minPassRate ?? 0.9)],
   ].filter(([, v]) => v);
   const headers = Object.entries(t.headers ?? {});
   const decisions = config.decisions ?? [];
   const v = args.verified ?? {};
   const hidden = state => `<input type="hidden" name="csrf" value="${esc(args.csrf)}"><input type="hidden" name="state" value="${state}">`;
+  // Replace a saved key: the old one is never shown, only overwritten.
+  const keysPanel = (args.keys ?? []).length && args.can.write ? `<form method="post" action="${esc(depPath(args.org, args.name))}/secret" class="panel" novalidate><div class="panel-head"><h2>Replace a saved key</h2></div><div class="panel-body"><input type="hidden" name="csrf" value="${esc(args.csrf)}">
+<div class="row-inline"><label class="field"><span>Key</span><select name="name">${args.keys.map(k => `<option>${esc(k.name)}</option>`).join('')}</select></label>
+<label class="field" style="flex:1"><span>New value</span><input type="password" name="value" autocomplete="off" required></label></div>
+<button class="btn" data-busy="Saving…">Save new key</button></div></form>` : '';
   const publicPanel = `<section class="panel"><div class="panel-head"><h2>Public page</h2><span class="badge ${v.on ? 'good' : 'plain'}">${v.on ? 'On' : 'Off'}</span></div><div class="panel-body">
 <p class="subtle" style="margin:0">A page anyone with the link can open: the date and result of the latest check, live monitoring in the last 7 days, and whether the audit log is intact. No score and no certification.</p>
 ${v.link ? `<label class="field" style="margin-top:12px"><span>Public link</span><input type="text" readonly class="mono" value="${esc(v.link)}"><p class="hint">Shown only once. Turning the page off and on again makes a new link.</p></label>` : ''}
 ${v.canManage ? `<form method="post" action="${esc(depPath(args.org, args.name))}/verified" style="margin-top:12px">${hidden(v.on ? 'off' : 'on')}<button class="btn" data-busy="Saving…">${v.on ? 'Turn off' : 'Turn on and get a link'}</button></form>` : '<p class="subtle" style="margin:8px 0 0">An owner or admin can turn it on.</p>'}</div></section>`;
-  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
+  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${keysPanel}${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
 <div class="draft-body"><table class="kv"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}
 ${headers.map(([k, v]) => `<tr><th scope="row">Header <code>${esc(k)}</code></th><td><code>${esc(v)}</code></td></tr>`).join('')}</tbody></table></div></section>
 <section class="panel"><div class="panel-head"><h2>Decisions</h2><span class="aside subtle">Shown in every acceptance report</span></div>

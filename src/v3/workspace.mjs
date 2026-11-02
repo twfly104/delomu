@@ -36,6 +36,8 @@ export function deploymentDir(root, orgId, name) {
 const TARGET_TYPES = ['http', 'command', 'intercom', 'zendesk'];
 const HELP_DESK_SECRETS = { intercom: ['token'], zendesk: ['keyId', 'secret'] };
 const ENV_ONLY = /^\$\{([A-Za-z0-9_]+)\}$/;
+// A key the customer saved in Delomu (src/v3/secrets.mjs), referred to by name.
+const SAVED = /^\$\{secret:[A-Z][A-Z0-9_]*\}$/;
 
 function checkUrl(value, field) {
   let url;
@@ -54,10 +56,11 @@ export function checkTarget(config, { allowCommandTargets = false, envPrefix = '
   }
   if (target.type === 'http') checkUrl(target.url, 'url');
   if (target.baseUrl !== undefined && HELP_DESK_SECRETS[target.type]) checkUrl(target.baseUrl, 'baseUrl');
-  // Help-desk credentials must come from the server's environment, never from the config itself.
+  // Help-desk credentials come from the server's environment or a key the customer saved, never the config itself.
   for (const field of HELP_DESK_SECRETS[target.type] ?? []) {
     const value = target[field];
     if (typeof value !== 'string' || !value.trim()) throw invalid(`config.target.${field} is required for a ${target.type} target.`, 'config');
+    if (SAVED.test(value)) continue;
     const name = ENV_ONLY.exec(value)?.[1];
     if (!name || !name.startsWith(envPrefix)) {
       throw new ApiError('permission_error', `config.target.${field} must be an environment variable reference like \${${envPrefix}${target.type.toUpperCase()}_${field.toUpperCase()}}.`);
@@ -70,6 +73,7 @@ export function checkTarget(config, { allowCommandTargets = false, envPrefix = '
     }
   }
   for (const [, name] of JSON.stringify(target).matchAll(ENV_REF)) {
+    if (/^secret:[A-Z][A-Z0-9_]*$/.test(name)) continue;
     if (!name.startsWith(envPrefix)) throw new ApiError('permission_error', `Targets may only reference environment variables starting with ${envPrefix}.`);
   }
 }

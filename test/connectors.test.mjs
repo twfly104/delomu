@@ -231,7 +231,7 @@ test('agent integration drafts may propose help-desk targets, with env-only secr
 
 const cookiesOf = res => res.headers.getSetCookie().map(c => c.split(';')[0]);
 
-test('the New deployment form creates Intercom and Zendesk deployments and rejects literal secrets', async () => {
+test('the New deployment form creates Intercom and Zendesk deployments and saves pasted tokens encrypted', async () => {
   const srv = await startServer();
   try {
     const o = seedOrg(srv.dataDir, { name: 'Acme', members: [{ email: 'eng@acme.test', role: 'engineer' }] });
@@ -252,12 +252,16 @@ test('the New deployment form creates Intercom and Zendesk deployments and rejec
       method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf, pass: '90', ...fields }),
     });
 
-    const literal = await post({ name: 'fin', type: 'intercom', intercom_token: 'dG9rOnJlYWw=' });
-    assert.equal(literal.status, 400);
-    const literalHtml = await literal.text();
-    assert.match(literalHtml, /environment variable reference/);
-    assert.match(literalHtml, /value="intercom" checked/, 'the form keeps the chosen connection');
-    assert.equal((await post({ name: 'fin', type: 'intercom' })).status, 400);
+    // A pasted token is saved encrypted for the agent; the config only names it.
+    const pasted = await post({ name: 'pasted', type: 'intercom', intercom_token: 'dG9rOnJlYWw=' });
+    assert.equal(pasted.status, 303);
+    const pastedDir = path.join(srv.deploymentsRoot, o.org.id, 'pasted');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(pastedDir, 'delomu.json'), 'utf8')).target.token, '${secret:INTERCOM_TOKEN}');
+    assert.doesNotMatch(fs.readFileSync(path.join(pastedDir, 'secrets.json'), 'utf8'), /dG9rOnJlYWw=/);
+    assert.doesNotMatch(fs.readFileSync(path.join(pastedDir, 'audit.jsonl'), 'utf8'), /dG9rOnJlYWw=/);
+    const missing = await post({ name: 'fin', type: 'intercom' });
+    assert.equal(missing.status, 400);
+    assert.match(await missing.text(), /value="intercom" checked/, 'the form keeps the chosen connection');
 
     const fin = await post({ name: 'fin', type: 'intercom', intercom_token: '${CUSTOMER_INTERCOM_TOKEN}', intercom_contact: 'qa-bot' });
     assert.equal(fin.status, 303);

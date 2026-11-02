@@ -23,6 +23,7 @@ import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug } from './ac
 import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
 import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
+import { saveSecret, savedSecrets } from './secrets.mjs';
 import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
@@ -406,35 +407,46 @@ function routes(ctx) {
     if (!(pass > 0 && pass <= 100)) return fail('Required pass rate must be between 1 and 100.');
     let target;
     const field = k => String(form[k] ?? '').trim();
+    // A pasted key is saved encrypted for this agent and the target refers to it by name; a server environment
+    // variable reference (${CUSTOMER_...}) is kept as it is.
+    const saved = {};
+    const keyRef = (value, name) => {
+      if (/^\$\{[A-Za-z0-9_]+\}$/.test(value)) return value;
+      saved[name] = value;
+      return `\${secret:${name}}`;
+    };
     if (form.type === 'command') {
       if (!field('command')) return fail('Enter the command that runs the customer’s AI.');
       target = { type: 'command', command: field('command') };
     } else if (form.type === 'intercom') {
-      if (!field('intercom_token')) return fail('Enter the environment variable that holds the Intercom access token, for example ${CUSTOMER_INTERCOM_TOKEN}.');
-      target = { type: 'intercom', token: field('intercom_token') };
+      if (!field('intercom_token')) return fail('Paste the Intercom access token.');
+      target = { type: 'intercom', token: keyRef(field('intercom_token'), 'INTERCOM_TOKEN') };
       if (field('intercom_contact')) target.contactExternalId = field('intercom_contact');
     } else if (form.type === 'zendesk') {
       if (!field('zendesk_subdomain')) return fail('Enter the Zendesk subdomain, the part before .zendesk.com.');
       if (!field('zendesk_app_id')) return fail('Enter the Sunshine Conversations app ID.');
-      if (!field('zendesk_key_id') || !field('zendesk_secret')) return fail('Enter the environment variables that hold the Zendesk API key ID and secret.');
-      target = { type: 'zendesk', subdomain: field('zendesk_subdomain').replace(/\.zendesk\.com$/i, ''), appId: field('zendesk_app_id'), keyId: field('zendesk_key_id'), secret: field('zendesk_secret') };
+      if (!field('zendesk_key_id') || !field('zendesk_secret')) return fail('Paste the Zendesk API key ID and secret.');
+      target = { type: 'zendesk', subdomain: field('zendesk_subdomain').replace(/\.zendesk\.com$/i, ''), appId: field('zendesk_app_id'), keyId: keyRef(field('zendesk_key_id'), 'ZENDESK_KEY_ID'), secret: keyRef(field('zendesk_secret'), 'ZENDESK_SECRET') };
     } else if (form.type === 'openai') {
       // An OpenAI-compatible chat completions API is an HTTP target with a fixed request and answer shape.
       if (!/^https?:\/\//i.test(field('openai_url'))) return fail('Enter the full chat completions URL, starting with https://.');
       if (!field('openai_model')) return fail('Enter the model your agent uses.');
       const messages = [...(field('openai_system') ? [{ role: 'system', content: field('openai_system').slice(0, 20000) }] : []), { role: 'user', content: '{{input}}' }];
       target = { type: 'http', preset: 'openai', url: field('openai_url'), body: { model: field('openai_model'), messages }, output: 'choices.0.message.content' };
-      if (field('openai_auth')) target.headers = { authorization: field('openai_auth') };
+      if (field('openai_key')) target.headers = { authorization: `Bearer ${keyRef(field('openai_key'), 'API_KEY')}` };
     } else {
       if (!/^https?:\/\//i.test(String(form.url ?? ''))) return fail('Enter the full endpoint URL, starting with https://.');
       target = { type: 'http', url: String(form.url).trim(), body: { message: '{{input}}' } };
-      if (String(form.auth ?? '').trim()) target.headers = { authorization: String(form.auth).trim() };
+      if (field('api_key')) target.headers = { authorization: `Bearer ${keyRef(field('api_key'), 'API_KEY')}` };
       if (String(form.output ?? '').trim()) target.output = String(form.output).trim();
     }
     const agentKind = Object.hasOwn(AGENT_KINDS, String(form.agentKind ?? '')) ? String(form.agentKind) : 'support';
     const config = { customer: String(form.customer ?? '').trim() || undefined, name: String(form.name ?? ''), agentKind, target, acceptance: { minPassRate: pass / 100 }, decisions: [] };
     try {
       const d = registerDeployment(db, ctx.deploymentsRoot, org.id, { name: String(form.name ?? ''), config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
+      const { dir } = deploymentFor(ctx, org.id, d.name);
+      for (const [name, value] of Object.entries(saved)) saveSecret(dir, name, value, ctx.pepper, ctx.now());
+      if (Object.keys(saved).length) appendAudit(dir, { actor: principal.actor, action: 'secret.save', target: Object.keys(saved).join(','), detail: {} }, ctx.now());
       event(ctx, principal, org.id, 'deployment.register', d.name, { via_web: true });
       return new Redirect(`${depPath(org, d.name)}?notice=created`);
     } catch (e) {
@@ -778,9 +790,23 @@ function routes(ctx) {
   const showSettings = (principal, params, url, link) => {
     const ws = workspace(principal, params, 'deployments:read', url);
     const verified = activeShares(db, ws.org.id, params.name, 'verified', ctx.now()).length > 0;
-    return html(settingsPage({ ...ws, verified: { on: verified, link, canManage: ws.can.manage } }));
+    return html(settingsPage({ ...ws, keys: savedSecrets(ws.dir), verified: { on: verified, link, canManage: ws.can.manage } }));
   };
   r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => showSettings(principal, params, url));
+
+  // Replace a key the customer saved for their AI. Only the name goes into the audit log.
+  r.add('POST', '/orgs/:org/deployments/:name/secret', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const name = String(form.name ?? '');
+    if (!savedSecrets(dir).some(k => k.name === name) || !String(form.value ?? '').trim()) throw new ApiError('invalid_request_error', 'Choose a saved key and paste its new value.');
+    saveSecret(dir, name, form.value, ctx.pepper, ctx.now());
+    appendAudit(dir, { actor: principal.actor, action: 'secret.save', target: name, detail: {} }, ctx.now());
+    event(ctx, principal, org.id, 'secret.save', params.name, { name });
+    return new Redirect(`${depPath(org, params.name)}/settings`);
+  });
 
   // The public page (src/v3/verified.mjs), off by default. Owners and admins turn it on; each time makes a new
   // link (only its hash is stored) and turning it off ends every link.
