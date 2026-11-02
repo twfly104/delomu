@@ -399,6 +399,13 @@ function routes(ctx) {
       if (!field('zendesk_app_id')) return fail('Enter the Sunshine Conversations app ID.');
       if (!field('zendesk_key_id') || !field('zendesk_secret')) return fail('Enter the environment variables that hold the Zendesk API key ID and secret.');
       target = { type: 'zendesk', subdomain: field('zendesk_subdomain').replace(/\.zendesk\.com$/i, ''), appId: field('zendesk_app_id'), keyId: field('zendesk_key_id'), secret: field('zendesk_secret') };
+    } else if (form.type === 'openai') {
+      // An OpenAI-compatible chat completions API is an HTTP target with a fixed request and answer shape.
+      if (!/^https?:\/\//i.test(field('openai_url'))) return fail('Enter the full chat completions URL, starting with https://.');
+      if (!field('openai_model')) return fail('Enter the model your agent uses.');
+      const messages = [...(field('openai_system') ? [{ role: 'system', content: field('openai_system').slice(0, 20000) }] : []), { role: 'user', content: '{{input}}' }];
+      target = { type: 'http', preset: 'openai', url: field('openai_url'), body: { model: field('openai_model'), messages }, output: 'choices.0.message.content' };
+      if (field('openai_auth')) target.headers = { authorization: field('openai_auth') };
     } else {
       if (!/^https?:\/\//i.test(String(form.url ?? ''))) return fail('Enter the full endpoint URL, starting with https://.');
       target = { type: 'http', url: String(form.url).trim(), body: { message: '{{input}}' } };

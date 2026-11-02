@@ -226,7 +226,7 @@ details.menu[open]>summary{background:var(--hover)}
 .menu-pop form{margin:0}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
 .agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px}.row-inline select{flex:1;min-width:0}
 .conn{display:none}
-form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=type][value=command]:checked) .conn-command,form:has(input[name=type][value=intercom]:checked) .conn-intercom,form:has(input[name=type][value=zendesk]:checked) .conn-zendesk{display:block;animation:rise .24s cubic-bezier(.2,.75,.25,1) both}
+form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=type][value=openai]:checked) .conn-openai,form:has(input[name=type][value=command]:checked) .conn-command,form:has(input[name=type][value=intercom]:checked) .conn-intercom,form:has(input[name=type][value=zendesk]:checked) .conn-zendesk{display:block;animation:rise .24s cubic-bezier(.2,.75,.25,1) both}
 @media (prefers-reduced-motion:no-preference){
   .content>*{animation:rise .34s cubic-bezier(.2,.75,.25,1) both}
   .content>*:nth-child(2){animation-delay:.03s}.content>*:nth-child(3){animation-delay:.06s}.content>*:nth-child(4){animation-delay:.09s}.content>*:nth-child(n+5){animation-delay:.12s}
@@ -542,6 +542,7 @@ const CONNECTIONS = [
   { type: 'intercom', label: 'Intercom', hint: 'Fin or a bot in your Intercom workspace.' },
   { type: 'zendesk', label: 'Zendesk', hint: 'An AI agent in Zendesk messaging.' },
   { type: 'http', label: 'HTTP endpoint', hint: 'Your own bot answers a POST request.' },
+  { type: 'openai', label: 'OpenAI-compatible API', hint: 'A chat completions endpoint: OpenAI, Azure OpenAI, OpenRouter, vLLM and the like.' },
   { type: 'command', label: 'Command', hint: 'A program on this server; off unless the operator allows it.' },
 ];
 
@@ -564,6 +565,11 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 <label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://bot.example.com/chat"></label>
 <label class="field"><span>Authorization header</span><input type="text" name="auth" value="${v('auth')}" placeholder="Bearer \${CUSTOMER_API_KEY}"><p class="hint">Reference a server environment variable; never paste a key here.</p></label>
 <label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
+</div><div class="conn conn-openai">${section('OpenAI-compatible API', 'Each test message is sent as the user turn of a chat completion; the answer is the first choice.')}
+<label class="field"><span>Chat completions URL</span><input type="url" name="openai_url" value="${v('openai_url')}" placeholder="https://api.openai.com/v1/chat/completions"></label>
+<label class="field"><span>Model</span><input type="text" name="openai_model" maxlength="120" value="${v('openai_model')}" placeholder="the model your agent uses"></label>
+<label class="field"><span>Authorization header</span><input type="text" name="openai_auth" value="${v('openai_auth')}" placeholder="Bearer \${CUSTOMER_OPENAI_API_KEY}"><p class="hint">Reference a server environment variable; never paste a key here.</p></label>
+<label class="field"><span>System prompt <span class="subtle" style="font-weight:400">(optional)</span></span><textarea name="openai_system" maxlength="20000" rows="4" style="min-height:96px">${v('openai_system')}</textarea><p class="hint">The agent’s own instructions, so the test sees what customers see.</p></label>
 </div><div class="conn conn-command">
 <label class="field"><span>Command</span><input type="text" name="command" value="${v('command')}" placeholder="node bot.mjs"></label>
 </div><div class="conn conn-intercom">${section('Intercom', 'Each test starts a new conversation from a test contact and waits for Fin or a teammate to reply.')}
@@ -620,7 +626,7 @@ ${can.run ? `<form method="post" action="${esc(base)}/run"><input type="hidden" 
 ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label for="task" class="subtle">Ask the agent to draft</label><div class="row-inline"><select id="task" name="task">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
 <button class="btn" data-busy="Drafting…">${icon('spark')}Draft</button></div></form>` : ''}</div></details>`;
-  const via = { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? 'Not connected';
+  const via = config.target?.preset === 'openai' ? 'OpenAI-compatible API' : { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? 'Not connected';
   return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${checking ? '<span class="badge accent">Checking…</span>' : checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
 <p class="sub">${esc([config.customer, via].filter(Boolean).join(' · '))}</p></div>
 <div class="actions">${more}${primary}</div></div>
@@ -807,7 +813,7 @@ export function settingsPage(args) {
   const { config } = args;
   const t = config.target ?? {};
   const rows = [
-    ['Customer', config.customer], ['Connection', CONNECTIONS.find(c => c.type === t.type)?.label ?? t.type],
+    ['Customer', config.customer], ['Connection', CONNECTIONS.find(c => c.type === (t.preset ?? t.type))?.label ?? t.type], ['Model', t.preset === 'openai' ? t.body?.model : undefined],
     ['URL', t.url ?? t.baseUrl], ['Command', t.command], ['Zendesk subdomain', t.subdomain], ['App ID', t.appId],
     ['Test contact', t.contactExternalId], ['Credentials', [t.token, t.keyId, t.secret].filter(s => /^\$\{[A-Za-z0-9_]+\}$/.test(s ?? '')).join(', ')], ['Answer at', t.output], ['Timeout', t.timeoutMs ? `${t.timeoutMs / 1000} s` : undefined],
     ['Required pass rate', pct(config.acceptance?.minPassRate ?? 0.9)],
