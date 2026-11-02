@@ -223,7 +223,7 @@ test('SSO fails closed when the client secret env var is missing', async () => {
 });
 
 test('behind https, cookies are Secure and the redirect URI uses the public URL', async () => {
-  const s = await startServer({ publicUrl: 'https://delomu.customer.example/', env: { OIDC_SECRET: CLIENT_SECRET } });
+  const s = await startServer({ publicUrl: 'https://delomu.customer.example/', env: { OIDC_SECRET: CLIENT_SECRET, DELOMU_ALLOW_PRIVATE_TARGETS: '1' } });
   try {
     const o = seedOrg(s.dataDir, { name: 'Https Co', members: [{ email: 'owner@one.test', role: 'owner' }] });
     await api(s.base, 'PUT', `/v1/orgs/${o.org.id}/sso`, { key: o.keys['owner@one.test'], body: { issuer: idp.issuer, client_id: CLIENT_ID, allowed_domains: ['one.test'] } });

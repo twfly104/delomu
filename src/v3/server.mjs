@@ -2,6 +2,7 @@
 // and /healthz into a node:http server (not listening); start() also listens. Configuration comes from
 // options first, then environment variables, so the same code runs in tests, on a laptop and in a VPC.
 
+import { blockPrivateTargets } from '../core/netguard.mjs';
 import http from 'node:http';
 import path from 'node:path';
 import { createApiHandler } from './api.mjs';
@@ -44,6 +45,10 @@ export function createServer({
   if (!dataDir) throw new Error('createServer needs dataDir (or DELOMU_DATA)');
   checkPepper(pepper);
   const baseUrl = checkPublicUrl(publicUrl);
+  // An internet-facing server (it has a public URL) never lets a tenant aim it at its own network: localhost,
+  // the cloud metadata address, private ranges. DELOMU_ALLOW_PRIVATE_TARGETS=1 or 0 overrides that either way.
+  const privateEnv = env.DELOMU_ALLOW_PRIVATE_TARGETS;
+  blockPrivateTargets(privateEnv === '0' || (privateEnv !== '1' && Boolean(baseUrl)));
 
   const db = openDb(dataDir);
   let billing;

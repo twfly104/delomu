@@ -1,6 +1,8 @@
 // Shared pieces of the help-desk connectors: a JSON request with a timeout, a poll loop with a
 // deadline, and HTML-to-text for replies that come back as markup.
 
+import { assertPublicUrl, redirectMode } from '../core/netguard.mjs';
+
 const REQUEST_TIMEOUT_MS = 30_000;
 
 export class ConnectorError extends Error {
@@ -11,8 +13,10 @@ export class ConnectorError extends Error {
 }
 
 export async function requestJson(url, { label, method = 'GET', headers = {}, body, timeoutMs = REQUEST_TIMEOUT_MS }) {
+  await assertPublicUrl(url);
   const res = await fetch(url, {
     method,
+    redirect: redirectMode(),
     headers: { accept: 'application/json', ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(Math.max(1000, Math.min(timeoutMs, REQUEST_TIMEOUT_MS))),

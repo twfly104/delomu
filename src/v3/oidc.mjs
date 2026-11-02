@@ -2,6 +2,7 @@
 // URL, the code-for-token exchange and RS256 ID token verification against the provider's JWKS.
 // Session handling and org rules live in sso.mjs; this file only speaks the protocol.
 
+import { assertPublicUrl } from '../core/netguard.mjs';
 import crypto from 'node:crypto';
 
 const DISCOVERY_TTL_MS = 60 * 60 * 1000;
@@ -34,6 +35,7 @@ export function createOidcClient({ fetch = globalThis.fetch } = {}) {
   async function getJson(url, init = {}) {
     let res;
     try {
+      await assertPublicUrl(url);
       res = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(TIMEOUT_MS) });
     } catch (e) {
       throw new OidcError(`could not reach the identity provider (${e.message})`);

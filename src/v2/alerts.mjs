@@ -7,6 +7,7 @@
 // never stops the incident from being resolved there.
 // Payloads are Slack incoming-webhook JSON ({ text, blocks }), which most chat tools also accept.
 
+import { assertPublicUrl, redirectMode } from '../core/netguard.mjs';
 import crypto from 'node:crypto';
 
 const MAX_IDS_IN_MESSAGE = 20;
@@ -86,7 +87,9 @@ export async function postWebhook(url, payload, { fetchImpl = fetch, timeoutMs =
   if (!/^https?:\/\//i.test(url)) throw new Error('webhook URL must start with http:// or https://');
   let res;
   try {
+    await assertPublicUrl(url);
     res = await fetchImpl(url, {
+      redirect: redirectMode(),
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),

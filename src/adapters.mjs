@@ -13,6 +13,7 @@
 import { spawn } from 'node:child_process';
 import { callIntercom } from './connectors/intercom.mjs';
 import { callZendesk } from './connectors/zendesk.mjs';
+import { assertPublicUrl, redirectMode } from './core/netguard.mjs';
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -46,9 +47,11 @@ async function callHttp(target, input) {
   const headers = { 'content-type': 'application/json' };
   for (const [k, v] of Object.entries(target.headers ?? {})) headers[k] = expandEnv(v);
   const method = (target.method ?? 'POST').toUpperCase();
+  await assertPublicUrl(target.url);
   const res = await fetch(target.url, {
     method,
     headers,
+    redirect: redirectMode(),
     body: method === 'GET' ? undefined : JSON.stringify(fillTemplate(target.body ?? { input: '{{input}}' }, input)),
     signal: AbortSignal.timeout(target.timeoutMs ?? DEFAULT_TIMEOUT_MS),
   });
