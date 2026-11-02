@@ -59,3 +59,10 @@ test('the server serves the sample agent, and a vendor sample client is wired to
   assert.match(config.target.url, /\/demo\/store-agent$/);
   assert.ok(fs.existsSync(path.join(dir, 'inputs', 'test-account.md')));
 });
+
+test('an approved fix is applied to the sample agent like to the sample bot', async () => {
+  const { instructionsTarget } = await import('../src/v1/fix.mjs');
+  const t = instructionsTarget({ target: { type: 'http', url: 'https://delomu.example/demo/store-agent', body: { message: '{{input}}' } } });
+  assert.equal(t.canApply, true);
+  assert.equal(t.field, 'instructions');
+});
