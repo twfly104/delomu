@@ -10,7 +10,7 @@ import { ApiError, createRouter, forbidden, notFound, paginate, readJson, send, 
 import { beginIdempotent, checkIdempotencyKey } from './idempotency.mjs';
 import { authenticateKey, checkScopes, createApiKey, listKeys, revokeKey } from './keys.mjs';
 import {
-  access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, draftsOf, event, orgUsage, reviewDeploymentDraft, startRun,
+  access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, draftsOf, event, guardLiveReply, orgUsage, reviewDeploymentDraft, startRun,
 } from './operations.mjs';
 import { isManager, principalAllows, roleIn } from './rbac.mjs';
 import { checkOidcConfig, getOidcConfig, setOidcConfig } from './sso.mjs';
@@ -157,6 +157,13 @@ function routes(ctx) {
     access(ctx, principal, params.org, 'conversations:write');
     const record = await checkLiveConversation(ctx, principal, params.org, params.name, { ...body, source: body.source ?? 'api' });
     return ok({ object: 'conversation', ...record }, 201);
+  });
+
+  // Inline guard: the customer's code sends the reply its AI is about to send and gets back allow, block
+  // or rewrite (with a safe reply) before the customer sees anything.
+  r.add('POST', '/v1/orgs/:org/deployments/:name/guard', async ({ principal, params, body }) => {
+    access(ctx, principal, params.org, 'guard:check');
+    return ok({ object: 'guard_check', ...await guardLiveReply(ctx, principal, params.org, params.name, body) });
   });
 
   r.add('GET', '/v1/orgs/:org/deployments/:name/conversations', ({ principal, params, url }) => {

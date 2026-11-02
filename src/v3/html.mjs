@@ -864,9 +864,12 @@ ${bars}</section>`;
   const recent = [...live.recent].sort((a, b) => (b.status === 'flagged') - (a.status === 'flagged')).slice(0, 20);
   const feed = recent.length ? `<section class="panel"><div class="panel-head"><h2>Conversations</h2><span class="aside subtle">Rule breaks first · newest 20</span></div>${recent.map(convo).join('')}</section>` : '';
   const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $DELOMU_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": "Can I get a refund after 45 days?", "answer": "…", "id": "ticket-123"}'`;
+  const guardCurl = `curl -X POST ${apiBase}/guard \\\n  -H "Authorization: Bearer $DELOMU_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": "Can I get a refund after 45 days?", "reply": "…"}'`;
   const connect = `<section class="panel"><div class="panel-head"><h2>Connect the help desk</h2></div><div class="panel-body">
 <p class="muted" style="margin-bottom:10px">Send each finished exchange from Intercom, Zendesk or your own code. Emails, phone numbers, card numbers and keys are removed before anything is stored or judged.</p>
-<pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p></div></section>`;
+<pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p>
+<p class="muted" style="margin:14px 0 10px">Or check each reply <span class="strong">before</span> the customer sees it, and send <code>safeReply</code> when the decision is <code>rewrite</code>:</p>
+<pre class="snippet">${esc(guardCurl)}</pre><p class="subtle" style="margin-top:8px">Needs the <code>guard:check</code> scope. Returns <code>allow</code>, <code>block</code> or <code>rewrite</code>; if the check cannot run it returns <code>allow</code> with <code>unjudged: true</code>.</p></div></section>`;
   const area = (field, label, h) => `<label class="field"><span>${label}</span><textarea name="${field}" required maxlength="4000" style="min-height:${h}px;font:14px/1.5 var(--font)">${esc(draft?.[field] ?? '')}</textarea></label>`;
   const check = can.live ? `<section class="panel"><div class="panel-head"><h2>Check one conversation</h2></div><form method="post" action="${esc(base)}/live/check" class="panel-body stack" style="gap:10px" novalidate>
 <input type="hidden" name="csrf" value="${esc(csrf)}">${area('message', 'Customer message', 64)}${area('answer', 'The AI’s answer', 88)}

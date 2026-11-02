@@ -18,6 +18,7 @@ export const MATRIX = {
   'runs:read': ALL,
   'runs:create': ['owner', 'admin', 'engineer'],
   'conversations:write': ['owner', 'admin', 'engineer'],
+  'guard:check': ['owner', 'admin', 'engineer'],
   'drafts:read': ALL,
   'drafts:review': ['owner', 'admin', 'engineer', 'reviewer'],
   'audit:read': ['owner', 'admin', 'reviewer'],

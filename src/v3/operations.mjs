@@ -5,8 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { getDraft, listDrafts, reviewDraft } from '../core/drafts.mjs';
-import { createLlm, isAuthError, liveModel } from '../core/llm.mjs';
+import { createLlm, guardModel, isAuthError, liveModel } from '../core/llm.mjs';
 import { loadConfig } from '../deployment.mjs';
+import { guardReply } from '../v1/guard.mjs';
 import { checkConversation } from '../v1/live.mjs';
 import { runDeployment } from '../run.mjs';
 import { getOrg } from './accounts.mjs';
@@ -83,6 +84,18 @@ export async function checkLiveConversation(ctx, principal, orgId, name, input) 
   if (!result.ok) throw invalid(result.reason, 'message');
   if (result.record.status === 'flagged') event(ctx, principal, orgId, 'live.flag', `${name}/${result.record.id}`, { rules: result.record.violations.map(v => v.rule) });
   return result.record;
+}
+
+// Inline guard: checks a reply before the customer sees it, within the same monthly allowance as live
+// monitoring. Past the input, access and quota checks it always returns a decision (src/v1/guard.mjs fails open).
+export async function guardLiveReply(ctx, principal, orgId, name, input) {
+  const { dir } = deploymentFor(ctx, orgId, name);
+  if (typeof input.reply !== 'string' || !input.reply.trim()) throw invalid('reply must be the text your AI is about to send.', 'reply');
+  if (input.message !== undefined && typeof input.message !== 'string') throw invalid('message must be text.', 'message');
+  ctx.billing?.checkConversationQuota(orgId);
+  const result = await guardReply(dir, input, { llm: ctx.llm ?? createLlm({ model: guardModel() }), now: ctx.now(), log: ctx.log });
+  if (result.decision !== 'allow') event(ctx, principal, orgId, `guard.${result.decision}`, `${name}/${result.id}`, { rules: result.violations.map(v => v.rule) });
+  return result;
 }
 
 export function draftsOf(ctx, orgId, name, status) {
