@@ -1022,7 +1022,7 @@ export function riskScanPage(args) {
     // reloads every 2 s, so the bar only ever moves forward.
     const probing = p.phase === 'probes' && p.total;
     const pctDone = probing ? Math.round(40 + 60 * p.done / p.total) : Math.round(40 * (1 - Math.exp(-secs / 25)));
-    const slow = !probing && secs > 45 ? ' · Taking longer than usual; still working' : '';
+    const slow = !probing && secs > 90 ? ' · Taking longer than usual; still working' : '';
     // One tile per test message, lit as its answer is judged; the ones lit since the last reload animate in.
     const marks = args.job.marks ?? [];
     const nowMs = now?.getTime?.() ?? Date.now();
