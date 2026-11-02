@@ -149,6 +149,20 @@ const MIGRATIONS = [
      cancel_at_period_end, payment_failed_at, stripe_event_created, updated_at FROM billing_accounts;
    DROP TABLE billing_accounts;
    ALTER TABLE billing_accounts_v2 RENAME TO billing_accounts;`,
+  // Links opened without signing in (src/v3/shares.mjs): a client's sign-off page, an agent's public page.
+  `CREATE TABLE share_links (
+     id TEXT PRIMARY KEY,
+     org_id TEXT NOT NULL REFERENCES orgs(id),
+     deployment TEXT NOT NULL,
+     purpose TEXT NOT NULL CHECK (purpose IN ('signoff', 'verified')),
+     subject TEXT NOT NULL DEFAULT '',
+     token_hash TEXT NOT NULL UNIQUE,
+     created_by TEXT NOT NULL,
+     created_at TEXT NOT NULL,
+     expires_at TEXT,
+     revoked_at TEXT
+   );
+   CREATE INDEX share_links_deployment ON share_links (org_id, deployment, purpose);`,
 ];
 
 export function openDb(dataDir) {

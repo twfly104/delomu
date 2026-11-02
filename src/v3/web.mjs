@@ -13,11 +13,13 @@ import { parseCsv } from '../csv.mjs';
 import { hoursByStep, loadConfig, logHours, STEPS as HOUR_STEPS } from '../deployment.mjs';
 import { deploymentMetrics } from './metrics.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
-import { listScans, recheck } from '../v1/risk.mjs';
+import { getScan, listScans, recheck } from '../v1/risk.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
-import { accessibleOrgs, addMember, createOrg, getOrgBySlug } from './accounts.mjs';
+import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug } from './accounts.mjs';
+import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
+import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
 import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
@@ -143,7 +145,7 @@ function routes(ctx) {
     let config = {};
     try { config = loadConfig(dir); } catch { /* registered without a readable config; show what exists */ }
     const hours = Object.values(hoursByStep(dir)).reduce((a, b) => a + b, 0);
-    return { org, name: d.name, dir, customer: config.customer, config, ov: overview(dir, config), hours };
+    return { org, name: d.name, dir, customer: config.customer, config, ov: overview(dir, config), hours, signoff: latestSignoff(dir) };
   });
   // Orgs where the principal may open Billing (owners and admins), for the sidebar link.
   // A client workspace is billed to its vendor, so Billing shows on the vendor's org only.
@@ -541,11 +543,77 @@ function routes(ctx) {
     return html(metricsPage({ ...base(principal), org, m: deploymentMetrics(orgs.flatMap(deploymentsOf)), nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }) }));
   });
 
-  r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => {
+  const showRollout = (principal, params, url, extra = {}, status = 200) => {
     const ws = workspace(principal, params, 'runs:read', url);
     const job = rollouts.get(ws.dir);
-    return html(rolloutPage({ ...ws, rollout: job, refresh: job?.status === 'running' ? 3 : 0 }));
+    const signoff = { latest: latestSignoff(ws.dir), active: activeShares(db, ws.org.id, params.name, 'signoff', ctx.now()).length, link: extra.link };
+    return html(rolloutPage({ ...ws, rollout: job, signoff, error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
+  };
+  r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => showRollout(principal, params, url));
+
+  // Client sign-off (src/v3/signoff.mjs): a link to the latest check, shown once, that the client opens without
+  // an account to accept the AI agent or send it back.
+  r.add('POST', '/orgs/:org/deployments/:name/signoff/link', async ({ req, principal, params }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const scan = listScans(dir)[0];
+    if (!scan) return showRollout(principal, params, null, { error: 'Run the policy check first: the client signs off on a check.' }, 400);
+    const { token, share } = createShare(db, { orgId: org.id, deployment: params.name, purpose: 'signoff', subject: scan.id, createdBy: principal.actor }, ctx.now());
+    appendAudit(dir, { actor: principal.actor, action: 'signoff.link', target: scan.id, detail: { share: share.id, expires: share.expires_at } }, ctx.now());
+    event(ctx, principal, org.id, 'signoff.link', params.name, { scan: scan.id, share: share.id });
+    return showRollout(principal, params, null, { link: `${returnBase(req)}/signoff/${token}` });
   });
+
+  r.add('POST', '/orgs/:org/deployments/:name/signoff/revoke', async ({ req, principal, params }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const n = revokeShares(db, org.id, params.name, 'signoff', ctx.now());
+    event(ctx, principal, org.id, 'signoff.revoke', params.name, { links: n });
+    return new Redirect(`${depPath(org, params.name)}/rollout`);
+  });
+
+  const SIGNOFF_CSRF = 'delomu_signoff_csrf';
+  const signoffLimit = createRateLimiter({ capacity: 10, refillPerSec: 1 / 60 });
+  // The link's deployment and what the page shows, or a 404 for an unknown, expired or revoked link.
+  function signoffContext(token) {
+    const share = findShare(db, token, 'signoff', ctx.now());
+    if (!share) throw notFound('sign-off link');
+    const org = getOrg(db, share.org_id);
+    const vendor = org?.partner_org_id ? getOrg(db, org.partner_org_id) : null;
+    const { dir } = deploymentFor(ctx, share.org_id, share.deployment);
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* the page works without it */ }
+    const launch = fs.existsSync(path.join(dir, 'launch-summary.md')) ? fs.readFileSync(path.join(dir, 'launch-summary.md'), 'utf8').slice(0, 8000) : '';
+    const done = signoffs(dir).find(s => s.shareId === share.id) ?? null;
+    return { share, org, dir, config, scan: getScan(dir, share.subject), launch, done, view: { token, preparedBy: (vendor ?? org).name, client: config.customer ?? org.name, name: share.deployment } };
+  }
+
+  r.add('GET', '/signoff/:token', ({ req, params }) => {
+    const c = signoffContext(params.token);
+    const csrf = randomToken();
+    return html(signoffPage({ ...c.view, csrf, scan: c.scan, launch: c.launch, done: c.done }), 200, [cookie(SIGNOFF_CSRF, csrf, { maxAge: 3600, secure: ctx.secureCookies(req), path: '/signoff' })]);
+  }, { public: true });
+
+  r.add('GET', '/signoff/:token/report.html', ({ params }) => {
+    const c = signoffContext(params.token);
+    if (!c.scan) throw notFound('check');
+    return { status: 200, body: renderScanReport({ scan: c.scan, name: c.share.deployment, customer: c.config.customer, org: c.view.preparedBy }), csp: REPORT_CSP };
+  }, { public: true });
+
+  r.add('POST', '/signoff/:token', async ({ req, params }) => {
+    const c = signoffContext(params.token);
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(parseCookies(req.headers.cookie)[SIGNOFF_CSRF] ?? '', form);
+    const values = { name: String(form.name ?? '').trim(), decision: form.decision === 'declined' ? 'declined' : 'accepted', note: String(form.note ?? '') };
+    const again = (error, status) => html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, error, values }), status);
+    if (c.done || !c.scan) return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done: c.done }), 409);
+    if (!signoffLimit(ctx.clientIp(req)).ok) return again('Too many attempts from this network. Try again in a few minutes.', 429);
+    if (!values.name) return again('Enter your name so the team knows who decided.', 400);
+    const done = recordSignoff(c.dir, { ...values, scanId: c.scan.id, shareId: c.share.id, ip: ctx.clientIp(req) }, ctx.now());
+    recordEvent(db, { orgId: c.share.org_id, actor: `client:${done.name}`, action: `signoff.${done.decision}`, target: c.share.deployment, detail: { scan: c.scan.id, share: c.share.id }, ip: ctx.clientIp(req) }, ctx.now());
+    return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done }));
+  }, { public: true });
 
   // The fix loop (src/v1/fix.mjs): the agent drafts one change to the AI's instructions for the broken rules,
   // a person edits and approves it, Delomu applies it where it can, and the same messages run again.

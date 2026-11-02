@@ -499,6 +499,7 @@ export function clientStatus(ds) {
 function clientStage(ds) {
   if (!ds.length) return 'Setup';
   if (ds.some(d => d.ov.live?.week?.checked)) return 'Live';
+  if (ds.some(d => d.signoff?.decision === 'accepted')) return 'Client accepted';
   if (ds.some(d => d.ov.scans.length)) return 'Pre-launch check';
   if (ds.some(d => d.ov.inputs.length)) return 'Policies added';
   return 'Connected';
@@ -722,8 +723,22 @@ const HOUR_STEPS = [['1-mapping', 'Data mapping'], ['2-integration', 'Integratio
 const ROLLOUT_STATE = { done: ['good', 'Done'], running: ['accent', 'Running'], waiting: ['', 'Waiting'], skipped: ['warn', 'Skipped'], failed: ['bad', 'Failed'] };
 const STEP_STATE = { done: ['good', 'Done'], review: ['accent', 'Draft to review'], attention: ['bad', 'Needs work'], todo: ['', 'Not started'] };
 
+// Client sign-off on the Rollout page: the latest decision, a link to send (shown once, right after it is made)
+// and a way to revoke the links still open.
+function signoffPanel({ base, csrf, can, signoff, scan }) {
+  const { latest, active = 0, link } = signoff;
+  const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
+  const state = latest
+    ? `<span class="badge ${latest.decision === 'accepted' ? 'good' : 'bad'}">${latest.decision === 'accepted' ? 'Accepted' : 'Sent back'}</span> by ${esc(latest.name)} on ${esc(latest.at.slice(0, 10))}${latest.note ? ` <span class="subtle">“${esc(latest.note)}”</span>` : ''}`
+    : '<span class="subtle">Not signed off yet.</span>';
+  const made = link ? `<label class="field" style="margin-top:12px"><span>Send this link to the client</span><input type="text" readonly class="mono" value="${esc(link)}"><p class="hint">Shown only once. It opens the check from ${esc(scan?.createdAt.slice(0, 10) ?? '')} without an account and expires in 30 days.</p></label>` : '';
+  const actions = can.write ? `<div class="row-inline" style="margin-top:12px">${scan ? `<form method="post" action="${esc(base)}/signoff/link">${hidden}<button class="btn${latest ? '' : ' primary'}" data-busy="Creating…">${icon('arrow')}Create a sign-off link</button></form>` : '<span class="subtle">Run the policy check first: the client signs off on a check.</span>'}
+${active ? `<form method="post" action="${esc(base)}/signoff/revoke">${hidden}<button class="btn ghost" data-busy="Revoking…">Revoke ${active} open link${active === 1 ? '' : 's'}</button></form>` : ''}</div>` : '';
+  return `<section class="panel"><div class="panel-head"><h2>Client sign-off</h2></div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}</div></section>`;
+}
+
 export function rolloutPage(args) {
-  const { org, name, ov, csrf, can, rollout } = args;
+  const { org, name, ov, csrf, can, rollout, signoff = {} } = args;
   const base = depPath(org, name);
   const badge = ([cls, text]) => `<span class="badge ${cls}${cls === 'accent' ? ' plain' : ''}">${esc(text)}</span>`;
   const running = rollout?.status === 'running';
@@ -732,7 +747,7 @@ export function rolloutPage(args) {
   const job = rollout ? `<div class="rows">${rollout.steps.map(s => `<div class="row">${icon(s.state === 'done' ? 'check' : s.state === 'failed' ? 'alert' : 'clock')}<div class="what"><p class="strong">${esc(s.label)}</p>${s.detail ? `<p class="subtle">${esc(s.detail)}</p>` : ''}</div>${badge(ROLLOUT_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>` : '';
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
-  const body = `<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
+  const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
 <p class="panel-body subtle" style="margin:0">The agent drafts the data mapping, the integration and the test set from this client’s material, then the policy check runs. Every draft waits for a person to approve, edit or reject it; nothing changes until then. Fixes and the launch report come after the first test run.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
