@@ -97,8 +97,8 @@ input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 1
 .mini i{width:14px;height:5px;border-radius:3px;background:var(--line)}
 .mini i.done{background:var(--good)}.mini i.review{background:var(--accent)}.mini i.attention{background:var(--bad)}
 .stage{display:flex;flex-direction:column;gap:5px}.stage .lbl{font-size:12.5px;color:var(--text-2)}
-.rows a.row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);color:inherit}
-.rows a.row:last-child{border-bottom:0}
+.rows .row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line);color:inherit}
+.rows .row:last-child{border-bottom:0}
 .rows a.row:hover{background:var(--hover);text-decoration:none}
 .rows .row .what{min-width:0;flex:1}
 .rows .row .what p{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -224,7 +224,7 @@ details.menu{position:relative}.content>.page-head{position:relative;z-index:5}d
 details.menu[open]>summary{background:var(--hover)}
 .menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:280px;padding:6px;display:grid;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 32px rgb(16 16 24/.14),0 2px 6px rgb(16 16 24/.06)}
 .menu-pop form{margin:0}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
-.agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px}.row-inline select{flex:1;min-width:0}
+.agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:flex-end}.row-inline select{flex:1;min-width:0}
 .conn{display:none}
 form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=type][value=openai]:checked) .conn-openai,form:has(input[name=type][value=command]:checked) .conn-command,form:has(input[name=type][value=intercom]:checked) .conn-intercom,form:has(input[name=type][value=zendesk]:checked) .conn-zendesk{display:block;animation:rise .24s cubic-bezier(.2,.75,.25,1) both}
 @media (prefers-reduced-motion:no-preference){
