@@ -10,7 +10,7 @@ import { ApiError, createRouter, forbidden, notFound, paginate, readJson, send, 
 import { beginIdempotent, checkIdempotencyKey } from './idempotency.mjs';
 import { authenticateKey, checkScopes, createApiKey, listKeys, revokeKey } from './keys.mjs';
 import {
-  access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, draftsOf, event, guardLiveReply, orgUsage, reviewDeploymentDraft, startRun,
+  access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, draftsOf, event, guardLiveAction, guardLiveReply, orgUsage, reviewDeploymentDraft, startRun,
 } from './operations.mjs';
 import { isManager, principalAllows, roleIn } from './rbac.mjs';
 import { checkOidcConfig, getOidcConfig, setOidcConfig } from './sso.mjs';
@@ -163,6 +163,8 @@ function routes(ctx) {
   // or rewrite (with a safe reply) before the customer sees anything.
   r.add('POST', '/v1/orgs/:org/deployments/:name/guard', async ({ principal, params, body }) => {
     access(ctx, principal, params.org, 'guard:check');
+    // With an action in the body it checks that tool call before it runs; otherwise the reply before it is sent.
+    if (body?.action !== undefined) return ok({ object: 'guard_action', ...await guardLiveAction(ctx, principal, params.org, params.name, body) });
     return ok({ object: 'guard_check', ...await guardLiveReply(ctx, principal, params.org, params.name, body) });
   });
 

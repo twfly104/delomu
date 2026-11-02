@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { getDraft, listDrafts, reviewDraft } from '../core/drafts.mjs';
 import { createLlm, guardModel, isAuthError, liveModel } from '../core/llm.mjs';
 import { loadConfig } from '../deployment.mjs';
-import { guardReply } from '../v1/guard.mjs';
+import { guardAction, guardReply } from '../v1/guard.mjs';
 import { checkConversation } from '../v1/live.mjs';
 import { runDeployment } from '../run.mjs';
 import { getOrg } from './accounts.mjs';
@@ -95,6 +95,19 @@ export async function guardLiveReply(ctx, principal, orgId, name, input) {
   ctx.billing?.checkConversationQuota(orgId);
   const result = await guardReply(dir, input, { llm: ctx.llm ?? createLlm({ model: guardModel() }), now: ctx.now(), log: ctx.log });
   if (result.decision !== 'allow') event(ctx, principal, orgId, `guard.${result.decision}`, `${name}/${result.id}`, { rules: result.violations.map(v => v.rule) });
+  return result;
+}
+
+// Action guard: checks a tool call (a refund, a cancellation) before the agent runs it, with the record it touches.
+// Same allowance and fail-open behaviour as the reply guard.
+export async function guardLiveAction(ctx, principal, orgId, name, input) {
+  const { dir } = deploymentFor(ctx, orgId, name);
+  const action = input.action;
+  if (!action || typeof action !== 'object' || typeof (action.tool ?? action.name) !== 'string') throw invalid('action must be an object with the tool name and its input, like { "tool": "issue_refund", "input": { ... } }.', 'action');
+  if (input.message !== undefined && typeof input.message !== 'string') throw invalid('message must be text.', 'message');
+  ctx.billing?.checkConversationQuota(orgId);
+  const result = await guardAction(dir, input, { llm: ctx.llm ?? createLlm({ model: guardModel() }), now: ctx.now(), log: ctx.log });
+  if (result.decision !== 'allow') event(ctx, principal, orgId, 'guard.action_block', `${name}/${result.id}`, { tool: action.tool ?? action.name, rules: result.violations.map(v => v.rule) });
   return result;
 }
 

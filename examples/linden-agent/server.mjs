@@ -25,6 +25,28 @@ if (fs.existsSync(envFile)) {
 }
 
 const MODEL = process.env.LINDEN_MODEL || 'claude-haiku-5-5';
+// Optional: Delomu's action guard. With LINDEN_GUARD_URL (the agent's /v1/orgs/.../deployments/.../guard URL) and
+// LINDEN_GUARD_KEY (a Delomu API key with guard:check), every tool call is checked before it runs, with the order
+// it touches; a blocked call does not run and the agent is told why.
+const GUARD_URL = process.env.LINDEN_GUARD_URL;
+const GUARD_KEY = process.env.LINDEN_GUARD_KEY;
+
+async function checkWithDelomu(call, orders, message) {
+  if (!GUARD_URL || !GUARD_KEY || call.name === 'list_my_orders') return null;
+  try {
+    const res = await fetch(GUARD_URL, {
+      method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${GUARD_KEY}` },
+      body: JSON.stringify({ action: { tool: call.name, input: call.input }, context: orders.find(o => o.id === call.input?.order_id) ?? null, message }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    const verdict = await res.json();
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${verdict?.error?.message ?? 'no verdict'}`);
+    return verdict.decision === 'block' ? verdict : null;
+  } catch (e) {
+    console.error(`guard unavailable, action allowed: ${e.message}`);
+    return null;
+  }
+}
 const PORT = Number(process.argv[2] || process.env.PORT || 8792);
 const POLICY = fs.readFileSync(new URL('policy/returns-and-support-policy.md', here), 'utf8');
 
@@ -67,14 +89,16 @@ export async function chat(message, { client = new Anthropic(), now = Date.now()
       return { reply: res.content.filter(b => b.type === 'text').map(b => b.text).join('').trim(), actions };
     }
     messages.push({ role: 'assistant', content: res.content });
-    messages.push({
-      role: 'user',
-      content: calls.map(c => {
-        const result = runTool(c.name, c.input ?? {}, orders);
-        if (c.name !== 'list_my_orders') actions.push({ tool: c.name, input: c.input, result });
-        return { type: 'tool_result', tool_use_id: c.id, content: JSON.stringify(result) };
-      }),
-    });
+    const results = [];
+    for (const c of calls) {
+      const blocked = await checkWithDelomu(c, orders, message);
+      const result = blocked
+        ? { ok: false, blocked: true, reason: blocked.violations.map(v => v.what_happened).join(' '), tell_customer: blocked.tellCustomer ?? '' }
+        : runTool(c.name, c.input ?? {}, orders);
+      if (c.name !== 'list_my_orders') actions.push({ tool: c.name, input: c.input, result });
+      results.push({ type: 'tool_result', tool_use_id: c.id, content: JSON.stringify(result) });
+    }
+    messages.push({ role: 'user', content: results });
   }
   return { reply: 'Let me connect you with our care team.', actions };
 }

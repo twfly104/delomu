@@ -97,3 +97,30 @@ These depend on your rules and traffic; Delomu has not published measured number
   server limit if your channel needs a faster answer (on your timeout, send the original reply or your fallback).
 - To reduce both: keep the scan's rule list focused, and consider guarding only the channels or intents
   where a broken rule is costly, while sending the rest to `POST .../conversations` after the fact.
+
+## Checking an action before it runs
+
+An agent that takes actions (refunds, cancellations, promo codes, price changes, hand-offs) can ask before each
+tool call. Send the action and the record it touches to the same endpoint:
+
+```
+POST /v1/orgs/:org/deployments/:name/guard
+Authorization: Bearer <API key with guard:check>
+
+{ "action": { "tool": "cancel_order", "input": { "order_id": "L-1006" } },
+  "context": { "id": "L-1006", "placedAt": "2026-11-03T15:03:58Z", "status": "processing" },
+  "message": "Can you cancel both of my recent orders?" }
+```
+
+Response: `{ "object": "guard_action", "id", "decision": "allow" | "block", "violations": [{ "rule", "clause", "severity",
+"what_happened" }], "tellCustomer"? }`. On `block`, do not run the tool; give the agent the reason and
+`tellCustomer`, the policy's own wording for what to say instead. The judgment uses the record and the current time,
+so "within 1 hour of being placed" or "within 30 days of delivery" is decided from real dates.
+
+It fails open like the reply check (`allow` with `unjudged: true`) when there is no scan yet or no verdict. An agent
+that moves money may choose to treat `unjudged` as `block`. Each check is in the audit log (`guard.action`) and
+counts toward the plan's live conversations.
+
+`examples/linden-agent/server.mjs` shows the integration: with `LINDEN_GUARD_URL` and `LINDEN_GUARD_KEY` set,
+every tool call goes through this check first. In the real test it let a cancel 20 minutes after ordering through and
+blocked one 3 hours after, and the agent explained the 1-hour window to the customer instead.
