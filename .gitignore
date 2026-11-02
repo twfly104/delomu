@@ -11,3 +11,6 @@ hackathon/video/*.mp4
 .claude/worktrees/
 
 outreach/
+
+# Screen recordings made while testing
+recordings/
