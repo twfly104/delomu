@@ -357,35 +357,16 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .lp-cap{text-align:center;font-size:12.5px;color:var(--text-3);margin-top:56px}
 .lp-sec{padding:112px 0 0}
 .lp-sec>.lede{margin-top:14px}
-.lp-flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:48px}
-.lp-flow>div{display:flex;flex-direction:column;gap:14px}
-.lp-vis{height:256px;border-radius:14px;background:var(--surface);box-shadow:0 0 0 1px var(--line),0 1px 2px rgb(11 19 36/.04);padding:18px;overflow:hidden;position:relative}
-.lp-flow p{color:var(--text-2);max-width:36ch}
 .lp-doc{display:grid;gap:12px;font-size:13px;line-height:1.5;color:var(--text-2)}.lp-doc .h{font-weight:600;color:var(--text);font-size:13.5px}
-.lp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;padding-top:12px;border-top:1px dashed var(--line-strong)}.lp-rules span{font-size:12px;padding:4px 8px;border-radius:6px;background:var(--sunken);color:var(--text);animation:lp-tile .5s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--i) * 120ms + 200ms)}
+.lp-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;padding-top:12px;border-top:1px dashed var(--line-strong)}.lp-rules span{font-size:12px;padding:4px 8px;border-radius:6px;background:var(--sunken);color:var(--text)}
 .lp-doc mark{background:var(--accent-weak);color:var(--accent-text);border-radius:4px;padding:1px 4px;font-weight:500}
 .lp-doc .sec{font:500 11.5px var(--mono);color:var(--text-3);margin-right:6px}
 .lp-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
-.lp-grid i{aspect-ratio:1;border-radius:5px;background:color-mix(in srgb,var(--good) 78%,var(--surface));animation:lp-tile .4s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--i) * 45ms)}
+.lp-grid i{aspect-ratio:1;border-radius:5px;background:color-mix(in srgb,var(--good) 78%,var(--surface))}
 .lp-grid i.b{background:var(--bad)}.lp-grid i.u{background:var(--sunken);box-shadow:inset 0 0 0 1px var(--line)}
-.lp-probe{margin-top:16px;font-size:12.5px;color:var(--text-2);display:grid;gap:6px}.lp-probe .bubble{font-size:12.5px;padding:8px 10px}
 .lp-ba{display:grid;gap:16px}.lp-ba .row{display:grid;grid-template-columns:72px 1fr 64px;align-items:center;gap:12px;font-size:12.5px;color:var(--text-2)}
 .lp-ba .bar{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}.lp-ba .bar i{height:22px;border-radius:5px;background:var(--good)}.lp-ba .bar i.b{background:var(--bad)}
 .lp-ba .n{font:600 12.5px var(--font);text-align:right;font-variant-numeric:tabular-nums}.lp-ba .n.bad{color:var(--bad)}.lp-ba .n.good{color:var(--good)}
-.lp-ba .fix{margin-top:4px;padding:10px 12px;border-radius:10px;background:var(--sunken);font-size:12.5px;color:var(--text-2);display:flex;gap:8px;align-items:center}
-.lp-aud{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:48px}
-.lp-aud>section{min-width:0;border-radius:16px;background:var(--surface);box-shadow:0 0 0 1px var(--line),0 1px 2px rgb(11 19 36/.04);padding:28px;display:flex;flex-direction:column;gap:10px}
-.lp-aud>section>p{color:var(--text-2);max-width:44ch}
-.lp-aud .shot{margin-top:14px;border-radius:12px;box-shadow:0 0 0 1px var(--line);overflow:hidden;background:var(--canvas)}
-.lp-clients{width:100%;border-collapse:collapse;font-size:13px}.lp-clients td{padding:12px 14px;border-top:1px solid var(--line)}.lp-clients tr:first-child td{border-top:0}
-.lp-clients .who{font-weight:600;color:var(--text)}.lp-clients .what{font-size:12px;color:var(--text-3)}
-.lp-clients .st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap}.lp-clients .st i{width:8px;height:8px;border-radius:50%}
-.lp-clients .st.ok{color:var(--good)}.lp-clients .st.ok i{background:var(--good)}.lp-clients .st.bad{color:var(--bad)}.lp-clients .st.bad i{background:var(--bad)}.lp-clients .st.acc{color:var(--accent-text)}.lp-clients .st.acc i{background:var(--accent)}
-.lp-code{margin:0;padding:16px 18px;font:12.5px/1.65 var(--mono);color:var(--text-2);overflow-x:auto;white-space:pre}
-.lp-code .k{color:var(--accent-text)}.lp-code .bad{color:var(--bad);font-weight:600}.lp-code .c{color:var(--text-3)}
-.lp-works{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.lp-works span{font-size:12.5px;padding:5px 10px;border-radius:99px;background:var(--sunken);color:var(--text-2)}
-.lp-trust{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin-top:40px;padding-top:28px;border-top:1px solid var(--line)}
-.lp-trust p{font-size:14px;color:var(--text-2)}.lp-trust p .strong{display:block;margin-bottom:4px;font-size:15px}
 .lp-prices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:40px}
 .lp-prices>div{padding:24px;border-radius:14px;background:var(--surface);box-shadow:0 0 0 1px var(--line);display:flex;flex-direction:column;gap:6px}
 .lp-prices>div.pick{box-shadow:0 0 0 1.5px var(--accent),0 12px 32px -12px color-mix(in srgb,var(--accent) 45%,transparent)}
@@ -402,16 +383,52 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .lp-faq details{border-bottom:1px solid var(--line)}.lp-faq summary{cursor:pointer;list-style:none;padding:18px 0;font-weight:600;font-size:15.5px;display:flex;justify-content:space-between;gap:16px}
 .lp-faq summary::-webkit-details-marker{display:none}.lp-faq summary::after{content:"+";color:var(--text-3);font-weight:400;font-size:20px;line-height:1;transition:transform .2s}
 .lp-faq details[open] summary::after{transform:rotate(45deg)}.lp-faq p{padding:0 0 18px;color:var(--text-2);max-width:64ch}
-.lp-end{margin:120px 0 0;padding:72px 32px;border-radius:20px;background:var(--ink);color:var(--on-ink);text-align:center}
-.lp-end h2{color:var(--on-ink);margin:0 auto}.lp-end p{color:color-mix(in srgb,var(--on-ink) 72%,transparent);margin:14px auto 0;max-width:48ch}
-.lp-end .btn.primary{background:var(--on-ink);border-color:var(--on-ink);color:var(--ink)}.lp-end .btn.primary:hover{background:color-mix(in srgb,var(--on-ink) 88%,var(--ink))}
-.lp-end .btn:not(.primary){background:transparent;color:var(--on-ink);border-color:color-mix(in srgb,var(--on-ink) 30%,transparent)}.lp-end .btn:not(.primary):hover{background:color-mix(in srgb,var(--on-ink) 10%,transparent)}
-.lp-foot{max-width:1160px;margin:0 auto;padding:40px 24px 48px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px}.lp-foot>span:first-child{display:flex;gap:6px;align-items:center;font-weight:600}
+.lp-statement{padding:144px 0 0}
+.lp-statement h2{font-size:clamp(26px,3.2vw,40px);line-height:1.18;letter-spacing:-0.03em;max-width:30ch;font-weight:600}.lp-statement h2 span{color:var(--text-3)}
+.lp-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:72px;border-top:1px solid var(--line)}
+.lp-figs>div{padding:20px 28px 0;display:flex;flex-direction:column;gap:10px}.lp-figs>div:first-child{padding-left:0}.lp-figs>div+div{border-left:1px solid var(--line)}
+.lp-figs .fig{font:500 11px var(--mono);letter-spacing:.06em;color:var(--text-3)}
+.lp-fig{height:200px;display:flex;align-items:center;margin:8px 0 18px}.lp-fig>*{width:100%}
+.lp-figs p{color:var(--text-2);max-width:34ch}
+.lp-chapter{margin-top:144px;padding-top:56px;border-top:1px solid var(--line)}
+.lp-ch-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:start}
+.lp-ch-head h2{font-size:clamp(32px,4vw,48px);line-height:1.04;letter-spacing:-0.035em;max-width:none}
+.lp-ch-head p{font-size:17px;line-height:1.55;color:var(--text-2);max-width:46ch}
+.lp-more{display:inline-flex;align-items:center;gap:6px;margin-top:18px;font-size:14px;font-weight:500;color:var(--text)}.lp-more:hover{text-decoration:none;color:var(--accent-text)}.lp-more .i{transition:transform .2s}.lp-more:hover .i{transform:translateX(3px)}
+.lp-comp{position:relative;margin-top:64px;padding-bottom:48px;-webkit-mask-image:linear-gradient(to bottom,#000 78%,transparent);mask-image:linear-gradient(to bottom,#000 78%,transparent)}
+.lp-panel{background:var(--surface);border-radius:12px;box-shadow:0 0 0 1px var(--line),0 1px 2px rgb(11 19 36/.04),0 24px 48px -24px rgb(11 19 36/.18);overflow:hidden}
+.lp-p-main{width:66%}.lp-comp-r .lp-p-main{margin-left:auto}
+.lp-p-float{position:absolute;top:64px;right:0;width:34%}.lp-comp-r .lp-p-float{right:auto;left:0;top:88px;width:36%}
+.lp-p-bar{display:flex;align-items:center;gap:10px;justify-content:space-between;height:44px;padding:0 16px;border-bottom:1px solid var(--line);font-size:13px}
+.lp-p-body{padding:18px;display:grid;gap:6px}
+.lp-ev{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}.lp-ev>div{background:var(--surface);padding:14px 16px}.lp-ev .n{display:block;height:30px;font-size:24px;font-weight:600;letter-spacing:-0.03em;font-variant-numeric:tabular-nums}.lp-ev .n.ok{color:var(--good)}.lp-ev .subtle{font-size:12px}.lp-big{font-size:28px;font-weight:600;letter-spacing:-0.03em;color:var(--good)}
+.lp-accepted{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--good-weak);color:var(--good);display:flex;gap:8px;align-items:center;font-size:13px}.lp-accepted .strong{color:var(--good)}
+.lp-clients{width:100%;border-collapse:collapse;font-size:13px}.lp-clients th{text-align:left;font-weight:500;font-size:12px;color:var(--text-3);padding:10px 16px;border-bottom:1px solid var(--line)}
+.lp-clients td{padding:14px 16px;border-top:1px solid var(--line);vertical-align:middle}.lp-clients tbody tr:first-child td{border-top:0}
+.lp-clients .who{display:block;font-weight:600;color:var(--text)}.lp-clients .what{display:block;font-size:12px;color:var(--text-3);margin-top:2px}
+.lp-clients .st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;white-space:nowrap}.lp-clients .st i{width:8px;height:8px;border-radius:50%}
+.lp-clients .st.ok{color:var(--good)}.lp-clients .st.ok i{background:var(--good)}.lp-clients .st.bad{color:var(--bad)}.lp-clients .st.bad i{background:var(--bad)}.lp-clients .st.acc{color:var(--accent-text)}.lp-clients .st.acc i{background:var(--accent)}
+.lp-steps6{display:flex;gap:3px}.lp-steps6 i{width:14px;height:6px;border-radius:3px;background:var(--line)}.lp-steps6 i.d{background:var(--good)}.lp-steps6 i.r{background:var(--accent)}
+.lp-convs{list-style:none;margin:0;padding:0}.lp-convs li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:12px;align-items:center;padding:13px 16px;border-top:1px solid var(--line);font-size:13px}.lp-convs li:first-child{border-top:0}
+.lp-convs li>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}.lp-convs li .subtle{font-size:12px}
+.lp-convs i{width:8px;height:8px;border-radius:50%;background:var(--good)}.lp-convs i.bad{background:var(--bad)}
+.lp-tag{font-size:11.5px;font-weight:500;padding:2px 8px;border-radius:99px}.lp-tag.bad{background:var(--bad-weak);color:var(--bad)}.lp-tag.ok{background:var(--good-weak);color:var(--good)}
+.mono-s{font:500 12px var(--mono);color:var(--text-3)}.lp-p-code .mono-s{color:var(--text-2)}
+.lp-code{margin:0;padding:16px 18px;font:12.5px/1.7 var(--mono);color:var(--text-2);overflow-x:auto;white-space:pre}
+.lp-code .k{color:var(--accent-text)}.lp-code .bad{color:var(--bad);font-weight:600}.lp-code .c{color:var(--text-3)}
+.lp-audit{list-style:none;margin:0;padding:0}.lp-audit li{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:16px;align-items:center;padding:13px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--text-2)}.lp-audit li:first-child{border-top:0}
+.lp-feats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;margin-top:8px;font-size:14px}
+.lp-feats ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}.lp-feats li{color:var(--text);display:flex;align-items:center;gap:8px}.lp-feats li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+.lp-end{margin:168px 0 0;padding:72px 0 0;border-top:1px solid var(--line);text-align:center}
+.lp-end h2{margin:0 auto;max-width:20ch}
+.lp-foot{width:calc(100% - 48px);max-width:1112px;margin:120px auto 0;padding:48px 0 56px;border-top:1px solid var(--line);font-size:13px;display:grid;gap:40px}
+.lp-foot-cols{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:24px}.lp-foot-brand{display:flex;gap:8px;align-items:flex-start;font-weight:600;font-size:14px}
+.lp-foot nav{display:flex;flex-direction:column;gap:10px}.lp-foot nav .h{font-weight:500;color:var(--text)}.lp-foot nav a{color:var(--text-2)}.lp-foot nav a:hover{color:var(--text);text-decoration:none}
 @keyframes lp-tile{from{opacity:0;transform:translateY(6px) scale(.97);filter:blur(3px)}}
 @keyframes lp-flag{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 0%,transparent)}40%{box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 22%,transparent)}}
 @keyframes lp-toast{from{opacity:0;transform:translateY(14px) scale(.97);filter:blur(4px)}}
-@media (max-width:960px){.lp-win{grid-template-columns:1fr}.lp-win-main{border-right:0;border-bottom:1px solid var(--line)}.lp-toast{position:relative;right:auto;bottom:auto;width:auto;margin:16px 0 0}.lp-flow,.lp-aud{grid-template-columns:1fr}.lp-trust,.lp-prices{grid-template-columns:1fr 1fr}.lp-sec{padding-top:88px}}
-@media (max-width:560px){.lp{padding:0 16px}.lp-top nav a[href="/#how"],.lp-top nav a[href="/login"]{display:none}.lp-code{font-size:11.5px}.lp-clients .st{white-space:normal}.lp-top>div{padding:12px 16px}.lp-top nav{gap:14px}.lp-hero{padding-top:48px}.lp .lede{font-size:16px}.lp-stage{margin-top:40px}.lp-stage::before{display:none}.lp-win .rulemap{grid-template-columns:1fr}.lp-chrome .path span:not(:last-child),.lp-chrome .path .sep{display:none}.lp-trust,.lp-prices{grid-template-columns:1fr}.lp-aud>section{padding:20px}.lp-end{padding:48px 20px;margin-top:88px}.lp-clients td:nth-child(2){display:none}}
+@media (max-width:960px){.lp-win{grid-template-columns:1fr}.lp-win-main{border-right:0;border-bottom:1px solid var(--line)}.lp-toast{position:relative;right:auto;bottom:auto;width:auto;margin:16px 0 0}.lp-prices{grid-template-columns:1fr 1fr}.lp-sec{padding-top:88px}.lp-figs{grid-template-columns:1fr}.lp-figs>div{padding:24px 0 8px!important;border-left:0!important}.lp-figs>div+div{border-top:1px solid var(--line)}.lp-ch-head,.lp-feats{grid-template-columns:1fr;gap:20px}.lp-feats{margin-top:32px}.lp-comp{-webkit-mask-image:none;mask-image:none;padding-bottom:0}.lp-comp .lp-p-main{width:100%}.lp-p-float{position:relative;top:auto!important;left:auto!important;right:auto!important;width:auto!important;margin:12px 0 0}.lp-fig{height:auto;margin:12px 0 16px}.lp-chapter{margin-top:96px}.lp-statement{padding-top:96px}.lp-foot-cols{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.lp{padding:0 16px}.lp-foot{width:calc(100% - 32px)}.lp-top nav a[href="/#how"],.lp-top nav a[href="/login"]{display:none}.lp-code{font-size:11.5px}.lp-clients .st{white-space:normal}.lp-top>div{padding:12px 16px}.lp-top nav{gap:14px}.lp-hero{padding-top:48px}.lp .lede{font-size:16px}.lp-stage{margin-top:40px}.lp-stage::before{display:none}.lp-win .rulemap{grid-template-columns:1fr}.lp-chrome .path span:not(:last-child),.lp-chrome .path .sep{display:none}.lp-prices{grid-template-columns:1fr}.lp-end{margin-top:96px;padding-top:56px}.lp-feats ul{grid-template-columns:1fr}.lp-audit li{grid-template-columns:1fr auto}.lp-audit li .mono-s{display:none}.lp-clients th:nth-child(3),.lp-clients td:nth-child(3){display:none}.lp-clients th:nth-child(2),.lp-clients td:nth-child(2){display:none}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
@@ -531,7 +548,11 @@ const LP_RULES = [['Never refund a final-sale item', 'kept'], ['Only refund with
 
 const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Delomu home">${mark(22, 'm-lp')}<span>Delomu</span></a>
 <nav><a href="/#how">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
-const lpFoot = () => `<footer class="lp-foot"><span>${mark(14, 'm-lpf')} Delomu</span><span class="subtle">Results shown are from Delomu’s made-up sample store, not from customers.</span></footer>`;
+const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span class="lp-foot-brand">${mark(16, 'm-lpf')} Delomu</span>
+<nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a></nav>
+<nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
+<nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
+<p class="subtle">Results shown are from Delomu’s made-up sample store, not from customers.</p></footer>`;
 
 // The page a signed-out visitor sees at /. It shows the product doing its job on the sample store, in the
 // product's own parts, and states only what is true: no customers, logos or numbers that do not exist.
@@ -569,51 +590,75 @@ export function landingPage({ signup = false, plans }) {
 <p class="lp-cap">A real check of the sample store in Delomu. The agent said the right thing and did the wrong thing.</p>
 </section>
 
-<section class="lp-sec" id="how"><h2>From your policy to proof, in one check</h2>
-<p class="lede">No test set to write. Delomu builds it from the rules you already have.</p>
-<div class="lp-flow">
-<div><div class="lp-vis"><div class="lp-doc"><span class="h">Returns and support policy</span>
+<section class="lp-statement" id="how"><h2>Your policy is the test. <span>Delomu turns the rules a company already wrote into the messages most likely to break them, judges every answer and every action against the exact clause, and keeps checking after launch.</span></h2>
+<div class="lp-figs">
+<div><span class="fig">FIG 0.1</span><div class="lp-fig"><div class="lp-doc"><span class="h">Returns and support policy</span>
 <span><span class="sec">§5</span>Orders can be cancelled within <mark>1 hour</mark> of being placed.</span>
 <span><span class="sec">§7</span>Hand off to a person for any order <mark>over $1,000</mark>.</span>
-<span><span class="sec">§1</span>Clearance items are <mark>final sale</mark>.</span>
-<span class="lp-rules" aria-label="Rules found"><span style="--i:0">Only cancel within 1 hour</span><span style="--i:1">Hand off orders over $1,000</span><span style="--i:2">Never refund final sale</span></span></div></div>
-<h3>It reads your policy</h3><p>Every clause becomes a rule, with the exact words it came from.</p></div>
-<div><div class="lp-vis"><div class="lp-grid" aria-hidden="true">${probes}</div>
-<div class="lp-probe"><span class="cap">Test message</span><div class="bubble">I want to return the sofa I bought. Can you refund it today?</div></div></div>
-<h3>It tests your agent</h3><p>The messages most likely to break each rule, sent to your real agent on a test account.</p></div>
-<div><div class="lp-vis"><div class="lp-ba"><div class="row"><span>Before fix</span><span class="bar">${bar(2)}</span><span class="n bad">2 broken</span></div>
-<div class="row"><span>After fix</span><span class="bar">${bar(0)}</span><span class="n good">0 broken</span></div>
-<div class="fix">${icon('check', { size: 14 })}<span>One fix to the instructions, approved by a person, re-checked on the same messages.</span></div></div></div>
-<h3>It fixes and re-checks</h3><p>A drafted fix for each broken rule. Nothing changes until a person approves it.</p></div>
+<span class="lp-rules" aria-label="Rules found"><span style="--i:0">Only cancel within 1 hour</span><span style="--i:1">Hand off orders over $1,000</span></span></div></div>
+<h3>Reads the policy</h3><p>Every clause becomes a rule, with the words it came from.</p></div>
+<div><span class="fig">FIG 0.2</span><div class="lp-fig"><div class="lp-grid" aria-hidden="true">${probes}</div></div>
+<h3>Tests the agent</h3><p>The messages most likely to break each rule, sent to the real agent on a test account.</p></div>
+<div><span class="fig">FIG 0.3</span><div class="lp-fig"><div class="lp-ba"><div class="row"><span>Before fix</span><span class="bar">${bar(2)}</span><span class="n bad">2 broken</span></div>
+<div class="row"><span>After fix</span><span class="bar">${bar(0)}</span><span class="n good">0 broken</span></div></div></div>
+<h3>Fixes and re-checks</h3><p>A drafted fix for each broken rule. Nothing changes until a person approves it.</p></div>
 </div></section>
 
-<section class="lp-sec"><h2>Built for both sides of an AI rollout</h2>
-<div class="lp-aud">
-<section><h3>For AI vendors</h3><p>A workspace per client. One click drafts the integration and the test set; the client signs off from a link.</p>
-<div class="shot"><table class="lp-clients"><tbody>
-<tr><td><span class="who">Linden &amp; Co.</span><br><span class="what">Store agent · acts on orders</span></td><td class="subtle">Signed off</td><td><span class="st ok"><i></i>Client accepted</span></td></tr>
-<tr><td><span class="who">Tallyfox</span><br><span class="what">Support bot</span></td><td class="subtle">Policy check</td><td><span class="st bad"><i></i>2 rules broken</span></td></tr>
-<tr><td><span class="who">Your next client</span><br><span class="what">Drafting from their material</span></td><td class="subtle">Drafts</td><td><span class="st acc"><i></i>In review</span></td></tr>
-</tbody></table></div></section>
-<section><h3>For teams running an AI agent</h3><p>Check it before launch, watch real conversations after, and stop a refund or cancellation before it happens.</p>
-<div class="shot"><pre class="lp-code"><span class="c">POST /v1/orgs/linden/deployments/lia/guard</span>
-{ <span class="k">"action"</span>: { <span class="k">"tool"</span>: "cancel_order",
-              <span class="k">"input"</span>: { <span class="k">"order_id"</span>: "L-1006" } } }
-
-<span class="c">→ 200</span>
-{ <span class="k">"decision"</span>: <span class="bad">"block"</span>,
-  <span class="k">"violations"</span>: [{ <span class="k">"rule"</span>: "Only cancel within 1 hour" }] }</pre></div>
-<div class="lp-works"><span>Intercom</span><span>Zendesk</span><span>OpenAI-compatible APIs</span><span>Any HTTP endpoint</span></div></section>
+<section class="lp-chapter">
+<div class="lp-ch-head"><h2>Client rollouts<br>and sign-off</h2><div><p>For AI vendors. Every client gets its own workspace. One click drafts the data mapping, the integration and the test set from the client’s own material, then the check runs on their policy. The client accepts from a link.</p><a class="lp-more" href="${start}">Open a sample client ${icon('arrow', { size: 14 })}</a></div></div>
+<div class="lp-comp" aria-label="The clients page and a client sign-off">
+<div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Clients</span><span class="subtle">3 workspaces</span></div>
+<table class="lp-clients"><thead><tr><th>Client</th><th>Rollout</th><th>Check</th><th>Status</th></tr></thead><tbody>
+<tr><td><span class="who">Linden &amp; Co.</span><span class="what">Store agent · acts on orders</span></td><td><span class="lp-steps6" aria-label="6 of 6 steps"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i></span></td><td class="num">8 of 8 kept</td><td><span class="st ok"><i></i>Client accepted</span></td></tr>
+<tr><td><span class="who">Tallyfox</span><span class="what">Support bot</span></td><td><span class="lp-steps6" aria-label="5 of 6 steps"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="r"></i><i></i></span></td><td class="num">2 broken</td><td><span class="st bad"><i></i>Fix in review</span></td></tr>
+<tr><td><span class="who">Your next client</span><span class="what">Drafting from their material</span></td><td><span class="lp-steps6" aria-label="2 of 6 steps"><i class="d"></i><i class="r"></i><i></i><i></i><i></i><i></i></span></td><td class="subtle">Not run</td><td><span class="st acc"><i></i>Drafts to review</span></td></tr>
+</tbody></table></div>
+<div class="lp-panel lp-p-float lp-signoff"><div class="lp-p-bar"><span class="strong">Client sign-off</span><span class="subtle">no account needed</span></div>
+<div class="lp-p-body"><p class="subtle">Linden &amp; Co. · Lia, store agent</p><p class="lp-big">8 of 8 rules kept</p><p class="subtle">After one approved fix, on the same messages.</p>
+<div class="lp-accepted">${icon('check', { size: 14 })}<span><span class="strong">Accepted</span> by the client’s head of support</span></div></div></div>
 </div>
-<div class="lp-trust">
-<p><span class="strong">A person approves every change</span>The agent proposes; nothing is applied silently.</p>
-<p><span class="strong">Tamper-evident audit log</span>Every check and approval is chained, with an evidence pack for legal.</p>
-<p><span class="strong">One workspace per client</span>Data never crosses clients. Personal data is scrubbed before judging.</p>
-<p><span class="strong">Keys stay encrypted</span>Keys you paste are stored encrypted and never shown again.</p>
-</div></section>
+<div class="lp-feats"><span class="subtle">Features</span><ul><li>Workspace per client</li><li>One-click rollout drafts</li><li>Sign-off links</li><li>Engineer hours per rollout</li></ul></div>
+</section>
 
-<section class="lp-end"><h2>Find the rule your agent breaks before a customer does</h2>
-<p>Run your first check on a sample agent in two minutes, then connect your own.</p>
+<section class="lp-chapter">
+<div class="lp-ch-head"><h2>A guard on every<br>reply and action</h2><div><p>For teams running an AI agent. Before a refund or a cancellation happens, ask Delomu. After launch, real conversations are judged against the same rules, with alerts when one breaks.</p><a class="lp-more" href="${start}">Try it on the sample store ${icon('arrow', { size: 14 })}</a></div></div>
+<div class="lp-comp lp-comp-r" aria-label="A guard API call and live conversations">
+<div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Live</span><span class="subtle">sample store, last 24 hours</span></div>
+<ul class="lp-convs">
+<li><i class="ok"></i><span>Where is my pour-over set?</span><span class="subtle">Kept all rules</span></li>
+<li><i class="bad"></i><span>Cancel my wool throw, please</span><span class="lp-tag bad">Blocked · §5</span></li>
+<li><i class="ok"></i><span>Can I use WELCOME10 and SPRING15?</span><span class="subtle">Kept all rules</span></li>
+<li><i class="ok"></i><span>The sofa is scratched, I want a refund</span><span class="subtle">Handed off · §7</span></li>
+<li><i class="ok"></i><span>Delete my address from my account</span><span class="subtle">Kept all rules</span></li>
+</ul></div>
+<div class="lp-panel lp-p-float lp-p-code"><div class="lp-p-bar"><span class="strong mono-s">POST …/deployments/lia/guard</span></div>
+<pre class="lp-code">{ <span class="k">"action"</span>: { <span class="k">"tool"</span>: "cancel_order",
+  <span class="k">"input"</span>: { <span class="k">"order_id"</span>: "L-1006" } } }
+<span class="c">→</span> { <span class="k">"decision"</span>: <span class="bad">"block"</span>,
+  <span class="k">"violations"</span>: [{ <span class="k">"rule"</span>:
+    "Only cancel within 1 hour" }] }</pre></div>
+</div>
+<div class="lp-feats"><span class="subtle">Works with</span><ul><li>Intercom</li><li>Zendesk</li><li>OpenAI-compatible APIs</li><li>Any HTTP endpoint</li></ul></div>
+</section>
+
+<section class="lp-chapter">
+<div class="lp-ch-head"><h2>Evidence your<br>legal team can read</h2><div><p>Every check, fix and approval is written to a tamper-evident log. The evidence pack shows what was found, what was fixed and who approved it, with the chain verified.</p></div></div>
+<div class="lp-comp" aria-label="The audit log">
+<div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Audit log</span><span class="lp-tag ok">Chain verified</span></div>
+<ol class="lp-audit">
+<li><span class="mono-s">a41f…09c2</span><span><span class="strong">Check finished</span> 2 of 8 rules broken</span><span class="subtle">agent</span></li>
+<li><span class="mono-s">7be0…d115</span><span><span class="strong">Fix drafted</span> for §5 and §7</span><span class="subtle">agent</span></li>
+<li><span class="mono-s">c93a…4e78</span><span><span class="strong">Fix approved</span> and applied</span><span class="subtle">person</span></li>
+<li><span class="mono-s">0d52…b3a1</span><span><span class="strong">Re-check finished</span> 8 of 8 kept</span><span class="subtle">agent</span></li>
+<li><span class="mono-s">e17c…6f20</span><span><span class="strong">Client accepted</span> from a sign-off link</span><span class="subtle">client</span></li>
+</ol></div>
+<div class="lp-panel lp-p-float"><div class="lp-p-bar"><span class="strong">Evidence pack</span><span class="subtle">Lia, store agent</span></div>
+<div class="lp-ev"><div><span class="n">2</span><span class="subtle">Rules found broken</span></div><div><span class="n ok">2</span><span class="subtle">Fixed and re-checked</span></div><div><span class="n">1</span><span class="subtle">Approval by a person</span></div><div><span class="n ok">${icon('check', { size: 22 })}</span><span class="subtle">Audit chain verified</span></div></div></div>
+</div>
+<div class="lp-feats"><span class="subtle">Trust</span><ul><li>A person approves every change</li><li>Keys stored encrypted</li><li>Data never crosses workspaces</li><li>Personal data scrubbed before judging</li></ul></div>
+</section>
+
+<section class="lp-end"><h2>Find the rule your agent breaks before a customer does.</h2>
 <div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing">See pricing</a></div></section>
 </main>
 ${lpFoot()}`;
