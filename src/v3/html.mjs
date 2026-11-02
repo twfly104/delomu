@@ -589,10 +589,10 @@ function stages({ base, ov, checking }) {
   const exports = ov.inputs.length - docs;
   const items = [
     { href: `${base}/inputs`, label: 'Policies', state: docs ? 'done' : 'todo',
-      det: docs ? [`${docs} document${docs === 1 ? '' : 's'}`, exports && `${exports} ticket export${exports === 1 ? '' : 's'}`].filter(Boolean).join(' · ') : 'Add the rules your AI must follow' },
+      det: docs ? [`${docs} document${docs === 1 ? '' : 's'}`, exports && `${exports} ticket export${exports === 1 ? '' : 's'}`, ov.policiesChanged && 'changed since the last check'].filter(Boolean).join(' · ') : 'Add the rules your AI must follow' },
     { href: `${base}/scan`, label: 'Pre-launch check',
-      state: checking ? 'todo' : !scan ? 'todo' : s.broken ? 'bad' : s.unjudged ? 'bad' : 'done',
-      det: checking ? 'Checking now…' : !scan ? 'Not run yet' : s.broken ? `${s.broken} of ${s.rules} rules broken` : s.unjudged ? `${s.unjudged} answer${s.unjudged === 1 ? '' : 's'} to review` : `All ${s.rules} rules kept` },
+      state: checking ? 'todo' : !scan ? 'todo' : s.broken || s.unjudged || ov.policiesChanged ? 'bad' : 'done',
+      det: checking ? 'Checking now…' : !scan ? 'Not run yet' : ov.policiesChanged ? 'Policies changed: run it again' : s.broken ? `${s.broken} of ${s.rules} rules broken` : s.unjudged ? `${s.unjudged} answer${s.unjudged === 1 ? '' : 's'} to review` : `All ${s.rules} rules kept` },
     { href: `${base}/live`, label: 'Live monitoring',
       state: !w?.checked ? 'todo' : w.flagged ? 'bad' : 'done',
       det: !w?.checked ? 'Not connected' : w.flagged ? `${n(w.flagged)} of ${n(w.checked)} chats broke a rule` : `${n(w.checked)} chats checked, all kept` },

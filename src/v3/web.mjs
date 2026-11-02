@@ -14,6 +14,7 @@ import { hoursByStep, loadConfig, logHours, STEPS as HOUR_STEPS } from '../deplo
 import { deploymentMetrics } from './metrics.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { getScan, listScans, recheck } from '../v1/risk.mjs';
+import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
@@ -74,6 +75,8 @@ const NOTICES = {
   sample: 'Sample ready: Acme’s support bot and its refund policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
+  policychange: 'Your policies changed, so the check is running again on the new wording.',
+  policystale: 'Files added. Your policies changed since the last check; run the check again when you can.',
   checked: 'Conversation checked.',
   replayed: 'Sample traffic checked. Every conversation below was judged against the policy rules.',
   alerts: 'Alert settings saved.',
@@ -818,12 +821,26 @@ function routes(ctx) {
       ready.push({ name, bytes: Buffer.from(await f.arrayBuffer()) });
     }
     const inputs = path.join(dir, 'inputs');
+    const checked = listScans(dir)[0];
+    const before = policyFingerprint(dir);
     fs.mkdirSync(inputs, { recursive: true });
     for (const { name, bytes } of ready) {
       fs.writeFileSync(path.join(inputs, name), bytes);
       appendAudit(dir, { actor: principal.actor, action: 'input.upload', target: name, detail: { bytes: bytes.length } }, ctx.now());
     }
     event(ctx, principal, org.id, 'input.upload', params.name, { files: ready.map(f => f.name) });
+    // New policy wording can make the last check's rules stale: check again right away, within plan limits.
+    if (checked && policyFingerprint(dir) !== before) {
+      try {
+        checkTarget(loadConfig(dir), ctx.policy);
+        await startScan(principal, org, params.name, dir);
+        appendAudit(dir, { actor: 'system', action: 'scan.auto', target: 'policies changed' }, ctx.now());
+        return new Redirect(`${depPath(org, params.name)}/scan?notice=policychange`);
+      } catch (e) {
+        if (!(e instanceof ApiError)) throw e;
+        return new Redirect(`${depPath(org, params.name)}/inputs?notice=policystale`);
+      }
+    }
     return new Redirect(`${depPath(org, params.name)}/inputs?notice=uploaded`);
   });
 

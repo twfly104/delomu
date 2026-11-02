@@ -16,6 +16,7 @@ import { createDraft, listDrafts } from '../core/drafts.mjs';
 import { callTarget } from '../adapters.mjs';
 import { loadConfig } from '../deployment.mjs';
 import { kindInfo } from './kinds.mjs';
+import { policyFingerprint } from './policies.mjs';
 import { createInputReader } from './sandbox.mjs';
 import { materialBlock, neutral, readMaterial } from './agent.mjs';
 import { caseIds, readCases } from './appliers.mjs';
@@ -149,7 +150,7 @@ export async function recheck(dir, { llm, now = new Date(), onProgress = () => {
   const started = Date.now();
   const rules = before.rules.map(r => ({ ...r, probes: r.probes.map(({ message, tactic, expected, must_include, must_not_include }) => ({ message, tactic, expected, must_include, must_not_include })) }));
   const probes = await judgeProbes(dir, config, llm, rules, onProgress);
-  const scan = buildScan({ now, config, llm, started, documents: before.documents, rationale: before.rationale, rules, probes, extra: { recheckOf: before.id } });
+  const scan = buildScan({ now, config, llm, started, documents: before.documents, rationale: before.rationale, rules, probes, extra: { recheckOf: before.id, ...(before.policyHash ? { policyHash: before.policyHash } : {}) } });
   saveScan(dir, scan);
   appendAudit(dir, { actor: 'agent', action: 'scan.recheck', target: scan.id, detail: { of: before.id, broken: scan.summary.broken, before: before.summary.broken } }, now);
   return { ok: true, scan };
@@ -232,7 +233,7 @@ export async function riskScan(dir, { llm, now = new Date(), limits, onProgress 
 
   const probes = await judgeProbes(dir, config, llm, rules, onProgress);
 
-  const scan = buildScan({ now, config, llm, started, documents: docs.map(d => d.path), rationale: String(res.data.rationale ?? ''), rules, probes });
+  const scan = buildScan({ now, config, llm, started, documents: docs.map(d => d.path), rationale: String(res.data.rationale ?? ''), rules, probes, extra: { policyHash: policyFingerprint(dir) } });
   const { id } = scan;
   saveScan(dir, scan);
   appendAudit(dir, { actor: 'agent', action: 'scan.create', target: id, detail: { rules: rules.length, broken: scan.summary.broken, probes: probes.length } }, now);
