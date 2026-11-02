@@ -60,6 +60,10 @@ test('signed-out visitors see the public page at / and are sent to sign in elsew
   assert.equal(res.status, 200);
   const landing = await res.text();
   assert.match(landing, /Prove your AI agent keeps the policy/);
+  const pricing = await (await get('/pricing', '')).text();
+  assert.match(pricing, /\$499<span>\/month/);
+  assert.match(pricing, /\$1,500<span>\/month/);
+  assert.doesNotMatch(landing, /class="lp-prices/, 'pricing has its own page');
   assert.match(landing, /href="\/login"/);
   assert.equal((await get('/orgs/anything', '')).headers.get('location'), '/login');
   const login = await fetch(`${srv.base}/login`);

@@ -33,7 +33,7 @@ import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, landingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, landingPage, pricingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -284,6 +284,9 @@ function routes(ctx) {
     event(ctx, principal, principal.homeOrgId, 'user.logout', principal.email);
     return new Redirect('/login', [cookie(SESSION_COOKIE, '', { maxAge: 0 })]);
   });
+
+  // Public pricing, from the same plan table billing charges by.
+  r.add('GET', '/pricing', () => html(pricingPage({ signup: signupOpen, plans: PLAN_LIST })), { public: true });
 
   r.add('GET', '/', ({ principal }) => {
     // A signed-out visitor gets the public page; everyone else their home.
