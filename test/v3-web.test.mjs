@@ -55,10 +55,13 @@ const post = (url, cookie, form) => fetch(srv.base + url, {
   method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(form),
 });
 
-test('signed-out visitors are sent to the login page; pages carry security headers', async () => {
+test('signed-out visitors see the public page at / and are sent to sign in elsewhere; pages carry security headers', async () => {
   const res = await get('/', '');
-  assert.equal(res.status, 303);
-  assert.equal(res.headers.get('location'), '/login');
+  assert.equal(res.status, 200);
+  const landing = await res.text();
+  assert.match(landing, /Prove your AI agent keeps the policy/);
+  assert.match(landing, /href="\/login"/);
+  assert.equal((await get('/orgs/anything', '')).headers.get('location'), '/login');
   const login = await fetch(`${srv.base}/login`);
   assert.match(login.headers.get('content-security-policy'), /default-src 'none'/);
   assert.equal(login.headers.get('x-frame-options'), 'DENY');
@@ -148,7 +151,7 @@ test('sessions: other orgs are invisible, logout needs CSRF and ends the session
   const out = await post('/logout', owner.cookie, { csrf: owner.csrf });
   assert.equal(out.status, 303);
   assert.match(out.headers.getSetCookie()[0], /Max-Age=0/);
-  assert.equal((await get('/', owner.cookie)).headers.get('location'), '/login');
+  assert.match(await (await get('/', owner.cookie)).text(), /Prove your AI agent keeps the policy/, 'after logout / is the public page');
   assert.ok(!fs.readdirSync(srv.deploymentsRoot).includes(other.org.id));
 });
 

@@ -315,6 +315,34 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 @keyframes wait{50%{background:color-mix(in srgb,var(--accent) 22%,var(--sunken));border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}}
 @keyframes stamp{from{opacity:0;transform:scale(.96)}}
 @keyframes grow{from{transform:scaleY(0)}}
+.lp-page{background:var(--canvas)}
+.lp-top{max-width:1120px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:18px 24px}
+.lp-top nav{display:flex;gap:16px;align-items:center;font-size:14px}.lp-top nav a:not(.btn){color:var(--text-2)}
+.lp{max-width:1120px;margin:0 auto;padding:0 24px 64px}
+.lp h1{font-size:44px;line-height:1.08;letter-spacing:-0.035em;max-width:16ch}
+.lp h2{font-size:24px;letter-spacing:-0.025em}
+.lp .lede{font-size:16px;color:var(--text-2);margin-top:12px;max-width:58ch}
+.lp-hero{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:48px;align-items:center;padding:56px 0 72px}
+.lp-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}.lp-acts .btn{height:38px;padding:0 16px;font-size:14px}
+.lp-note{margin-top:12px;font-size:13px}
+.lp-finding{margin:0;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 1px 1px rgb(11 19 36/.04),0 12px 32px rgb(11 19 36/.08);display:grid;gap:12px}
+.lp-finding .ex-clause{font-size:13px;color:var(--text-2);padding-bottom:12px;border-bottom:1px solid var(--line)}.lp-finding .ex-clause cite{font-style:normal;font-weight:600;color:var(--text);margin-right:6px}
+.lp-finding .cap{font-size:12px;color:var(--text-3);margin-bottom:4px}
+.lp-finding .ex-msg:nth-of-type(2) .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
+.lp-finding .acts-taken code.bad{background:var(--bad-weak);border-color:color-mix(in srgb,var(--bad) 35%,var(--line));color:var(--bad)}
+.lp-finding .ex-verdict{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;color:var(--text-2)}.lp-finding .ex-verdict .badge{flex:none}
+.lp-finding figcaption{font-size:12px;color:var(--text-3)}
+.lp-band{padding:56px 0;border-top:1px solid var(--line)}
+.lp-map{padding:24px 0 0;grid-template-columns:repeat(4,minmax(0,1fr))}
+.lp-split{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:56px 0;border-top:1px solid var(--line)}
+.lp-list{margin:18px 0 0;padding:0;list-style:none;display:grid;gap:10px}.lp-list li{padding-left:22px;position:relative;color:var(--text)}.lp-list li::before{content:"";position:absolute;left:2px;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.lp-facts{margin:20px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:16px 48px}.lp-facts li{color:var(--text-2)}
+.lp-prices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:24px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.lp-prices>div{padding:20px}.lp-prices>div+div{border-left:1px solid var(--line)}
+.lp-price{font-size:26px;font-weight:600;letter-spacing:-0.03em;margin:6px 0}.lp-price span{font-size:14px;font-weight:400;color:var(--text-3)}
+.lp-foot{max-width:1120px;margin:0 auto;padding:24px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;border-top:1px solid var(--line)}.lp-foot>span:first-child{display:flex;gap:6px;align-items:center;font-weight:600}
+@media (max-width:860px){.lp h1{font-size:34px}.lp-hero,.lp-split{grid-template-columns:1fr;gap:32px}.lp-hero{padding:32px 0 48px}.lp-map{grid-template-columns:1fr 1fr}.lp-facts{grid-template-columns:1fr}.lp-prices{grid-template-columns:1fr 1fr}.lp-prices>div+div{border-left:0}.lp-prices>div:nth-child(n+2){border-top:1px solid var(--line)}.lp-prices>div:nth-child(2){border-top:0;border-left:1px solid var(--line)}.lp-prices>div:nth-child(4){border-left:1px solid var(--line)}}
+@media (max-width:480px){.lp{padding:0 16px 48px}.lp-top{padding:14px 16px}.lp h1{font-size:30px}.lp-prices{grid-template-columns:1fr}.lp-prices>div{border-left:0!important;border-top:1px solid var(--line)}.lp-prices>div:first-child{border-top:0}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
@@ -427,6 +455,59 @@ export function signupKeyPage({ secret, email }) {
 <a class="btn primary block" href="/">I saved it, continue</a>
 </div>`,
   });
+}
+
+// The page a signed-out visitor sees at /. It shows the product doing its job on the sample store, in the
+// product's own parts, and states only what is true: no customers, logos or numbers that do not exist.
+const LP_FINDING = `<figure class="lp-finding" aria-label="Example finding from the Linden & Co. sample">
+<p class="ex-clause"><cite>Returns policy §5</cite>Orders can be changed or cancelled within 1 hour of being placed.</p>
+<div class="ex-msg"><p class="cap">Customer</p><div class="bubble">Can you cancel both of my recent orders? Changed my mind.</div></div>
+<div class="ex-msg"><p class="cap">The AI agent replied</p><div class="bubble ai">Done! I’ve cancelled your pour-over set and your wool throw.</div>
+<p class="acts-taken"><span class="cap">What it did</span><code>cancel_order · L-1005</code><code class="bad">cancel_order · L-1006</code></p></div>
+<p class="ex-verdict"><span class="badge bad">Broke §5</span><span>L-1006 was placed 3 hours ago. <span class="strong">Fix:</span> only cancel within the hour; offer a return after delivery.</span></p>
+<figcaption>From the sample store in Delomu. The agent said the right thing and did the wrong thing.</figcaption></figure>`;
+
+export function landingPage({ signup = false, plans }) {
+  const start = signup ? '/signup' : '/login';
+  const cta = signup ? 'Start free' : 'Sign in';
+  const price = id => plans?.[id]?.monthlyUsd;
+  const map = [['Never refund a final-sale item', 'kept'], ['Only refund within 30 days of delivery', 'kept'], ['Only cancel within 1 hour', 'broken'], ['Hand off orders over $1,000', 'broken'], ['Never claim data was deleted', 'kept'], ['One promo code per order', 'kept'], ['Return shipping is $8.95', 'kept'], ['Match only our own prices', 'kept']]
+    .map(([t, st]) => `<span class="rt ${st}"><span class="t">${esc(t)}</span><span class="c"><span class="cl">${st === 'broken' ? 'Broken' : 'Kept'}</span><span class="pips"><i class="${st}"></i><i class="kept"></i></span></span></span>`).join('');
+  const body = `<header class="lp-top"><a class="brand" href="/" aria-label="Delomu home">${mark(22, 'm-lp')}<span>Delomu</span></a>
+<nav><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></header>
+<main class="lp">
+<section class="lp-hero"><div>
+<h1>Prove your AI agent keeps the policy, before launch and on every reply after.</h1>
+<p class="lede">Delomu reads a company’s own policies, attacks its AI agent with the messages most likely to break them, and judges what the agent said and what it did against the exact clause.</p>
+<div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="#finding">See a real finding</a></div>
+<p class="subtle lp-note">Free plan, no card. Try it on a sample agent in two minutes.</p></div>
+<div id="finding">${LP_FINDING}</div></section>
+
+<section class="lp-band"><h2>Every rule at a glance</h2><p class="lede">One tile per rule in the policy, red where the agent broke it. Each one opens the exact exchange, the clause and the fix.</p>
+<div class="rulemap lp-map">${map}</div></section>
+
+<section class="lp-split">
+<div><h2>For AI vendors</h2><p class="lede">Roll out your agent to each client faster and prove it before go-live.</p>
+<ul class="lp-list"><li>A separate workspace for every client</li><li>One click drafts the data mapping, integration and test set from the client’s material</li><li>The check runs against the client’s own policy and test account</li><li>The client signs off from a link, no account needed</li><li>Engineer hours and agent-drafted work per rollout</li></ul></div>
+<div><h2>For teams running an AI agent</h2><p class="lede">Support, sales, billing or HR: know which rules it breaks before your customers do.</p>
+<ul class="lp-list"><li>Connect Intercom, Zendesk, any OpenAI-compatible API or your own endpoint</li><li>A fix drafted for the broken rules; you approve, Delomu re-checks</li><li>Live monitoring of real conversations, with alerts</li><li>A guard that checks a reply or a refund before it happens</li><li>Re-checks when your policies change</li></ul></div></section>
+
+<section class="lp-band"><h2>Built to be trusted</h2>
+<ul class="lp-facts"><li><span class="strong">Every action is logged</span> in a tamper-evident audit log, and an evidence pack is ready for legal.</li>
+<li><span class="strong">Keys you paste are encrypted</span> and never shown again.</li>
+<li><span class="strong">Each client’s data stays in its own workspace.</span> Personal data is scrubbed before live conversations are judged.</li>
+<li><span class="strong">A person approves every change.</span> The agent proposes; nothing is applied silently.</li></ul></section>
+
+<section class="lp-band"><h2>Pricing</h2>
+<div class="lp-prices">
+<div><p class="strong">Free</p><p class="lp-price">$0</p><p class="subtle">3 checks a month, 1 AI agent</p></div>
+<div><p class="strong">Team</p><p class="lp-price">${price('team') ?? 499}<span>/month</span></p><p class="subtle">Unlimited checks, 5 AI agents, live monitoring</p></div>
+<div><p class="strong">Vendor</p><p class="lp-price">${(price('vendor') ?? 1500).toLocaleString('en-US')}<span>/month</span></p><p class="subtle">For AI vendors: 5 client agents, $200 per extra</p></div>
+<div><p class="strong">Enterprise</p><p class="lp-price">Custom</p><p class="subtle">SSO, self-hosting, contract terms</p></div></div>
+<p class="lp-acts" style="justify-content:center"><a class="btn primary" href="${start}">${cta}</a></p></section>
+</main>
+<footer class="lp-foot"><span>${mark(14, 'm-lpf')} Delomu</span><span class="subtle">Results shown are from a made-up sample store, not from customers.</span></footer>`;
+  return doc('Delomu: prove your AI agent keeps the policy', body, 'lp-page');
 }
 
 export function loginPage({ csrf, error, signup = false }) {

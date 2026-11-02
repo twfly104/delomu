@@ -14,6 +14,7 @@ import { hoursByStep, loadConfig, logHours, STEPS as HOUR_STEPS } from '../deplo
 import { deploymentMetrics } from './metrics.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { getScan, listScans, recheck } from '../v1/risk.mjs';
+import { PLANS as PLAN_LIST } from './billing.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
@@ -32,7 +33,7 @@ import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, landingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -285,6 +286,8 @@ function routes(ctx) {
   });
 
   r.add('GET', '/', ({ principal }) => {
+    // A signed-out visitor gets the public page; everyone else their home.
+    if (!principal) return html(landingPage({ signup: signupOpen, plans: PLAN_LIST }));
     const orgs = orgsOf(principal);
     const deployments = orgs.flatMap(org => {
       const role = roleIn(db, principal, org.id);
@@ -297,7 +300,7 @@ function routes(ctx) {
     if (home?.kind === 'partner' && !deployments.length) return new Redirect(orgPath(home));
     const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), billingOrgs: billingOrgsOf(principal, orgs), org: orgs.length === 1 ? orgs[0] : undefined };
     return html(homePage({ ...base(principal), nav, deployments, review, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
-  });
+  }, { public: true });
 
   // An AI vendor's clients: the partner org's own page, one row per client workspace it manages.
   const showClients = (principal, org, role, { url, error, values, status = 200 } = {}) => {
