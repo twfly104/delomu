@@ -468,7 +468,7 @@ const draftLabel = d => ({ mapping: 'Data mapping', integration: 'Integration', 
 export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, notice: msg }) {
   return layout({ title: org.name, user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [['AI agents']], body: `
 <div class="page-head"><div><h1>AI agents</h1><p class="sub">${esc(org.name)} · ${deployments.length} agent${deployments.length === 1 ? '' : 's'}</p></div>
-${canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
+<div class="actions">${deployments.length ? `<a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a>` : ''}${canWrite ? `<a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Add AI agent</a>` : ''}</div></div>
 ${notice(msg, 'good')}
 ${deployments.length ? `<section class="panel">${agentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No AI agents yet</span>An admin connects the AI agent to check.</div></section>`}` });
 }
@@ -691,8 +691,34 @@ ${failing.length ? `<div class="panel-head" style="border-top:1px solid var(--li
 <section class="panel"><div class="panel-head"><h2>Activity</h2></div>${feed}</section></div></div>`);
 }
 
+// The plan's deployment metrics for an org (an AI vendor's include every client). m: deploymentMetrics() from metrics.mjs.
+const GATE = { met: ['good', 'Met'], not_met: ['bad', 'Not met'], not_enough_data: ['', 'Not enough data'] };
+
+export function metricsPage({ user, csrf, nav, org, m }) {
+  const h = x => `${Math.round(x * 10) / 10} h`;
+  const [cls, label] = GATE[m.gate.status] ?? ['', m.gate.status];
+  const rows = m.deployments.map(d => `<tr><td class="num subtle">${d.number}</td>
+<td><a href="${esc(depPath(d.org, d.name))}/rollout"><span class="strong">${esc(d.name)}</span></a>${d.org.id === org.id ? '' : `<span class="subtle" style="display:block;font-size:12.5px">${esc(d.org.name)}</span>`}</td>
+<td class="subtle nowrap">${esc(fmtDate(d.startedAt))}</td>
+<td class="num">${d.hours ? h(d.hours) : '<span class="subtle">None logged</span>'}</td>
+<td class="hide-sm num">${d.stepsDone ? `${d.stepsDrafted} of ${d.stepsDone}` : '<span class="subtle">—</span>'}</td>
+<td class="hide-sm num">${d.daysToLive === null ? '<span class="subtle">Not live</span>' : `${d.daysToLive} day${d.daysToLive === 1 ? '' : 's'}`}</td></tr>`).join('\n');
+  const body = `<div class="page-head"><div><h1>Deployment metrics</h1><p class="sub">${esc(org.name)} · ${m.deployments.length} deployment${m.deployments.length === 1 ? '' : 's'}, oldest first</p></div></div>
+<section class="panel"><div class="stats">
+<div><p class="v num">${h(m.totalHours)}</p><p class="k">Engineer hours logged</p></div>
+<div><p class="v num">${m.automation === null ? '—' : `${Math.round(m.automation * 100)}%`}</p><p class="k">Finished steps drafted by the agent</p></div>
+<div><p class="v num">${m.medianDaysToLive === null ? '—' : m.medianDaysToLive}</p><p class="k">Median days to first live chat</p></div></div>
+<div class="panel-body"><p style="margin:0"><span class="badge ${cls}">${esc(label)}</span> <span class="strong">Gate: deployment 5 takes under half the hours of deployment 1.</span> <span class="subtle">${esc(m.gate.message)}</span></p>
+<p class="subtle" style="margin:8px 0 0">Service revenue share needs onboarding fees, which Delomu does not record, so it is not shown. Hours come from what engineers log on each agent’s Rollout page.</p></div></section>
+<section class="panel">${m.deployments.length ? `<div class="scroll"><table><thead><tr><th>#</th><th>AI agent</th><th>Started</th><th>Engineer hours</th><th class="hide-sm">Steps drafted by the agent</th><th class="hide-sm">Days to live</th></tr></thead><tbody>
+${rows}
+</tbody></table></div>` : '<div class="emptystate"><span class="strong">No deployments yet</span>Metrics appear once an AI agent is added.</div>'}</section>`;
+  return layout({ title: 'Deployment metrics', user, csrf, nav: { ...nav, org, active: org.kind === 'partner' ? 'clients' : 'deployments' }, crumbs: [[org.kind === 'partner' ? 'Clients' : 'AI agents', orgPath(org)], ['Metrics']], body });
+}
+
 // The whole rollout on one page: Run the rollout (the agent drafts steps 1-3 and the check runs), the six steps
 // with where each stands, and the one next action. rollout: the in-memory job from web.mjs, if one ran.
+const HOUR_STEPS = [['1-mapping', 'Data mapping'], ['2-integration', 'Integration'], ['3-test-set', 'Test set'], ['4-test-and-fix', 'Test and fix'], ['5-launch-report', 'Launch report'], ['6-monitoring', 'Monitoring']];
 const ROLLOUT_STATE = { done: ['good', 'Done'], running: ['accent', 'Running'], waiting: ['', 'Waiting'], skipped: ['warn', 'Skipped'], failed: ['bad', 'Failed'] };
 const STEP_STATE = { done: ['good', 'Done'], review: ['accent', 'Draft to review'], attention: ['bad', 'Needs work'], todo: ['', 'Not started'] };
 
@@ -710,7 +736,13 @@ export function rolloutPage(args) {
 <p class="panel-body subtle" style="margin:0">The agent drafts the data mapping, the integration and the test set from this client’s material, then the policy check runs. Every draft waits for a person to approve, edit or reject it; nothing changes until then. Fixes and the launch report come after the first test run.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
-<p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>`;
+<p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>
+${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2><span class="aside subtle">They feed Deployment metrics: is each rollout cheaper than the last?</span></div><div class="panel-body">
+<input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
+<label class="field"><span>Step</span><select name="step">${HOUR_STEPS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></label>
+<label class="field"><span>Hours</span><input type="number" name="hours" min="0.25" max="200" step="0.25" required style="max-width:110px"></label>
+<label class="field" style="flex:1"><span>Note <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="note" maxlength="200"></label></div>
+<button class="btn" data-busy="Saving…">${icon('clock')}Log hours</button></div></form>` : ''}`;
   return deploymentShell({ ...args, tab: 'rollout', title: 'Rollout' }, body);
 }
 

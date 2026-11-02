@@ -10,7 +10,8 @@ import { appendAudit } from '../core/audit.mjs';
 import { createLlm, isAuthError } from '../core/llm.mjs';
 import { callTarget } from '../adapters.mjs';
 import { parseCsv } from '../csv.mjs';
-import { hoursByStep, loadConfig } from '../deployment.mjs';
+import { hoursByStep, loadConfig, logHours, STEPS as HOUR_STEPS } from '../deployment.mjs';
+import { deploymentMetrics } from './metrics.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { listScans, recheck } from '../v1/risk.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
@@ -25,7 +26,7 @@ import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJ
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
   auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
-  livePage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
+  livePage, metricsPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
@@ -74,6 +75,7 @@ const NOTICES = {
   checked: 'Conversation checked.',
   replayed: 'Sample traffic checked. Every conversation below was judged against the policy rules.',
   alerts: 'Alert settings saved.',
+  hours: 'Hours logged. They count toward Deployment metrics.',
 };
 
 class Redirect {
@@ -141,7 +143,7 @@ function routes(ctx) {
     let config = {};
     try { config = loadConfig(dir); } catch { /* registered without a readable config; show what exists */ }
     const hours = Object.values(hoursByStep(dir)).reduce((a, b) => a + b, 0);
-    return { org, name: d.name, customer: config.customer, config, ov: overview(dir, config), hours };
+    return { org, name: d.name, dir, customer: config.customer, config, ov: overview(dir, config), hours };
   });
   // Orgs where the principal may open Billing (owners and admins), for the sidebar link.
   // A client workspace is billed to its vendor, so Billing shows on the vendor's org only.
@@ -515,6 +517,28 @@ function routes(ctx) {
       job.status = 'done';
     })();
     return new Redirect(page);
+  });
+
+  r.add('POST', '/orgs/:org/deployments/:name/hours', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const hours = Number(form.hours);
+    if (!HOUR_STEPS.includes(form.step) || !(hours > 0 && hours <= 200)) {
+      return html(rolloutPage({ ...workspace(principal, params, 'runs:read'), rollout: rollouts.get(dir), error: 'Choose a step and enter between 0.25 and 200 hours.' }), 400);
+    }
+    logHours(dir, form.step, hours, String(form.note ?? '').replace(/[\r\n]+/g, ' ').slice(0, 200), ctx.now().toISOString().slice(0, 10));
+    appendAudit(dir, { actor: principal.actor, action: 'hours.log', target: form.step, detail: { hours } }, ctx.now());
+    event(ctx, principal, org.id, 'hours.log', params.name, { step: form.step, hours });
+    return new Redirect(`${depPath(org, params.name)}/rollout?notice=hours`);
+  });
+
+  // The plan's deployment metrics. An AI vendor's include every client workspace it can open.
+  r.add('GET', '/orgs/:org/metrics', ({ principal, params }) => {
+    const { org, role } = access(ctx, principal, params.org, 'deployments:read');
+    const orgs = org.kind === 'partner' ? [org, ...orgsOf(principal).filter(o => o.partner_org_id === org.id)] : [org];
+    return html(metricsPage({ ...base(principal), org, m: deploymentMetrics(orgs.flatMap(deploymentsOf)), nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }) }));
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => {

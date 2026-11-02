@@ -41,8 +41,11 @@ export function startedAt(dir) {
   return fs.statSync(paths(dir).config).mtime;
 }
 
-export function compareHours(root) {
-  const deployments = findDeploymentDirs(root).map(dir => {
+export const compareHours = root => compareDeployments(findDeploymentDirs(root));
+
+// The same comparison over a given list of deployment folders (the web app passes an org's own).
+export function compareDeployments(dirs) {
+  const deployments = dirs.map(dir => {
     const byStep = hoursByStep(dir);
     const total = Object.values(byStep).reduce((a, b) => a + b, 0);
     return { dir, startedAt: startedAt(dir), total, byStep };
