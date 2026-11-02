@@ -28,6 +28,7 @@ import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
 import { aiAnswer, demoAnswer, sampleFiles } from './demo-bot.mjs';
+import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample-agent.mjs';
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
@@ -353,7 +354,22 @@ function routes(ctx) {
     }
   }, { public: true });
 
-  // One click to a deployment that can be scanned right away: Tallyfox's assistant, its policy and its test cases.
+  // The sample client's agent (see sample-agent.mjs): it takes actions and reports them. Same limits as the bot.
+  r.add('POST', '/demo/store-agent', async ({ req }) => {
+    const body = await readJson(req, 16 * 1024).catch(() => ({}));
+    const message = body?.body?.message;
+    const instructions = typeof body?.body?.instructions === 'string' ? body.body.instructions : '';
+    const json = (status, value) => ({ status, body: JSON.stringify(value), type: 'application/json' });
+    if (!realBot) return json(200, storeAgentScripted(message));
+    if (!botPerClient(ctx.clientIp(req)).ok || !botTotal('all').ok) return json(429, { error: 'The sample agent is busy. Try again in a minute.' });
+    try {
+      return json(200, await storeAgentAnswer(message, { ...(ctx.demoBotClient ? { client: ctx.demoBotClient } : {}), instructions }));
+    } catch (e) {
+      console.error(`sample agent failed: ${e.message}`);
+      return json(502, { error: 'The sample agent is unavailable right now.' });
+    }
+  }, { public: true });
+
   // A deployment that can be checked right away: Tallyfox's assistant, its policy and its test cases.
   function addSample(principal, org, req) {
     const taken = new Set(listDeployments(db, ctx.deploymentsRoot, org.id).map(d => d.name));
@@ -373,6 +389,26 @@ function routes(ctx) {
     return name;
   }
 
+  // The sample client's rollout: Linden & Co.'s agent, which takes actions on a test account, with the store's
+  // policy, past tickets, order-system notes and the test account, as a client would hand them to a vendor.
+  function addStoreSample(principal, org, req) {
+    const taken = new Set(listDeployments(db, ctx.deploymentsRoot, org.id).map(d => d.name));
+    let name = 'sample-linden-agent';
+    for (let n = 2; taken.has(name); n++) name = `sample-linden-agent-${n}`;
+    const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
+    const config = {
+      customer: realBot ? 'Linden & Co. (sample, real AI)' : 'Linden & Co. (sample)', name, agentKind: 'support',
+      target: { type: 'http', url: `${origin}/demo/store-agent`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions' },
+      acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Client sign-off required before launch', reason: 'Sample client.' }],
+    };
+    registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
+    const { dir } = deploymentFor(ctx, org.id, name);
+    fs.mkdirSync(path.join(dir, 'inputs'), { recursive: true });
+    for (const f of storeSampleFiles()) fs.writeFileSync(path.join(dir, 'inputs', f.name), f.text);
+    event(ctx, principal, org.id, 'deployment.register', name, { via_web: true, sample: true });
+    return name;
+  }
+
   r.add('POST', '/orgs/:org/sample', async ({ req, principal, params }) => {
     requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
     const { org } = access(ctx, principal, params.org, 'deployments:write');
@@ -385,10 +421,10 @@ function routes(ctx) {
     requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
     const { org } = access(ctx, principal, params.org, 'org:manage');
     if (org.kind !== 'partner') throw notFound('page');
-    const client = createOrg(db, { name: 'Tallyfox (sample client)', kind: 'customer', partnerOrgId: org.id }, ctx.now());
+    const client = createOrg(db, { name: 'Linden & Co. (sample client)', kind: 'customer', partnerOrgId: org.id }, ctx.now());
     event(ctx, principal, client.id, 'org.create', client.id, { name: client.name, partner_org_id: org.id, sample: true });
     event(ctx, principal, org.id, 'client.add', client.id, { name: client.name, sample: true });
-    return new Redirect(`${depPath(client, addSample(principal, client, req))}/rollout`);
+    return new Redirect(`${depPath(client, addStoreSample(principal, client, req))}/rollout`);
   });
 
   const newDeploymentView = (principal, params, error, values) => {

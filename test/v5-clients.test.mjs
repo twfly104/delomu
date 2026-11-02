@@ -121,7 +121,7 @@ test('a vendor can open a sample client with the sample assistant in it', async 
   assert.match(page, /Open a sample client/);
   const res = await post(`${vendor}/clients/sample`, cookie, { csrf: csrfOf(page) });
   assert.equal(res.status, 303);
-  assert.match(res.headers.get('location'), /\/deployments\/sample-tallyfox\/rollout$/);
+  assert.match(res.headers.get('location'), /\/deployments\/sample-linden-agent\/rollout$/);
   const list = await (await get(vendor, cookie)).text();
-  assert.match(list, /Tallyfox \(sample client\)/);
+  assert.match(list, /Linden &amp; Co\. \(sample client\)/);
 });
