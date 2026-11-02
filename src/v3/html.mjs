@@ -613,7 +613,7 @@ function deploymentHeader({ org, name, config, ov, tab, can, csrf, checking }) {
 <button class="btn primary" data-busy="Starting…">${icon('shield')}${scan ? 'Run check again' : 'Run check'}</button></form>` : '';
   const item = (href, label, ic, n) => `<a class="btn ghost" href="${esc(href)}">${icon(ic)}${esc(label)}${n ? ` <span class="subtle num" style="margin-left:auto">${n}</span>` : ''}</a>`;
   const more = `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
-${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
+${item(`${base}/rollout`, 'Rollout', 'layers')}${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
 ${can.run ? `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
 <button class="btn ghost" data-busy="Running tests…">${icon('play')}Run the saved test set</button></form>` : ''}
 ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick"><input type="hidden" name="csrf" value="${esc(csrf)}">
@@ -689,6 +689,29 @@ ${failing.length ? `<div class="panel-head" style="border-top:1px solid var(--li
   return deploymentShell({ ...args, tab: 'overview', title: 'Activity' }, `<div class="grid-2"><div>${result}</div>
 <div class="stack"><section class="panel"><div class="panel-head"><h2>Next step</h2></div><div class="panel-body next"><p>${esc(ov.next.text)}</p>${nextBtn}</div></section>
 <section class="panel"><div class="panel-head"><h2>Activity</h2></div>${feed}</section></div></div>`);
+}
+
+// The whole rollout on one page: Run the rollout (the agent drafts steps 1-3 and the check runs), the six steps
+// with where each stands, and the one next action. rollout: the in-memory job from web.mjs, if one ran.
+const ROLLOUT_STATE = { done: ['good', 'Done'], running: ['accent', 'Running'], waiting: ['', 'Waiting'], skipped: ['warn', 'Skipped'], failed: ['bad', 'Failed'] };
+const STEP_STATE = { done: ['good', 'Done'], review: ['accent', 'Draft to review'], attention: ['bad', 'Needs work'], todo: ['', 'Not started'] };
+
+export function rolloutPage(args) {
+  const { org, name, ov, csrf, can, rollout } = args;
+  const base = depPath(org, name);
+  const badge = ([cls, text]) => `<span class="badge ${cls}${cls === 'accent' ? ' plain' : ''}">${esc(text)}</span>`;
+  const running = rollout?.status === 'running';
+  const start = can.write ? `<form method="post" action="${esc(base)}/rollout"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<button class="btn primary"${running ? ' disabled aria-busy="true"' : ''} data-busy="Starting…">${icon('spark')}${running ? 'Rollout running…' : rollout ? 'Run the rollout again' : 'Run the rollout'}</button></form>` : '';
+  const job = rollout ? `<div class="rows">${rollout.steps.map(s => `<div class="row">${icon(s.state === 'done' ? 'check' : s.state === 'failed' ? 'alert' : 'clock')}<div class="what"><p class="strong">${esc(s.label)}</p>${s.detail ? `<p class="subtle">${esc(s.detail)}</p>` : ''}</div>${badge(ROLLOUT_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>` : '';
+  const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
+  const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
+  const body = `<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
+<p class="panel-body subtle" style="margin:0">The agent drafts the data mapping, the integration and the test set from this client’s material, then the policy check runs. Every draft waits for a person to approve, edit or reject it; nothing changes until then. Fixes and the launch report come after the first test run.</p>
+${job}</section>
+<section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
+<p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>`;
+  return deploymentShell({ ...args, tab: 'rollout', title: 'Rollout' }, body);
 }
 
 export function runsPage(args) {

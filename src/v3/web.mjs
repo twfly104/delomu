@@ -25,7 +25,7 @@ import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJ
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
   auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
-  livePage, newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage, signupKeyPage, signupPage,
+  livePage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
@@ -59,6 +59,8 @@ const MAX_INPUT_BYTES = 1024 * 1024;
 const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
 const REPLAY_LIMIT = 6;
 const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report'];
+// What one click on Run the rollout does, in order. Fixes and the launch report follow a test run, so they come later.
+const ROLLOUT_STEPS = [['mapping', 'Draft the data mapping'], ['integration', 'Draft the integration'], ['cases', 'Draft the test set'], ['check', 'Run the policy check']];
 const NOTICES = {
   created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
@@ -418,6 +420,23 @@ function routes(ctx) {
   r.add('GET', '/orgs/:org/deployments/:name/overview', ({ principal, params, url }) => showOverview(principal, params, url));
   // Risk scans run in the background (about a minute); the scan page shows live progress and refreshes.
   const scans = new Map();
+  // Starts a policy check in the background and returns its job; throws an ApiError when a plan limit is hit.
+  async function startScan(principal, org, name, dir) {
+    if (scans.get(dir)?.status === 'running') return scans.get(dir);
+    const { riskScan } = await import('../v1/risk.mjs');
+    // Plan limits: a completed scan counts toward the month (the scan.create event below).
+    const release = ctx.billing.reserveScan(org.id);
+    const job = { status: 'running', startedAt: ctx.now().getTime(), progress: { phase: 'rules' } };
+    scans.set(dir, job);
+    job.done = riskScan(dir, { llm: ctx.llm ?? createLlm(), onProgress: p => { job.progress = p; } }).then(result => {
+      if (!result.ok) Object.assign(job, { status: 'failed', error: `The scan found nothing to test: ${result.reason}` });
+      else {
+        event(ctx, principal, org.id, 'scan.create', `${name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
+        job.status = 'done';
+      }
+    }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, name) })).finally(() => release());
+    return job;
+  }
   r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => {
     const ws = workspace(principal, params, 'runs:read', url);
     const job = scans.get(ws.dir);
@@ -439,27 +458,69 @@ function routes(ctx) {
     } catch (e) {
       return fail(e instanceof ApiError ? e.message : 'The deployment is not connected to an AI yet.');
     }
-    const { riskScan } = await import('../v1/risk.mjs');
     const page = `${depPath(org, params.name)}/scan`;
-    if (scans.get(dir)?.status === 'running') return new Redirect(page);
-    // Plan limits: a completed scan counts toward the month (the scan.create event below).
-    let release;
     try {
-      release = ctx.billing.reserveScan(org.id);
+      await startScan(principal, org, params.name, dir);
     } catch (e) {
       if (!(e instanceof ApiError)) throw e;
       return fail(e.message, e.status, e.extra?.upgrade_url);
     }
-    const job = { status: 'running', startedAt: ctx.now().getTime(), progress: { phase: 'rules' } };
-    scans.set(dir, job);
-    job.done = riskScan(dir, { llm: ctx.llm ?? createLlm(), onProgress: p => { job.progress = p; } }).then(result => {
-      if (!result.ok) Object.assign(job, { status: 'failed', error: `The scan found nothing to test: ${result.reason}` });
-      else {
-        event(ctx, principal, org.id, 'scan.create', `${params.name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
-        job.status = 'done';
-      }
-    }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, params.name) })).finally(() => release());
     return new Redirect(page);
+  });
+
+  // One click for the whole rollout (src/v1/agent.mjs): the agent drafts the data mapping, the integration and
+  // the test set, each as a draft a person reviews, then the policy check runs. Nothing is applied without a person.
+  const rollouts = new Map();
+  r.add('POST', '/orgs/:org/deployments/:name/rollout', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const page = `${depPath(org, params.name)}/rollout`;
+    if (rollouts.get(dir)?.status === 'running') return new Redirect(page);
+    const { TASKS } = await import('../v1/agent.mjs');
+    const job = { status: 'running', startedAt: ctx.now().toISOString(), steps: ROLLOUT_STEPS.map(([key, label]) => ({ key, label, state: 'waiting' })) };
+    rollouts.set(dir, job);
+    event(ctx, principal, org.id, 'rollout.start', params.name);
+    const llm = ctx.llm ?? createLlm();
+    job.done = (async () => {
+      for (const step of job.steps) {
+        step.state = 'running';
+        try {
+          if (step.key === 'check') {
+            const inputs = path.join(dir, 'inputs');
+            if (!fs.existsSync(inputs) || !fs.readdirSync(inputs, { withFileTypes: true }).some(e => e.isFile() && !e.name.toLowerCase().endsWith('.csv'))) {
+              Object.assign(step, { state: 'skipped', detail: 'Add the client’s policies to run the check.' });
+              continue;
+            }
+            checkTarget(loadConfig(dir), ctx.policy);
+            const scan = await startScan(principal, org, params.name, dir);
+            await scan.done;
+            Object.assign(step, scan.status === 'done' ? { state: 'done', detail: 'Check finished.' } : { state: 'failed', detail: scan.error });
+            continue;
+          }
+          const result = await TASKS[step.key](dir, { llm });
+          if (!result.ok) Object.assign(step, { state: 'skipped', detail: result.reason });
+          else {
+            event(ctx, principal, org.id, 'agent.draft', `${params.name}/${step.key}`, { drafts: result.drafts.map(d => d.id), via: 'rollout' });
+            Object.assign(step, { state: 'done', detail: `${result.drafts.length} draft${result.drafts.length === 1 ? '' : 's'} waiting for review.` });
+          }
+        } catch (e) {
+          const detail = isAuthError(e) ? 'The agent has no model credentials on this server.' : e instanceof ApiError ? e.message : String(e.message ?? e).split(dir).join(params.name);
+          Object.assign(step, { state: 'failed', detail });
+          if (isAuthError(e)) break;
+        }
+      }
+      for (const step of job.steps) if (step.state === 'waiting') Object.assign(step, { state: 'skipped', detail: 'Stopped after an earlier step failed.' });
+      job.status = 'done';
+    })();
+    return new Redirect(page);
+  });
+
+  r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => {
+    const ws = workspace(principal, params, 'runs:read', url);
+    const job = rollouts.get(ws.dir);
+    return html(rolloutPage({ ...ws, rollout: job, refresh: job?.status === 'running' ? 3 : 0 }));
   });
 
   // The fix loop (src/v1/fix.mjs): the agent drafts one change to the AI's instructions for the broken rules,
