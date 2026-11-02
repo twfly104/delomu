@@ -9,6 +9,8 @@ precise, familiar controls, no themed world (see PRODUCT.md, Brand Commitments).
 - One obvious next action per screen; the "Next step" panel names it.
 - The agent's work is always shown as a proposal: what it proposes, rendered as the thing itself (tables, lists,
   summaries), its reasoning collapsed to one sentence, and one decision bar (note, Reject, Approve and apply).
+- Palette (2026-11-03): slate and cobalt. Neutrals are tinted cool, primary buttons are deep navy ink, one cobalt
+  for links and focus; dark mode is deep navy, not pure black.
 - Colour carries state only: green kept or done, red broken, blue for links and focus. Primary buttons are ink (near-black on light, near-white on dark). No decorative colour.
 - Works without JavaScript; one hashed script only marks a pressed button busy during long actions.
 
@@ -16,14 +18,14 @@ precise, familiar controls, no themed world (see PRODUCT.md, Brand Commitments).
 
 | Token | Light | Dark | Use |
 | --- | --- | --- | --- |
-| `--canvas` | #fbfbfb | #0a0a0a | page background |
-| `--surface` | #ffffff | #111111 | panels, inputs |
-| `--rail` / `--sunken` | #f7f7f7 / #f5f5f5 | #0d0d0d / #181818 | sidebar; reasoning, code, footers |
-| `--line` / `--line-strong` | #ebebeb / #dadada | #232323 / #333333 | hairlines; control borders |
-| `--text` / `--text-2` / `--text-3` | #111111 / #555555 / #737373 | #ededed / #a1a1a1 / #8a8a8a | primary, secondary, tertiary text |
-| `--ink` / `--on-ink` | #111111 / #ffffff | #ededed / #0a0a0a | primary buttons |
-| `--accent` | #2f5bea | #5c85ff | links, focus |
-| `--good` / `--warn` / `--bad` | #13804b / #a15c00 / #d1291f | #3fc584 / #f0b35b / #ff6b61 | state, each with a `-weak` background |
+| `--canvas` | #f6f7f9 | #0a0d14 | page background |
+| `--surface` | #ffffff | #10141e | panels, inputs |
+| `--rail` / `--sunken` | #f1f3f6 / #f1f3f6 | #0c1018 / #161b27 | sidebar; reasoning, code, footers |
+| `--line` / `--line-strong` | #e3e7ee / #cfd5df | #212837 / #313a4d | hairlines; control borders |
+| `--text` / `--text-2` / `--text-3` | #0b1324 / #4a5568 / #646e83 | #e8ecf3 / #a3adc0 / #808ba1 | primary, secondary, tertiary text |
+| `--ink` / `--on-ink` | #0b1324 / #ffffff | #e8ecf3 / #0a0d14 | primary buttons |
+| `--accent` | #2b59ff | #6b8cff | links, focus |
+| `--good` / `--warn` / `--bad` | #0f7a57 / #a15c00 / #cc2a1e | #3fc58f / #f0b35b / #ff6b61 | state, each with a `-weak` background |
 | `--r-sm` / `--r` | 8px / 12px | | controls / panels |
 
 Type: Geist and Geist Mono (OFL, self-hosted from `src/v3/fonts/`, served at `/fonts/`), 14px base, 1.5 line height;
