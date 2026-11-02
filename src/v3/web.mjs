@@ -10,7 +10,7 @@ import { appendAudit } from '../core/audit.mjs';
 import { createLlm, isAuthError } from '../core/llm.mjs';
 import { callTarget } from '../adapters.mjs';
 import { parseCsv } from '../csv.mjs';
-import { loadConfig } from '../deployment.mjs';
+import { hoursByStep, loadConfig } from '../deployment.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { listScans, recheck } from '../v1/risk.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
@@ -138,7 +138,8 @@ function routes(ctx) {
     const { dir } = deploymentFor(ctx, org.id, d.name);
     let config = {};
     try { config = loadConfig(dir); } catch { /* registered without a readable config; show what exists */ }
-    return { org, name: d.name, customer: config.customer, config, ov: overview(dir, config) };
+    const hours = Object.values(hoursByStep(dir)).reduce((a, b) => a + b, 0);
+    return { org, name: d.name, customer: config.customer, config, ov: overview(dir, config), hours };
   });
   // Orgs where the principal may open Billing (owners and admins), for the sidebar link.
   // A client workspace is billed to its vendor, so Billing shows on the vendor's org only.

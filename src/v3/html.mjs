@@ -473,29 +473,64 @@ ${notice(msg, 'good')}
 ${deployments.length ? `<section class="panel">${agentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No AI agents yet</span>An admin connects the AI agent to check.</div></section>`}` });
 }
 
-// An AI vendor's home (a partner org): one row per client workspace, with that client's agents rolled up.
-// clients: [{ org, deployments: [{ name, ov }] }]
+// An AI vendor's home (a partner org): one row per client workspace, with that client's agents rolled up and
+// the clients that need someone today first. clients: [{ org, deployments: [{ name, ov, hours }] }]
+const CLIENT_STATUS = [
+  { id: 'review', cls: 'accent', text: n => `${n} draft${n === 1 ? '' : 's'} to review` },
+  { id: 'broken', cls: 'bad', text: n => `${n} rule${n === 1 ? '' : 's'} broken` },
+  { id: 'live', cls: 'bad', text: n => `${n} live chat${n === 1 ? '' : 's'} broke a rule` },
+  { id: 'setup', cls: 'warn', text: () => 'No AI agent yet' },
+  { id: 'unchecked', cls: 'warn', text: () => 'Not checked yet' },
+  { id: 'ok', cls: 'good', text: () => 'On track' },
+];
+
+export function clientStatus(ds) {
+  const sum = f => ds.reduce((n, d) => n + f(d), 0);
+  const waiting = sum(d => d.ov.pending.length);
+  const broken = sum(d => d.ov.scans[0]?.summary.broken ?? 0);
+  const live = sum(d => d.ov.live?.week?.flagged ?? 0);
+  const [id, n] = waiting ? ['review', waiting] : broken ? ['broken', broken] : live ? ['live', live]
+    : !ds.length ? ['setup', 0] : ds.some(d => !d.ov.scans.length) ? ['unchecked', 0] : ['ok', 0];
+  const i = CLIENT_STATUS.findIndex(x => x.id === id);
+  return { id, rank: i, cls: CLIENT_STATUS[i].cls, text: CLIENT_STATUS[i].text(n) };
+}
+
+// Where a client's rollout is: live once conversations are checked, else the stage of its furthest agent.
+function clientStage(ds) {
+  if (!ds.length) return 'Setup';
+  if (ds.some(d => d.ov.live?.week?.checked)) return 'Live';
+  if (ds.some(d => d.ov.scans.length)) return 'Pre-launch check';
+  if (ds.some(d => d.ov.inputs.length)) return 'Policies added';
+  return 'Connected';
+}
+
 export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage, error, values = {}, notice: msg }) {
-  const worst = ds => ds.map(d => d.ov.scans[0]).filter(Boolean).sort((a, b) => b.summary.broken - a.summary.broken)[0];
-  const flagged = ds => ds.reduce((n, d) => n + (d.ov.live?.week?.flagged ?? 0), 0);
-  const waiting = ds => ds.reduce((n, d) => n + d.ov.pending.length, 0);
-  const last = ds => ds.flatMap(d => d.ov.scans.slice(0, 1).map(s => s.createdAt)).sort().pop();
-  const rows = clients.map(({ org: c, deployments: ds }) => `<tr>
-<td><a class="agent-name" href="${esc(orgPath(c))}"><span class="av">${icon('building')}</span><span class="strong">${esc(c.name)}</span></a></td>
-<td class="num">${ds.length}</td>
-<td>${checkBadge(worst(ds))}</td>
-<td class="hide-sm num">${flagged(ds) ? `<span style="color:var(--bad)">${flagged(ds)} broke a rule</span>` : '<span class="subtle">None</span>'}</td>
-<td class="hide-sm num">${waiting(ds) ? `<span class="badge accent plain num">${waiting(ds)}</span>` : '<span class="subtle">0</span>'}</td>
+  const hours = ds => ds.reduce((n, d) => n + (d.hours ?? 0), 0);
+  const last = ds => ds.flatMap(d => d.ov.scans.slice(0, 1).map(sc => sc.createdAt)).sort().pop();
+  const rated = clients.map(c => ({ ...c, status: clientStatus(c.deployments) })).sort((a, b) => a.status.rank - b.status.rank || a.org.name.localeCompare(b.org.name));
+  const need = rated.filter(c => c.status.rank < 3).length;
+  const agents = clients.reduce((n, c) => n + c.deployments.length, 0);
+  const live = clients.filter(c => clientStage(c.deployments) === 'Live').length;
+  const fmtH = h => (h ? `${Math.round(h * 10) / 10} h` : '<span class="subtle">—</span>');
+  const rows = rated.map(({ org: c, deployments: ds, status }) => `<tr>
+<td><a class="agent-name" href="${esc(orgPath(c))}"><span class="av">${icon('building')}</span><span><span class="strong">${esc(c.name)}</span><span class="subtle" style="display:block;font-size:12.5px">${ds.length} AI agent${ds.length === 1 ? '' : 's'}</span></span></a></td>
+<td><span class="badge ${status.cls}${status.cls === 'accent' ? ' plain' : ''} num">${esc(status.text)}</span></td>
+<td class="hide-sm">${esc(clientStage(ds))}</td>
+<td class="hide-sm num">${fmtH(hours(ds))}</td>
 <td class="hide-sm subtle nowrap">${last(ds) ? esc(ago(last(ds), now)) : '—'}</td></tr>`).join('\n');
   const add = canManage ? `<form method="post" action="${esc(orgPath(org))}/clients" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <h2 style="margin:0 0 4px">Add a client</h2><p class="subtle" style="margin:0 0 12px">Each client gets its own workspace: its policies, checks and conversations stay apart from every other client.</p>
 <label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="Acme Bank"></label>
 <button class="btn primary" data-busy="Adding…">${icon('plus')}Add client</button></div></form>` : '';
+  const stats = clients.length ? `<div class="stats"><div><p class="v num">${clients.length}</p><p class="k">Clients · ${agents} AI agent${agents === 1 ? '' : 's'}</p></div>
+<div><p class="v num${need ? ' bad' : ''}">${need}</p><p class="k">Need attention</p></div>
+<div><p class="v num">${live}</p><p class="k">Live</p></div></div>` : '';
   return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
-<div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div></div>
+<div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div>
+<div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
 ${notice(msg, 'good')}${notice(error)}
-<section class="panel">${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>AI agents</th><th>Pre-launch check</th><th class="hide-sm">Live, last 7 days</th><th class="hide-sm">Waiting for review</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
+<section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th><th class="hide-sm">Engineer hours</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
 </tbody></table></div>` : '<div class="emptystate"><span class="strong">No clients yet</span>Add a client to set up its workspace, then connect the AI you deploy for it.</div>'}</section>
 ${add}

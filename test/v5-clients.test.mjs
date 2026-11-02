@@ -6,6 +6,7 @@ import { openDb } from '../src/v3/db.mjs';
 import { createBilling } from '../src/v3/billing.mjs';
 import { setPlanByOperator } from '../src/v3/billing.mjs';
 import { startServer } from './v3-support.test.mjs';
+import { clientStatus } from '../src/v3/html.mjs';
 
 const srv = await startServer({ env: { DELOMU_SIGNUP: 'open' } });
 after(() => srv.close());
@@ -56,6 +57,9 @@ test('an AI vendor gets a clients home, adds separate client workspaces, and bil
   assert.match(list, /Acme Bank/);
   assert.match(list, /Beta Health/);
   assert.match(list, /2 clients/);
+  assert.match(list, /No AI agent yet/);
+  assert.match(list, /Need attention/);
+  assert.match(list, /Engineer hours/);
 
   // A client workspace has no billing of its own: it sends you to the vendor's.
   const bill = await get(`${clientPath}/billing`, cookie);
@@ -95,4 +99,17 @@ test('the new agent form stores what the AI does', async () => {
   const orgId = decodeURIComponent(orgPath.split('/').pop());
   const config = JSON.parse(fs.readFileSync(path.join(srv.deploymentsRoot, orgId, 'deal-bot', 'delomu.json'), 'utf8'));
   assert.equal(config.agentKind, 'sales');
+});
+
+test('client status puts the clients that need someone first', () => {
+  const ov = ({ pending = 0, broken, flagged = 0 } = {}) => ({ pending: Array(pending).fill({}), scans: broken === undefined ? [] : [{ summary: { broken } }], live: { week: { checked: flagged, flagged } }, inputs: [] });
+  assert.equal(clientStatus([]).text, 'No AI agent yet');
+  assert.equal(clientStatus([{ ov: ov() }]).text, 'Not checked yet');
+  assert.equal(clientStatus([{ ov: ov({ broken: 0 }) }]).text, 'On track');
+  assert.equal(clientStatus([{ ov: ov({ broken: 2 }) }, { ov: ov({ broken: 1 }) }]).text, '3 rules broken');
+  assert.equal(clientStatus([{ ov: ov({ broken: 0, flagged: 1 }) }]).text, '1 live chat broke a rule');
+  assert.equal(clientStatus([{ ov: ov({ pending: 2, broken: 3 }) }]).text, '2 drafts to review');
+  const ranks = ['review', 'broken', 'live', 'setup', 'unchecked', 'ok'];
+  assert.ok(clientStatus([{ ov: ov({ pending: 1 }) }]).rank < clientStatus([]).rank);
+  assert.equal(ranks.length, 6);
 });
