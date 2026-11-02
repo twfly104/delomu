@@ -12,7 +12,7 @@ import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 
-export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh;if(r)setInterval(function(){var a=document.activeElement;if(document.querySelector('details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;location.reload();},r*1000);";
+export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh;if(r)setInterval(function(){var a=document.activeElement;if(document.querySelector('details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;location.reload();},r*1000);var t0=Date.now();function tick(){var d=Date.now()-t0;document.querySelectorAll('[data-elapsed]').forEach(function(e){e.textContent=Math.floor((+e.dataset.elapsed+d)/1000)+' s';});document.querySelectorAll('[data-ease]').forEach(function(m){var x=(+m.dataset.ease+d)/1000,w=Math.max(2,40*(1-Math.exp(-x/25)));var i=m.firstElementChild;if(i)i.style.width=w+'%';m.setAttribute('aria-valuenow',Math.round(w));});}if(document.querySelector('[data-elapsed],[data-ease]')){tick();setInterval(tick,250);}";
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
 const STYLE = `@font-face{font-family:"Geist";src:url(/fonts/Geist-Variable.woff2) format("woff2");font-weight:100 900;font-display:swap}
@@ -212,7 +212,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
   .hide-sm{display:none}
 }
 .meter{height:6px;border-radius:99px;background:var(--sunken);overflow:hidden;margin:14px 0 8px}
-.meter i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s ease}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s linear}
 .scan-live{padding:28px 24px}.scan-live .big{font-size:17px;font-weight:600}
 .onboard{padding:28px 24px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:center}
 .onboard h2{font-size:20px;letter-spacing:-.02em;line-height:1.25}.onboard .lede{color:var(--text-2);margin:8px 0 18px;max-width:52ch}
@@ -932,7 +932,8 @@ export function riskScanPage(args) {
   const shell = (body, refresh) => deploymentShell({ ...args, tab: 'scan', title: 'Check results', refresh }, body);
   if (args.job) {
     const p = args.job.progress ?? {};
-    const secs = Math.max(0, Math.round(((now?.getTime?.() ?? Date.now()) - args.job.startedAt) / 1000));
+    const elapsedMs = Math.max(0, (now?.getTime?.() ?? Date.now()) - args.job.startedAt);
+    const secs = Math.round(elapsedMs / 1000);
     // Step 1 (reading the policies, usually 20-40 s) has no count to report, so it fills the first 40% with
     // elapsed time, easing toward 40% without passing it; step 2 fills the rest as answers are judged. The page
     // reloads every 2 s, so the bar only ever moves forward.
@@ -950,10 +951,10 @@ export function riskScanPage(args) {
     const body = probing
       ? `<div class="probegrid" role="img" aria-label="${p.done} of ${p.total} answers judged, ${count('broken')} broke a rule">${tiles}</div>
 <p class="legend muted num"><span><i class="pt broken"></i>${count('broken')} broke a rule</span><span><i class="pt kept"></i>${count('kept')} kept</span><span>${p.total - p.done} to go</span></p>`
-      : `<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}"><i style="width:${Math.max(2, pctDone)}%"></i></div>
+      : `<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}" data-ease="${elapsedMs}"><i style="width:${Math.max(2, pctDone)}%"></i></div>
 <p class="muted">Writing the messages most likely to break each rule${slow}.</p>`;
     return shell(`<section class="panel scan-live" aria-live="polite">
-<div class="live-head"><p class="big">${probing ? `Judging ${p.total} answers` : 'Reading your policies'}</p><span class="subtle num">${secs} s</span></div>${body}</section>`, 2);
+<div class="live-head"><p class="big">${probing ? `Judging ${p.total} answers` : 'Reading your policies'}</p><span class="subtle num" data-elapsed="${elapsedMs}">${secs} s</span></div>${body}</section>`, 2);
   }
   if (!scan) {
     return shell(`<section class="panel"><div class="emptystate" style="padding:48px 16px">
