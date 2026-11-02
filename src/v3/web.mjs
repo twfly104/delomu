@@ -407,7 +407,7 @@ function routes(ctx) {
     registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
     const { dir } = deploymentFor(ctx, org.id, name);
     fs.mkdirSync(path.join(dir, 'inputs'), { recursive: true });
-    for (const f of storeSampleFiles()) fs.writeFileSync(path.join(dir, 'inputs', f.name), f.text);
+    for (const f of storeSampleFiles(origin)) fs.writeFileSync(path.join(dir, 'inputs', f.name), f.text);
     event(ctx, principal, org.id, 'deployment.register', name, { via_web: true, sample: true });
     return name;
   }

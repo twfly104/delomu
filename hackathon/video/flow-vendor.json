@@ -80,7 +80,7 @@
   },
   {
     "mark": "results",
-    "caption": "The agent cancelled an order placed 3 hours ago. The policy allows 1 hour",
+    "caption": "The red tile is a rule the agent broke: the exchange, what it did, the clause and the fix",
     "speed": 1
   },
   {

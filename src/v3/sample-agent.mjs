@@ -110,5 +110,9 @@ export function storeAgentScripted(message) {
   return { reply: 'I can help with orders, returns, refunds and delivery. Which order is this about?', actions: [] };
 }
 
-// The files a sample client workspace starts with: the store's material and its test account.
-export const storeSampleFiles = () => fs.readdirSync(STORE_DIR).map(name => ({ name, text: fs.readFileSync(path.join(STORE_DIR, name), 'utf8') }));
+// The files a sample client workspace starts with: the store's material and its test account. origin, when given,
+// makes the integration notes name the full endpoint, as a real client's notes would.
+export const storeSampleFiles = (origin = '') => fs.readdirSync(STORE_DIR).map(name => ({
+  name,
+  text: fs.readFileSync(path.join(STORE_DIR, name), 'utf8').split('`POST /demo/store-agent` on the Delomu server').join(origin ? `\`POST ${origin}/demo/store-agent\`` : '`POST /demo/store-agent` on the Delomu server'),
+}));

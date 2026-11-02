@@ -66,3 +66,8 @@ test('an approved fix is applied to the sample agent like to the sample bot', as
   assert.equal(t.canApply, true);
   assert.equal(t.field, 'instructions');
 });
+
+test('the sample integration notes name the full endpoint so the integration draft passes validation', () => {
+  const notes = storeSampleFiles('https://delomu.example').find(f => f.name === 'order-api.md').text;
+  assert.match(notes, /POST https:\/\/delomu\.example\/demo\/store-agent/);
+});
