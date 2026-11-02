@@ -26,7 +26,7 @@ test('sign-up is off unless the operator opens it', async () => {
 
 test('a new user signs up, gets a key once, lands signed in, and can sign in again with the key', async () => {
   const f = await form(open.base);
-  assert.match(f.text, /Test your support AI/);
+  assert.match(f.text, /Test your AI agent/);
   assert.equal((await submit(open.base, { ...f, csrf: 'forged' }, { email: 'a@newco.test', company: 'Newco' })).status, 403);
 
   const res = await submit(open.base, f, { email: 'Ana@Newco.test', company: 'Newco' });

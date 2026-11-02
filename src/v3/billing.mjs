@@ -235,8 +235,22 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
   const pendingRuns = new Map(); // orgId -> Set(deployment name)
   const pendingScans = new Map(); // orgId -> count
 
+  // A client workspace that an AI vendor (a partner org) manages is billed to the vendor: same plan,
+  // and its usage counts toward the vendor's limits, like Stripe Connect accounts under a platform.
+  const payerOf = orgId => db.prepare('SELECT partner_org_id FROM orgs WHERE id = ?').get(orgId)?.partner_org_id ?? orgId;
+  const familyOf = payer => [{ id: payer, slug: null }, ...db.prepare('SELECT id, slug FROM orgs WHERE partner_org_id = ? ORDER BY created_at, id').all(payer)];
+  // Active agents across the family; a client's agents are named "client-slug/agent".
+  const keyOf = (orgId, name) => {
+    const slug = orgId === payerOf(orgId) ? null : db.prepare('SELECT slug FROM orgs WHERE id = ?').get(orgId)?.slug;
+    return slug ? `${slug}/${name}` : name;
+  };
+  const activeOf = (payer, month) => familyOf(payer).flatMap(o => activeDeployments(db, deploymentsRoot, o.id, month).map(n => (o.slug ? `${o.slug}/${n}` : n)));
+  const scansOf = (payer, month) => familyOf(payer).reduce((n, o) => n + scansThisMonth(db, o.id, month), 0);
+  const conversationsOf = (payer, month) => familyOf(payer).reduce((n, o) => n + conversationsThisMonth(db, deploymentsRoot, o.id, month), 0);
+
   // The plan an org is on right now. Without Stripe every org is Free, except an operator-granted Enterprise.
   function planOf(orgId) {
+    orgId = payerOf(orgId);
     const account = getAccount(db, orgId);
     if (account?.plan === 'enterprise') return PLANS.enterprise;
     if (account?.plan === 'vendor') return PLANS.vendor;
@@ -247,21 +261,24 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
 
   function summary(orgId) {
     const month = monthOf(now());
-    const plan = planOf(orgId);
-    const active = activeDeployments(db, deploymentsRoot, orgId, month);
-    const scans = scansThisMonth(db, orgId, month);
-    const conversations = conversationsThisMonth(db, deploymentsRoot, orgId, month);
+    const payer = payerOf(orgId);
+    const plan = planOf(payer);
+    const active = activeOf(payer, month);
+    const scans = scansOf(payer, month);
+    const conversations = conversationsOf(payer, month);
     const included = plan.includedActiveDeployments;
     const extra = included === null || plan.extraActiveDeploymentUsd === null ? 0 : Math.max(0, active.length - included);
     return {
-      configured: !!config, live: !!config?.live, month, plan, account: getAccount(db, orgId), active, scans, conversations,
-      extra, extraUsd: extra * (plan.extraActiveDeploymentUsd ?? 0),
+      configured: !!config, live: !!config?.live, month, plan, account: getAccount(db, payer), active, scans, conversations,
+      extra, extraUsd: extra * (plan.extraActiveDeploymentUsd ?? 0), payer, clients: familyOf(payer).length - 1,
     };
   }
 
   // Throws a 402 when starting a run would make one deployment too many active this month.
   // Returns a release function to call when the run ends.
-  function reserveRun(orgId, name) {
+  function reserveRun(runOrgId, runName) {
+    const orgId = payerOf(runOrgId);
+    const name = keyOf(runOrgId, runName);
     const month = monthOf(now());
     const plan = planOf(orgId);
     const pending = pendingRuns.get(orgId) ?? new Set();
@@ -269,7 +286,7 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
     const limit = plan.includedActiveDeployments;
     const hardCap = limit !== null && plan.extraActiveDeploymentUsd === null;
     if (hardCap) {
-      const active = new Set([...activeDeployments(db, deploymentsRoot, orgId, month), ...pending]);
+      const active = new Set([...activeOf(orgId, month), ...pending]);
       if (!active.has(name) && active.size >= limit) {
         throw planLimit('plan_limit_active_deployments',
           `The ${plan.name} plan includes ${limit} active AI agent${limit === 1 ? '' : 's'} a month, and ${[...active].join(', ')} ${active.size === 1 ? 'is' : 'are'} already active in ${month}. `
@@ -282,11 +299,12 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
     return release;
   }
 
-  function reserveScan(orgId) {
+  function reserveScan(scanOrgId) {
+    const orgId = payerOf(scanOrgId);
     const month = monthOf(now());
     const plan = planOf(orgId);
     const inFlight = pendingScans.get(orgId) ?? 0;
-    if (plan.scansPerMonth !== null && scansThisMonth(db, orgId, month) + inFlight >= plan.scansPerMonth) {
+    if (plan.scansPerMonth !== null && scansOf(orgId, month) + inFlight >= plan.scansPerMonth) {
       throw planLimit('plan_limit_scans',
         `The ${plan.name} plan includes ${plan.scansPerMonth} checks a month and this organization has used them all in ${month}. `
         + 'Upgrade to Team for unlimited checks; an owner or admin can do this on the Billing page.',
@@ -300,10 +318,11 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
   }
 
   // Throws a 402 when the org has checked all the live conversations its plan includes this month.
-  function checkConversationQuota(orgId) {
+  function checkConversationQuota(checkOrgId) {
+    const orgId = payerOf(checkOrgId);
     const month = monthOf(now());
     const plan = planOf(orgId);
-    if (plan.conversationsPerMonth !== null && conversationsThisMonth(db, deploymentsRoot, orgId, month) >= plan.conversationsPerMonth) {
+    if (plan.conversationsPerMonth !== null && conversationsOf(orgId, month) >= plan.conversationsPerMonth) {
       throw planLimit('plan_limit_conversations',
         `The ${plan.name} plan includes ${plan.conversationsPerMonth.toLocaleString('en-US')} live conversations a month and this organization has used them all in ${month}. `
         + (plan.id === 'free' ? 'Upgrade to Team for 10,000 a month; an owner or admin can do this on the Billing page.' : 'Contact us for Enterprise volumes.'),
@@ -314,7 +333,9 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
   // After a completed run: if the deployment just became an extra active one on Team, queue one meter
   // event for it, then send whatever is still unsent. Usage errors are logged, never fail the run.
   // The identifier is stable per org, month and deployment, so a resend is deduplicated by Stripe.
-  async function afterRun(orgId, name) {
+  async function afterRun(runOrgId, runName) {
+    const orgId = payerOf(runOrgId);
+    const name = keyOf(runOrgId, runName);
     try {
       const s = summary(orgId);
       if (s.plan.id !== 'team' || !s.active.includes(name)) return;
@@ -334,8 +355,9 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
 
   // Sends unsent meter events (one per extra active deployment per month, value 1, summed by the meter).
   // The identifier makes a retry of the same event a no-op on Stripe's side.
-  async function flushUsage(orgId) {
+  async function flushUsage(forOrgId) {
     if (!stripe) return { sent: 0, failed: 0 };
+    const orgId = payerOf(forOrgId);
     const account = getAccount(db, orgId);
     if (!account?.stripe_customer_id) return { sent: 0, failed: 0 };
     const rows = db.prepare('SELECT * FROM billing_usage_reports WHERE org_id = ? AND reported_at IS NULL ORDER BY created_at').all(orgId);
@@ -365,8 +387,13 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
   }
 
   // Returns the Stripe-hosted Checkout URL for upgrading this org to Team.
+  const managed = org => {
+    if (payerOf(org.id) !== org.id) throw new ApiError('conflict_error', 'This client workspace is billed to the AI vendor that manages it. Billing is on the vendor’s own organization.');
+  };
+
   async function createCheckout(org, { email, returnBase }) {
     needConfig();
+    managed(org);
     if (planOf(org.id).id !== 'free') throw new ApiError('conflict_error', `This organization is already on ${planOf(org.id).name}. Use Manage billing to change it.`);
     const account = getAccount(db, org.id);
     const back = `${returnBase}${pathFor(org.id)}`;
@@ -386,6 +413,7 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
 
   async function createPortal(org, { returnBase }) {
     needConfig();
+    managed(org);
     const account = getAccount(db, org.id);
     if (!account?.stripe_customer_id) throw new ApiError('conflict_error', 'This organization has no Stripe customer yet. Upgrade first.');
     const session = await callStripe(() => stripe('POST', '/v1/billing_portal/sessions', { customer: account.stripe_customer_id, return_url: `${returnBase}${pathFor(org.id)}` }));
@@ -525,7 +553,7 @@ export function createBilling({ db, env = {}, deploymentsRoot, now = () => new D
     sendJson(res, 200, { received: true, note });
   }
 
-  return { configured: !!config, config, planOf, summary, reserveRun, reserveScan, checkConversationQuota, afterRun, flushUsage, createCheckout, createPortal, handleWebhook };
+  return { configured: !!config, config, planOf, payerOf, summary, reserveRun, reserveScan, checkConversationQuota, afterRun, flushUsage, createCheckout, createPortal, handleWebhook };
 }
 
 // The exact bytes Stripe signed; rejects past `limit` bytes.

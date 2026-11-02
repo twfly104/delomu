@@ -23,7 +23,7 @@ import { aiAnswer, demoAnswer, sampleFiles } from './demo-bot.mjs';
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, newDeploymentPage, orgPage, orgPath, riskScanPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -64,6 +64,7 @@ const NOTICES = {
   scanned: 'Check finished.',
   rechecked: 'Re-check finished: the same messages were sent again.',
   fixdrafted: 'The agent drafted a fix. Review the instructions below, edit them if you like, then approve.',
+  client: 'Client workspace ready. Connect the AI you deploy for this client, or try the sample bot first.',
   sample: 'Sample ready: Acme’s support bot and its refund policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
@@ -139,7 +140,8 @@ function routes(ctx) {
     return { org, name: d.name, customer: config.customer, config, ov: overview(dir, config) };
   });
   // Orgs where the principal may open Billing (owners and admins), for the sidebar link.
-  const billingOrgsOf = (principal, orgs) => new Set(orgs.filter(o => principalAllows(principal, roleIn(db, principal, o.id), 'org:manage')).map(o => o.id));
+  // A client workspace is billed to its vendor, so Billing shows on the vendor's org only.
+  const billingOrgsOf = (principal, orgs) => new Set(orgs.filter(o => !o.partner_org_id && principalAllows(principal, roleIn(db, principal, o.id), 'org:manage')).map(o => o.id));
   const navFor = (principal, extra = {}) => {
     const orgs = orgsOf(principal);
     const pending = orgs.flatMap(deploymentsOf).reduce((n, d) => n + d.ov.pending.length, 0);
@@ -190,7 +192,7 @@ function routes(ctx) {
     if (!signupOpen) throw notFound('page');
     const form = await readForm(req, ctx.maxBodyBytes);
     requireCsrf(parseCookies(req.headers.cookie)[LOGIN_CSRF_COOKIE] ?? '', form);
-    const values = { email: String(form.email ?? '').trim().toLowerCase(), company: String(form.company ?? '').trim() };
+    const values = { email: String(form.email ?? '').trim().toLowerCase(), company: String(form.company ?? '').trim(), kind: form.kind === 'vendor' ? 'vendor' : 'company' };
     const fail = (error, status = 400) => html(signupPage({ csrf: form.csrf, error, values }), status);
     if (!signupLimit(ctx.clientIp(req)).ok) return fail('Too many sign-ups from this network. Try again later.', 429);
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(values.email)) return fail('Enter a work email address.');
@@ -198,10 +200,11 @@ function routes(ctx) {
     let made;
     try {
       made = tx(db, () => {
-        const org = createOrg(db, { name: values.company, kind: 'customer' }, ctx.now());
+        // An AI vendor signs up as a partner org: its clients each get a workspace of their own under it.
+        const org = createOrg(db, { name: values.company, kind: values.kind === 'vendor' ? 'partner' : 'customer' }, ctx.now());
         const member = addMember(db, org.id, { email: values.email, role: 'owner' }, null, ctx.now());
         const { key, secret } = createApiKey(db, { orgId: org.id, userId: member.user_id, name: 'sign-in key' }, ctx.pepper, ctx.now());
-        recordEvent(db, { orgId: org.id, actor: `human:${values.email}`, action: 'org.signup', target: org.id, detail: { key: key.prefix }, ip: ctx.clientIp(req) }, ctx.now());
+        recordEvent(db, { orgId: org.id, actor: `human:${values.email}`, action: 'org.signup', target: org.id, detail: { key: key.prefix, kind: values.kind }, ip: ctx.clientIp(req) }, ctx.now());
         return { org, member, key, secret };
       });
     } catch (e) {
@@ -275,12 +278,42 @@ function routes(ctx) {
     const review = deployments.flatMap(d => d.ov.pending.map(draft => ({ org: d.org, name: d.name, draft })))
       .sort((a, b) => a.draft.createdAt.localeCompare(b.draft.createdAt));
     const homeRole = roleIn(db, principal, principal.homeOrgId);
+    const home = orgs.find(o => o.id === principal.homeOrgId);
+    if (home?.kind === 'partner' && !deployments.length) return new Redirect(orgPath(home));
     const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), billingOrgs: billingOrgsOf(principal, orgs), org: orgs.length === 1 ? orgs[0] : undefined };
     return html(homePage({ ...base(principal), nav, deployments, review, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
   });
 
+  // An AI vendor's clients: the partner org's own page, one row per client workspace it manages.
+  const showClients = (principal, org, role, { url, error, values, status = 200 } = {}) => {
+    const clients = orgsOf(principal).filter(o => o.partner_org_id === org.id).map(c => ({ org: c, deployments: deploymentsOf(c) }));
+    return html(clientsPage({
+      ...base(principal), org, clients, own: deploymentsOf(org), error, values,
+      nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }),
+      canManage: principalAllows(principal, role, 'org:manage'), notice: NOTICES[url?.searchParams.get('notice')],
+    }), status);
+  };
+
+  r.add('POST', '/orgs/:org/clients', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org, role } = access(ctx, principal, params.org, 'org:manage');
+    if (org.kind !== 'partner') throw notFound('page');
+    let client;
+    try {
+      client = createOrg(db, { name: String(form.name ?? '').trim(), kind: 'customer', partnerOrgId: org.id }, ctx.now());
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status >= 500) throw e;
+      return showClients(principal, org, role, { error: e.message, values: form, status: 400 });
+    }
+    event(ctx, principal, client.id, 'org.create', client.id, { name: client.name, partner_org_id: org.id, via_web: true });
+    event(ctx, principal, org.id, 'client.add', client.id, { name: client.name });
+    return new Redirect(`${orgPath(client)}?notice=client`);
+  });
+
   r.add('GET', '/orgs/:org', ({ principal, params, url }) => {
     const { org, role } = access(ctx, principal, params.org, 'deployments:read');
+    if (org.kind === 'partner') return showClients(principal, org, role, { url });
     return html(orgPage({
       ...base(principal), org, deployments: deploymentsOf(org), nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }),
       canWrite: principalAllows(principal, role, 'deployments:write'), notice: NOTICES[url.searchParams.get('notice')],
@@ -686,6 +719,11 @@ function routes(ctx) {
 
   r.add('GET', '/orgs/:org/billing', async ({ principal, params, url }) => {
     const { org } = access(ctx, principal, params.org, 'org:manage');
+    if (org.partner_org_id) {
+      const vendor = orgsOf(principal).find(o => o.id === org.partner_org_id);
+      if (vendor) return new Redirect(`${orgPath(vendor)}/billing`);
+      throw notFound('page');
+    }
     await ctx.billing.flushUsage(org.id); // retry meter events that failed earlier
     return showBilling(principal, params, url);
   });

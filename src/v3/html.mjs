@@ -303,7 +303,7 @@ function rail({ user, csrf, nav = {} }) {
 <a class="brand" href="/" aria-label="Delomu home">${mark(20, 'm-rail')}<span>Delomu</span></a>
 <div class="nav">
 ${link('/', 'Home', 'home', 'home', nav.pending ? `<span class="count" aria-label="${nav.pending} waiting">${nav.pending}</span>` : '')}
-${org ? link(orgPath(org), 'AI agents', 'layers', 'deployments') : ''}
+${org ? (org.kind === 'partner' ? link(orgPath(org), 'Clients', 'building', 'clients') : link(orgPath(org), 'AI agents', 'layers', 'deployments')) : ''}
 ${org && nav.canAudit ? link(`${orgPath(org)}/audit`, 'Audit log', 'shield', 'audit') : ''}
 ${org && nav.billingOrgs?.has(org.id) ? link(`${orgPath(org)}/billing`, 'Billing', 'card', 'billing') : ''}
 </div>
@@ -335,17 +335,26 @@ export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0 
 const notice = (text, kind = '', link) => (text ? `<div class="notice ${kind}" role="${kind ? 'status' : 'alert'}">${icon(kind === 'good' ? 'check' : 'alert')}<span>${esc(text)}${link ? ` <a href="${esc(link[0])}">${esc(link[1])}</a>` : ''}</span></div>` : '');
 const upgradeLink = href => (href ? [href, 'View plans and upgrade'] : undefined);
 
-// Self-serve sign-up (DELOMU_SIGNUP=open): one form, then the sign-in key shown once.
+// Self-serve sign-up (DELOMU_SIGNUP=open): one form, then the sign-in key shown once. An AI vendor gets a
+// partner org, with one separate workspace per client (like a platform's connected accounts).
+export const SIGNUP_KINDS = [
+  { id: 'company', label: 'We use an AI agent with our customers', hint: 'Check that your own AI keeps your policies.' },
+  { id: 'vendor', label: 'We sell an AI agent to companies', hint: 'One workspace per client: test each rollout against that client’s policies.' },
+];
+
 export function signupPage({ csrf, error, values = {} }) {
   return layout({
     title: 'Create your account',
     body: `<div class="auth-card">
 <a class="brand" href="/login" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
-<h1>Test your support AI</h1><p class="lede">Find the policy rules your AI agent breaks, before your customers do. Free plan, no card.</p>
+<h1>Test your AI agent</h1><p class="lede">Find the policy rules your AI agent breaks, before your customers do. Free plan, no card.</p>
 ${notice(error)}
 <form method="post" action="/signup" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(values.email ?? '')}" placeholder="you@company.com"></label>
 <label class="field"><span>Company</span><input type="text" name="company" required maxlength="60" autocomplete="organization" value="${esc(values.company ?? '')}" placeholder="Acme"></label>
+<div class="field"><span>What do you do?</span><div class="choice">
+${SIGNUP_KINDS.map(k => `<label><input type="radio" name="kind" value="${k.id}"${(values.kind ?? 'company') === k.id ? ' checked' : ''}><span><span class="strong">${esc(k.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(k.hint)}</span></span></label>`).join('\n')}
+</div></div>
 <button class="btn primary block" data-busy="Creating…">Create free account</button></form>
 <p class="subtle" style="margin-top:16px;text-align:center">Already have an account? <a href="/login">Sign in</a></p>
 </div>`,
@@ -461,6 +470,35 @@ export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, noti
 ${canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
 ${notice(msg, 'good')}
 ${deployments.length ? `<section class="panel">${agentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No AI agents yet</span>An admin connects the support AI to check.</div></section>`}` });
+}
+
+// An AI vendor's home (a partner org): one row per client workspace, with that client's agents rolled up.
+// clients: [{ org, deployments: [{ name, ov }] }]
+export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage, error, values = {}, notice: msg }) {
+  const worst = ds => ds.map(d => d.ov.scans[0]).filter(Boolean).sort((a, b) => b.summary.broken - a.summary.broken)[0];
+  const flagged = ds => ds.reduce((n, d) => n + (d.ov.live?.week?.flagged ?? 0), 0);
+  const waiting = ds => ds.reduce((n, d) => n + d.ov.pending.length, 0);
+  const last = ds => ds.flatMap(d => d.ov.scans.slice(0, 1).map(s => s.createdAt)).sort().pop();
+  const rows = clients.map(({ org: c, deployments: ds }) => `<tr>
+<td><a class="agent-name" href="${esc(orgPath(c))}"><span class="av">${icon('building')}</span><span class="strong">${esc(c.name)}</span></a></td>
+<td class="num">${ds.length}</td>
+<td>${checkBadge(worst(ds))}</td>
+<td class="hide-sm num">${flagged(ds) ? `<span style="color:var(--bad)">${flagged(ds)} broke a rule</span>` : '<span class="subtle">None</span>'}</td>
+<td class="hide-sm num">${waiting(ds) ? `<span class="badge accent plain num">${waiting(ds)}</span>` : '<span class="subtle">0</span>'}</td>
+<td class="hide-sm subtle nowrap">${last(ds) ? esc(ago(last(ds), now)) : '—'}</td></tr>`).join('\n');
+  const add = canManage ? `<form method="post" action="${esc(orgPath(org))}/clients" class="panel" style="max-width:720px" novalidate><div class="panel-body">
+<input type="hidden" name="csrf" value="${esc(csrf)}">
+<h2 style="margin:0 0 4px">Add a client</h2><p class="subtle" style="margin:0 0 12px">Each client gets its own workspace: its policies, checks and conversations stay apart from every other client.</p>
+<label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="Acme Bank"></label>
+<button class="btn primary" data-busy="Adding…">${icon('plus')}Add client</button></div></form>` : '';
+  return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
+<div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div></div>
+${notice(msg, 'good')}${notice(error)}
+<section class="panel">${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>AI agents</th><th>Pre-launch check</th><th class="hide-sm">Live, last 7 days</th><th class="hide-sm">Waiting for review</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
+${rows}
+</tbody></table></div>` : '<div class="emptystate"><span class="strong">No clients yet</span>Add a client to set up its workspace, then connect the AI you deploy for it.</div>'}</section>
+${add}
+${own.length ? `<section class="panel"><div class="panel-head"><h2>Your own AI agents</h2></div>${agentsTable(own, { now })}</section>` : ''}` });
 }
 
 const CONNECTIONS = [

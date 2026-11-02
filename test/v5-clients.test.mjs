@@ -1,0 +1,83 @@
+import { test, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { openDb } from '../src/v3/db.mjs';
+import { createBilling } from '../src/v3/billing.mjs';
+import { setPlanByOperator } from '../src/v3/billing.mjs';
+import { startServer } from './v3-support.test.mjs';
+
+const srv = await startServer({ env: { DELOMU_SIGNUP: 'open' } });
+after(() => srv.close());
+
+const cookiesOf = res => res.headers.getSetCookie().map(c => c.split(';')[0]);
+const csrfOf = text => /name="csrf" value="([^"]+)"/.exec(text)?.[1];
+
+async function signUp(body) {
+  const page = await fetch(`${srv.base}/signup`, { redirect: 'manual' });
+  const res = await fetch(`${srv.base}/signup`, {
+    method: 'POST', redirect: 'manual',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookiesOf(page)[0] },
+    body: new URLSearchParams({ csrf: csrfOf(await page.text()), ...body }),
+  });
+  assert.equal(res.status, 201);
+  return cookiesOf(res).find(c => c.startsWith('delomu_session='));
+}
+const get = (url, cookie) => fetch(srv.base + url, { headers: { cookie }, redirect: 'manual' });
+const post = (url, cookie, body) => fetch(srv.base + url, { method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) });
+
+test('sign-up offers both kinds; a company keeps the agents home', async () => {
+  const page = await (await fetch(`${srv.base}/signup`)).text();
+  assert.match(page, /We sell an AI agent to companies/);
+  assert.match(page, /We use an AI agent with our customers/);
+  const cookie = await signUp({ email: 'lead@shop.test', company: 'Shop', kind: 'company' });
+  assert.match(await (await get('/', cookie)).text(), /Welcome to Delomu/);
+});
+
+test('an AI vendor gets a clients home, adds separate client workspaces, and bills them all on its own plan', async () => {
+  const cookie = await signUp({ email: 'fde@vendorco.test', company: 'VendorCo', kind: 'vendor' });
+  const home = await get('/', cookie);
+  assert.equal(home.status, 303);
+  const vendorPath = home.headers.get('location');
+  const clients = await (await get(vendorPath, cookie)).text();
+  assert.match(clients, /No clients yet/);
+  assert.match(clients, />Clients</);
+
+  // Adding a client creates a workspace managed by the vendor.
+  const csrf = csrfOf(clients);
+  assert.equal((await post(`${vendorPath}/clients`, cookie, { csrf: 'forged', name: 'Acme Bank' })).status, 403);
+  const added = await post(`${vendorPath}/clients`, cookie, { csrf, name: 'Acme Bank' });
+  assert.equal(added.status, 303);
+  const clientPath = added.headers.get('location').split('?')[0];
+  assert.match(await (await get(added.headers.get('location'), cookie)).text(), /Client workspace ready/);
+  await post(`${vendorPath}/clients`, cookie, { csrf, name: 'Beta Health' });
+
+  const list = await (await get(vendorPath, cookie)).text();
+  assert.match(list, /Acme Bank/);
+  assert.match(list, /Beta Health/);
+  assert.match(list, /2 clients/);
+
+  // A client workspace has no billing of its own: it sends you to the vendor's.
+  const bill = await get(`${clientPath}/billing`, cookie);
+  assert.equal(bill.headers.get('location'), `${vendorPath}/billing`);
+
+  // The client's plan is the vendor's plan.
+  const db = openDb(srv.dataDir);
+  try {
+    const vendorId = decodeURIComponent(vendorPath.split('/').pop());
+    const clientId = decodeURIComponent(clientPath.split('/').pop());
+    const billing = createBilling({ db, deploymentsRoot: srv.deploymentsRoot });
+    assert.equal(billing.planOf(clientId).id, 'free');
+    setPlanByOperator(db, vendorId, 'vendor');
+    assert.equal(billing.planOf(clientId).id, 'vendor');
+    assert.equal(billing.summary(clientId).payer, vendorId);
+    assert.equal(billing.summary(vendorId).clients, 2);
+  } finally {
+    db.close();
+  }
+});
+
+test('only a vendor org can add clients', async () => {
+  const cookie = await signUp({ email: 'cx@plain.test', company: 'Plain', kind: 'company' });
+  const page = await (await get('/', cookie)).text();
+  const orgPath = /href="(\/orgs\/[^"/]+)\/new-deployment"/.exec(page)[1];
+  assert.equal((await post(`${orgPath}/clients`, cookie, { csrf: csrfOf(page), name: 'X' })).status, 404);
+});
