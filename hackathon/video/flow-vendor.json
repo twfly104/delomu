@@ -1,51 +1,193 @@
 [
-  { "go": "/signup" },
-  { "mark": "signup", "caption": "An AI vendor signs up: Brightdesk AI sells a support agent to companies", "speed": 1 },
-  { "wait": 1.5 },
-  { "fill": "input[name=email]", "value": "fde@brightdesk-demo.test" },
-  { "fill": "input[name=company]", "value": "Brightdesk AI" },
-  { "check": "input[name=kind][value=vendor]" },
-  { "wait": 0.8 },
-  { "click": "Create free account" },
-  { "click": "I saved it, continue" },
-  { "mark": "client", "caption": "One workspace per client. Open the sample client: Linden & Co., an online store", "speed": 1 },
-  { "wait": 1.5 },
-  { "click": "Open a sample client" },
-  { "mark": "rollout", "caption": "One click: the agent drafts the mapping, integration and test set, then the check runs", "speed": 1 },
-  { "wait": 2 },
-  { "click": "Run the rollout" },
-  { "wait": 4 },
-  { "mark": "drafting", "caption": "Drafting from the client's policy, past tickets and test account (sped up)", "speed": 6 },
-  { "until": "Judging|policy rules broken|rules kept", "max": 400 },
-  { "go": "/__SCAN__" },
-  { "mark": "check", "caption": "Every test message goes to the client's agent; each tile is one answer and what the agent did", "speed": 3 },
-  { "until": "policy rules broken|rules kept", "after": "Judging", "max": 400, "hold": 2 },
-  { "mark": "results", "caption": "The agent cancelled an order placed 3 hours ago. The policy allows 1 hour", "speed": 1 },
-  { "scrollTo": "Broken rules", "hold": 2.5 },
-  { "scrollBy": 260, "hold": 3 },
-  { "scrollBy": 260, "hold": 3 },
-  { "scrollTo": "Fix it", "block": "center", "hold": 1.5 },
-  { "mark": "fix", "caption": "The agent drafts one fix to the instructions; a person approves it", "speed": 2 },
-  { "click": "Draft a fix" },
-  { "until": "Proposed fix", "max": 120, "hold": 1 },
-  { "scrollTo": "Proposed fix", "block": "start", "hold": 3 },
-  { "click": "Approve, apply and re-check" },
-  { "mark": "recheck", "caption": "The same messages run again on the fixed agent (sped up)", "speed": 4 },
-  { "until": "After the fix", "after": "Judging", "max": 400, "hold": 2 },
-  { "mark": "after", "caption": "Before and after, on the same messages", "speed": 1 },
-  { "wait": 4 },
-  { "go": "/__ROLLOUT__" },
-  { "mark": "signoff", "caption": "Send the client a sign-off link: no account needed", "speed": 1 },
-  { "click": "Create a sign-off link" },
-  { "wait": 1.5 },
-  { "readInput": "/signoff/", "as": "link" },
-  { "goVar": "link" },
-  { "mark": "client-view", "caption": "Linden's head of support reads the result and accepts", "speed": 1 },
-  { "wait": 2 },
-  { "fill": "input[name=name]", "value": "Dana Lee" },
-  { "click": "Record my decision" },
-  { "wait": 3 },
-  { "go": "/__CLIENTS__" },
-  { "mark": "clients", "caption": "Back at Brightdesk: every client's status in one place", "speed": 1 },
-  { "wait": 4 }
+  {
+    "go": "/signup"
+  },
+  {
+    "mark": "signup",
+    "caption": "An AI vendor signs up: Brightdesk AI sells a support agent to companies",
+    "speed": 1
+  },
+  {
+    "wait": 1.5
+  },
+  {
+    "fill": "input[name=email]",
+    "value": "fde@brightdesk-take2.test"
+  },
+  {
+    "fill": "input[name=company]",
+    "value": "Brightdesk AI"
+  },
+  {
+    "check": "input[name=kind][value=vendor]"
+  },
+  {
+    "wait": 0.8
+  },
+  {
+    "click": "Create free account"
+  },
+  {
+    "click": "I saved it, continue"
+  },
+  {
+    "mark": "client",
+    "caption": "One workspace per client. Open the sample client: Linden & Co., an online store",
+    "speed": 1
+  },
+  {
+    "wait": 1.5
+  },
+  {
+    "click": "Open a sample client"
+  },
+  {
+    "mark": "rollout",
+    "caption": "One click: the agent drafts the mapping, integration and test set, then the check runs",
+    "speed": 1
+  },
+  {
+    "wait": 2
+  },
+  {
+    "click": "Run the rollout"
+  },
+  {
+    "wait": 4
+  },
+  {
+    "mark": "drafting",
+    "caption": "Drafting from the client's policy, past tickets and test account (sped up)",
+    "speed": 6
+  },
+  {
+    "until": "Run the policy check\\s+Running|Run the rollout again",
+    "max": 420
+  },
+  {
+    "go": "/__SCAN__"
+  },
+  {
+    "mark": "check",
+    "caption": "Every test message goes to the client's agent; each tile is one answer and what the agent did",
+    "speed": 3
+  },
+  {
+    "until": "policy rules broken|rules kept",
+    "after": "Judging",
+    "max": 400,
+    "hold": 2
+  },
+  {
+    "mark": "results",
+    "caption": "The agent cancelled an order placed 3 hours ago. The policy allows 1 hour",
+    "speed": 1
+  },
+  {
+    "scrollTo": "Broken rules",
+    "hold": 2.5
+  },
+  {
+    "scrollBy": 260,
+    "hold": 3
+  },
+  {
+    "scrollBy": 260,
+    "hold": 3
+  },
+  {
+    "scrollTo": "Fix it",
+    "block": "center",
+    "hold": 1.5
+  },
+  {
+    "mark": "fix",
+    "caption": "The agent drafts one fix to the instructions; a person approves it",
+    "speed": 2
+  },
+  {
+    "click": "Draft a fix"
+  },
+  {
+    "until": "Proposed fix",
+    "max": 120,
+    "hold": 1
+  },
+  {
+    "scrollTo": "Proposed fix",
+    "block": "start",
+    "hold": 3
+  },
+  {
+    "click": "Approve, apply and re-check"
+  },
+  {
+    "mark": "recheck",
+    "caption": "The same messages run again on the fixed agent (sped up)",
+    "speed": 4
+  },
+  {
+    "until": "After the fix",
+    "after": "Judging",
+    "max": 400,
+    "hold": 2
+  },
+  {
+    "mark": "after",
+    "caption": "Before and after, on the same messages",
+    "speed": 1
+  },
+  {
+    "wait": 4
+  },
+  {
+    "go": "/__ROLLOUT__"
+  },
+  {
+    "mark": "signoff",
+    "caption": "Send the client a sign-off link: no account needed",
+    "speed": 1
+  },
+  {
+    "click": "Create a sign-off link"
+  },
+  {
+    "wait": 1.5
+  },
+  {
+    "readInput": "/signoff/",
+    "as": "link"
+  },
+  {
+    "goVar": "link"
+  },
+  {
+    "mark": "client-view",
+    "caption": "Linden's head of support reads the result and accepts",
+    "speed": 1
+  },
+  {
+    "wait": 2
+  },
+  {
+    "fill": "input[name=name]",
+    "value": "Dana Lee"
+  },
+  {
+    "click": "Record my decision"
+  },
+  {
+    "wait": 3
+  },
+  {
+    "go": "/__CLIENTS__"
+  },
+  {
+    "mark": "clients",
+    "caption": "Back at Brightdesk: every client's status in one place",
+    "speed": 1
+  },
+  {
+    "wait": 4
+  }
 ]
