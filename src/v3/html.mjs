@@ -325,6 +325,11 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .prod-q{display:grid;gap:10px}.prod-q>div{display:grid;grid-template-columns:72px minmax(0,1fr) 190px;gap:12px;align-items:center;font-size:13px}
 .prod-bar{display:flex;height:10px;border-radius:99px;background:var(--sunken);overflow:hidden}.prod-bar .svc{background:var(--warn)}.prod-bar .sw{background:var(--accent)}
 @media (max-width:640px){.prod-q>div{grid-template-columns:64px minmax(0,1fr)}.prod-q>div>span:last-child{grid-column:1/-1}}
+.imp{border-top:1px solid var(--line)}.imp:first-of-type{border-top:0}
+.imp summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:4px 16px;align-items:center;padding:14px 16px}
+.imp summary::-webkit-details-marker{display:none}.imp summary:hover{background:var(--hover)}
+.imp[open] summary{border-bottom:1px solid var(--line)}.imp-body{padding:16px;display:grid;gap:12px}
+@media (max-width:640px){.imp summary{grid-template-columns:1fr}}
 .lp-page{background:var(--canvas)}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 24px}
@@ -1160,6 +1165,24 @@ function revenuePanel({ base, csrf, revenue }) {
 <button class="btn" data-busy="Saving…">Save</button></div></form>`;
 }
 
+// Step 2's deliverable for the client's own systems: the tools the agent calls, as reviewed config, with the
+// generated code and tool definitions to download.
+function connectorPanel({ base, csrf, can, connector: c }) {
+  const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
+  const draft = can.write ? `<form method="post" action="${esc(base)}/agent">${hidden}<input type="hidden" name="task" value="connector"><button class="btn${c ? '' : ' primary'}" data-busy="Drafting…">${icon('spark')}${c ? 'Draft again from the API docs' : 'Draft from the client’s API docs'}</button></form>` : '';
+  if (!c) {
+    return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2><span class="aside subtle">The tools your agent calls in this client’s systems</span></div><div class="panel-body">
+<p class="subtle" style="margin:0 0 12px">Add the client’s API docs on the Policies tab. The agent drafts one tool per endpoint; once you approve it, Delomu generates the code and tool definitions, with the guard in front of every action.</p>${draft}</div></section>`;
+  }
+  const acts = c.tools.filter(t => t.kind === 'action').length;
+  return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2><span class="badge good">Approved</span><span class="aside subtle">${c.tools.length} tools · ${acts} that act, each checked by the guard first</span></div>
+<div class="scroll"><table><thead><tr><th>Tool</th><th>Request</th><th>Kind</th></tr></thead><tbody>
+${c.tools.map(t => `<tr><td><code>${esc(t.name)}</code></td><td><code>${esc(t.method)} ${esc(t.path)}</code></td><td>${t.kind === 'action' ? '<span class="badge warn">Acts</span>' : '<span class="badge">Reads</span>'}</td></tr>`).join('')}
+</tbody></table></div>
+<div class="panel-body"><div class="row-inline"><a class="btn primary" href="${esc(base)}/connector.js" download>${icon('file')}Download the code</a><a class="btn" href="${esc(base)}/connector-tools.json" download>Tool definitions (Anthropic and OpenAI)</a>${draft}</div>
+<p class="hint" style="margin:10px 0 0">Set <code>${esc(c.baseUrlEnv)}</code>${c.auth.env ? ` and <code>${esc(c.auth.env)}</code>` : ''} where your agent runs. With <code>DELOMU_API_KEY</code> set, each action asks this agent’s guard first and does not run if the guard blocks it.</p></div></section>`;
+}
+
 export function rolloutPage(args) {
   const { org, name, ov, csrf, can, rollout, signoff = {}, playbook, monitor } = args;
   const base = depPath(org, name);
@@ -1171,11 +1194,11 @@ export function rolloutPage(args) {
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
   const body = `<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
-<p class="panel-body subtle" style="margin:0">Drafts the mapping, integration and test set, adds matching test messages from your playbook, then runs the check. You approve every draft.</p>
+<p class="panel-body subtle" style="margin:0">Drafts the mapping, the integration, the connector to the client’s systems and the test set, adds matching test messages from your playbook, then runs the check. You approve every draft.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
 <p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>
-${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
+${connectorPanel({ base, csrf, can, connector: args.connector })}${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
 ${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2><span class="aside subtle">They feed Deployment metrics: is each rollout cheaper than the last?</span></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
 <label class="field"><span>Step</span><select name="step">${HOUR_STEPS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></label>
@@ -1258,6 +1281,29 @@ ${done.length ? `<h2 style="margin:32px 0 12px">Decided</h2><section class="pane
 
 const size = n => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1048576).toFixed(1)} MB`);
 
+// Read-only import on the Policies page: one compact form per source. A saved token means "Import again" needs
+// nothing typed; the fields a source needs (subdomain, email, shop) are remembered in delomu.json.
+const IMPORTS = [
+  { id: 'zendesk', label: 'Zendesk', what: 'Solved tickets and Help Center articles', fields: [['subdomain', 'Subdomain', 'acme', 'acme.zendesk.com'], ['email', 'Agent email', 'agent@acme.com', '']], token: 'API token (Admin Center › Apps and integrations › Zendesk API)' },
+  { id: 'intercom', label: 'Intercom', what: 'Closed conversations and Help Center articles', fields: [], token: 'Access token (Developer Hub › your app › Authentication; read permissions are enough)' },
+  { id: 'shopify', label: 'Shopify', what: 'Refund, shipping, privacy and terms policies', fields: [['shop', 'Store domain', 'acme.myshopify.com', '']], token: 'Admin API access token (custom app with read_legal_policies)' },
+];
+function importPanel({ base, csrf, imports = {} }) {
+  const card = s => {
+    const st = imports[s.id] ?? {};
+    const last = st.at ? `<span class="subtle" style="font-size:12.5px">Last import ${esc(fmtDate(st.at))}: ${[st.tickets && `${st.tickets} tickets`, st.articles && `${st.articles} articles`, st.policies && `${st.policies} policies`].filter(Boolean).join(', ') || 'nothing new'}</span>` : '';
+    const again = st.saved ? `<form method="post" action="${esc(base)}/import"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}"><button class="btn" data-busy="Importing…">${icon('upload')}Import again</button></form>` : '';
+    return `<details class="imp"${st.at ? '' : ''}><summary><span class="strong">${esc(s.label)}</span><span class="subtle">${esc(s.what)}</span>${last}</summary>
+<div class="imp-body">${again}<form method="post" action="${esc(base)}/import" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}">
+<div class="row-inline">${s.fields.map(([n, l, ph]) => `<label class="field"><span>${esc(l)}</span><input type="text" name="${n}" value="${esc(st[n] ?? '')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}
+<label class="field" style="flex:1;min-width:220px"><span>${st.saved ? 'New token (optional)' : 'Token'}</span><input type="password" name="token" autocomplete="off" placeholder="${st.saved ? 'Saved encrypted' : ''}"></label></div>
+<p class="hint" style="margin:-8px 0 12px">${esc(s.token)}. Delomu only reads, removes emails, phone and card numbers from tickets, and stores the token encrypted.</p>
+<button class="btn primary" data-busy="Importing…">${icon('upload')}Import from ${esc(s.label)}</button></form></div></details>`;
+  };
+  return `<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Import from the client’s systems</h2><span class="aside subtle">Read-only. No exporting or uploading by hand.</span></div>
+${IMPORTS.map(card).join('')}</section>`;
+}
+
 export function inputsPage(args) {
   const { org, name, ov, csrf, can, now } = args;
   const base = depPath(org, name);
@@ -1269,7 +1315,7 @@ ${ov.inputs.map(f => `<tr><td><span style="display:inline-flex;gap:8px;align-ite
 <label class="picker"><span class="sr">Files</span><input type="file" id="files" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"><span class="btn" aria-hidden="true">${icon('file')}Choose files</span><span class="names" data-files-for="files" aria-live="polite">No file chosen</span></label>
 <p class="hint" style="margin:-8px 0 14px">Markdown, text, CSV, JSON, YAML or HTML, up to 1 MB each. A file with the same name is replaced.</p>
 <button class="btn primary" data-busy="Uploading…">${icon('upload')}Upload</button></div></form>` : '';
-  return deploymentShell({ ...args, tab: 'inputs', title: 'Policies' }, `<section class="panel">${files}</section>${upload}`);
+  return deploymentShell({ ...args, tab: 'inputs', title: 'Policies' }, `<section class="panel">${files}</section>${args.can.write ? importPanel({ base, csrf: args.csrf, imports: args.imports }) : ''}${upload}`);
 }
 
 export function settingsPage(args) {

@@ -17,6 +17,8 @@ import { getScan, listScans, recheck } from '../v1/risk.mjs';
 import { PLANS as PLAN_LIST } from './billing.mjs';
 import { INTERVALS as MONITOR_INTERVALS, monitorSettings, monitorStatus, monitorTick, setMonitor } from './monitoring.mjs';
 import { getOrgSettings, getRevenue, logIntervention, normTag, productizationHealth, readInterventions, setOrgSettings, setRevenue } from './productization.mjs';
+import { importFrom, SOURCES as IMPORT_SOURCES } from './importers.mjs';
+import { readConnector, generateConnectorCode, toolSchemas } from '../v1/connector.mjs';
 import { addToPlaybook, consentOf, contributed, integrationExamples, playbookStats, removeFromPlaybook, setConsent, suggestFromPlaybook } from './playbook.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
@@ -27,7 +29,7 @@ import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug } from './ac
 import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
 import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
-import { saveSecret, savedSecrets } from './secrets.mjs';
+import { readSecret, saveSecret, savedSecrets } from './secrets.mjs';
 import { tx } from './db.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
@@ -70,9 +72,9 @@ const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.
 const MAX_INPUT_BYTES = 1024 * 1024;
 const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
 const REPLAY_LIMIT = 6;
-const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report'];
+const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report', 'connector'];
 // What one click on Run the rollout does, in order. Fixes and the launch report follow a test run, so they come later.
-const ROLLOUT_STEPS = [['mapping', 'Draft the data mapping'], ['integration', 'Draft the integration'], ['cases', 'Draft the test set'], ['playbook', 'Add test messages from your playbook'], ['check', 'Run the policy check']];
+const ROLLOUT_STEPS = [['mapping', 'Draft the data mapping'], ['integration', 'Draft the integration'], ['connector', 'Draft the client-system connector'], ['cases', 'Draft the test set'], ['playbook', 'Add test messages from your playbook'], ['check', 'Run the policy check']];
 const NOTICES = {
   created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
@@ -90,6 +92,7 @@ const NOTICES = {
   alerts: 'Alert settings saved.',
   hours: 'Hours logged. They count toward Deployment metrics.',
   playbook: 'Playbook updated.',
+  imported: 'Imported from the client’s system. The files are listed below.',
   revenue: 'Revenue saved. It counts toward Productization health.',
   focus: 'Focus and team saved.',
   monitor: 'Monitoring settings saved.',
@@ -699,7 +702,7 @@ function routes(ctx) {
     const playbook = { stats: playbookStats(ctx.deploymentsRoot, owner), consent: consentOf(ws.dir), contributed: contributed(ctx.deploymentsRoot, ctx.pepper, owner, ws.dir), vendor: ws.org.partner_org_id ? getOrg(db, ws.org.partner_org_id)?.name : ws.org.name };
     const tags = [...new Set(readInterventions(ws.dir).map(i => i.tag))].slice(0, 30);
     const monitor = { settings: monitorSettings(ws.dir), status: monitorStatus(ws.dir), hasTests: fs.existsSync(path.join(ws.dir, 'tests.json')), intervals: MONITOR_INTERVALS };
-    return html(rolloutPage({ ...ws, rollout: job, signoff, playbook, monitor, tags, revenue: getRevenue(ws.dir), error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
+    return html(rolloutPage({ ...ws, rollout: job, signoff, playbook, monitor, tags, connector: readConnector(ws.dir), revenue: getRevenue(ws.dir), error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
   };
   r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => showRollout(principal, params, url));
 
@@ -960,7 +963,10 @@ function routes(ctx) {
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/runs', ({ principal, params, url }) => html(runsPage(workspace(principal, params, 'runs:read', url))));
-  r.add('GET', '/orgs/:org/deployments/:name/inputs', ({ principal, params, url }) => html(inputsPage(workspace(principal, params, 'deployments:read', url))));
+  r.add('GET', '/orgs/:org/deployments/:name/inputs', ({ principal, params, url }) => {
+    const ws = workspace(principal, params, 'deployments:read', url);
+    return html(inputsPage({ ...ws, imports: importState(ws.dir) }));
+  });
   const showSettings = (principal, params, url, link) => {
     const ws = workspace(principal, params, 'deployments:read', url);
     const verified = activeShares(db, ws.org.id, params.name, 'verified', ctx.now()).length > 0;
@@ -1082,7 +1088,7 @@ function routes(ctx) {
     const { org } = access(ctx, principal, params.org, 'deployments:write');
     const { dir } = deploymentFor(ctx, org.id, params.name);
     const files = form.getAll('files').filter(f => typeof f === 'object' && f.size > 0);
-    const fail = message => html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message }), 400);
+    const fail = message => html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message, imports: importState(dir) }), 400);
     if (!files.length) return fail('Choose at least one file.');
     const ready = [];
     for (const f of files) {
@@ -1100,19 +1106,89 @@ function routes(ctx) {
       appendAudit(dir, { actor: principal.actor, action: 'input.upload', target: name, detail: { bytes: bytes.length } }, ctx.now());
     }
     event(ctx, principal, org.id, 'input.upload', params.name, { files: ready.map(f => f.name) });
-    // New policy wording can make the last check's rules stale: check again right away, within plan limits.
+    return afterInputs(principal, org, params.name, dir, checked, before, 'uploaded');
+  });
+
+  // New policy wording can make the last check's rules stale: check again right away, within plan limits.
+  async function afterInputs(principal, org, name, dir, checked, before, notice) {
     if (checked && policyFingerprint(dir) !== before) {
       try {
         checkTarget(loadConfig(dir), ctx.policy);
-        await startScan(principal, org, params.name, dir);
+        await startScan(principal, org, name, dir);
         appendAudit(dir, { actor: 'system', action: 'scan.auto', target: 'policies changed' }, ctx.now());
-        return new Redirect(`${depPath(org, params.name)}/scan?notice=policychange`);
+        return new Redirect(`${depPath(org, name)}/scan?notice=policychange`);
       } catch (e) {
         if (!(e instanceof ApiError)) throw e;
-        return new Redirect(`${depPath(org, params.name)}/inputs?notice=policystale`);
+        return new Redirect(`${depPath(org, name)}/inputs?notice=policystale`);
       }
     }
-    return new Redirect(`${depPath(org, params.name)}/inputs?notice=uploaded`);
+    return new Redirect(`${depPath(org, name)}/inputs?notice=${notice}`);
+  }
+
+  // Read-only import (src/v3/importers.mjs): tickets, help-center articles and store policies straight from the
+  // client's Zendesk, Intercom or Shopify. The token is saved encrypted, so "Import again" needs nothing typed.
+  const importSecret = source => `IMPORT_${source.toUpperCase()}_TOKEN`;
+  r.add('POST', '/orgs/:org/deployments/:name/import', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const source = String(form.source ?? '');
+    const fail = message => html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message, imports: importState(dir) }), 400);
+    if (!Object.hasOwn(IMPORT_SOURCES, source)) return fail('Choose Zendesk, Intercom or Shopify.');
+    const raw = readRawJson(dir);
+    const saved = raw.imports?.[source] ?? {};
+    const fields = Object.fromEntries(IMPORT_SOURCES[source].fields.map(f => [f, String(form[f] ?? saved[f] ?? '').trim()]));
+    let token = String(form.token ?? '').trim();
+    if (!token) { try { token = readSecret(dir, importSecret(source), ctx.pepper) ?? ''; } catch { token = ''; } }
+    let result;
+    try {
+      result = await importFrom(source, { ...fields, token }, { limit: 50, ...(ctx.importJson && { fetchJson: ctx.importJson }) });
+    } catch (e) {
+      return fail(String(e.message ?? e).split(token || '\u0000').join('[token]'));
+    }
+    if (!result.files.length) return fail(`Nothing to import: ${IMPORT_SOURCES[source].label} returned no solved tickets, articles or policies.`);
+    const checked = listScans(dir)[0];
+    const before = policyFingerprint(dir);
+    const inputs = path.join(dir, 'inputs');
+    fs.mkdirSync(inputs, { recursive: true });
+    for (const f of result.files) {
+      const name = cleanInputName(f.name);
+      if (!name) continue;
+      fs.writeFileSync(path.join(inputs, name), f.text);
+      appendAudit(dir, { actor: principal.actor, action: 'input.import', target: name, detail: { source, bytes: Buffer.byteLength(f.text) } }, ctx.now());
+    }
+    if (form.token) saveSecret(dir, importSecret(source), token, ctx.pepper, ctx.now());
+    raw.imports = { ...(raw.imports ?? {}), [source]: { ...fields, at: ctx.now().toISOString(), ...result.summary } };
+    fs.writeFileSync(path.join(dir, 'delomu.json'), JSON.stringify(raw, null, 2) + '\n');
+    event(ctx, principal, org.id, 'input.import', params.name, { source, ...result.summary });
+    return afterInputs(principal, org, params.name, dir, checked, before, 'imported');
+  });
+
+  const readRawJson = dir => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'delomu.json'), 'utf8')); } catch { return {}; } };
+  // What each source last imported, and whether its token is saved, for the Policies page.
+  const importState = dir => {
+    const raw = readRawJson(dir);
+    const keys = new Set(savedSecrets(dir).map(k => k.name));
+    return Object.fromEntries(Object.keys(IMPORT_SOURCES).map(s => [s, { ...(raw.imports?.[s] ?? {}), saved: keys.has(importSecret(s)) }]));
+  };
+
+  // The connector's generated code and tool definitions, for the vendor to drop into its agent.
+  r.add('GET', '/orgs/:org/deployments/:name/connector.js', ({ req, principal, params }) => {
+    const { org } = access(ctx, principal, params.org, 'deployments:read');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const c = readConnector(dir);
+    if (!c) throw notFound('connector');
+    let client = '';
+    try { client = loadConfig(dir).customer ?? ''; } catch { /* optional */ }
+    const code = generateConnectorCode(c, { client: client || org.name, guardUrl: `${returnBase(req)}/v1/orgs/${org.id}/deployments/${params.name}/guard` });
+    return { status: 200, body: code, type: 'text/javascript; charset=utf-8', headers: { 'content-disposition': `attachment; filename="${params.name}-connector.mjs"` } };
+  });
+  r.add('GET', '/orgs/:org/deployments/:name/connector-tools.json', ({ principal, params }) => {
+    const { org } = access(ctx, principal, params.org, 'deployments:read');
+    const c = readConnector(deploymentFor(ctx, org.id, params.name).dir);
+    if (!c) throw notFound('connector');
+    return { status: 200, body: JSON.stringify(toolSchemas(c), null, 2) + '\n', type: 'application/json', headers: { 'content-disposition': `attachment; filename="${params.name}-tools.json"` } };
   });
 
   const draftsView = (principal, params, url, error) => draftsPage({ ...workspace(principal, params, 'drafts:read', url), error });

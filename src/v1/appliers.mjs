@@ -7,6 +7,7 @@ import { parseCsv, toCsvLine } from '../csv.mjs';
 import { paths } from '../deployment.mjs';
 import { esc } from '../report.mjs';
 import { writeTests } from '../commands/v0.mjs';
+import { applyConnector } from './connector.mjs';
 import { validateMapping, validateIntegration, validateCases, validateFixes, validateLaunchReport } from './validate.mjs';
 
 export const CASE_COLUMNS = ['id', 'input', 'expected', 'must_include', 'must_not_include', 'regex', 'tags'];
@@ -111,4 +112,5 @@ export const APPLIERS = {
   cases: applyCases,
   fixes: applyFixes,
   'launch-report': applyLaunchReport,
+  connector: applyConnector,
 };

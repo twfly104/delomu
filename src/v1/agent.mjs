@@ -324,4 +324,5 @@ export const TASKS = {
   cases: draftCases,
   fixes: draftFixes,
   'launch-report': draftLaunchReport,
+  connector: (dir, options) => import('./connector.mjs').then(m => m.draftConnector(dir, options)),
 };

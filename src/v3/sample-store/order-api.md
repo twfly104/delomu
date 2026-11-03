@@ -22,3 +22,19 @@ Brightdesk hosts the assistant for Linden & Co. The chat endpoint the Linden web
 ## Actions the assistant can take
 `issue_refund`, `cancel_order`, `apply_promo_code`, `adjust_price` and `handoff_to_human`. They run immediately in
 the order system. There are no server-side limits yet; the store relies on the assistant following the policy.
+
+## Order system API (for the integration)
+Base URL: `https://api.lindenandco.example/v2` (staging: `https://staging-api.lindenandco.example/v2`). Every request
+sends `Authorization: Bearer <token>`; Linden issues one token per environment. JSON in, JSON out.
+
+| Method and path | What it does | Parameters |
+| --- | --- | --- |
+| `GET /customers/{customer_id}/orders` | The customer's orders, newest first | `customer_id` (path), `status` (query, optional) |
+| `GET /orders/{order_id}` | One order with items, dates, status and promo code | `order_id` (path) |
+| `POST /orders/{order_id}/cancel` | Cancels an order that has not shipped | `order_id` (path), `reason` (body) |
+| `POST /orders/{order_id}/refunds` | Refunds to the original payment method | `order_id` (path), `amount` (body, USD), `reason` (body) |
+| `POST /orders/{order_id}/promo-codes` | Applies a promo code | `order_id` (path), `code` (body) |
+| `POST /orders/{order_id}/price-adjustments` | Refunds the difference when the price dropped | `order_id` (path), `amount` (body, USD), `reason` (body) |
+| `POST /handoffs` | Hands the chat to the care team | `conversation_id` (body), `reason` (body) |
+
+Errors come back as `{ "error": { "code", "message" } }` with HTTP 4xx. Refunds and price adjustments are final.

@@ -45,6 +45,8 @@ export function createServer({
   judge,
   llm,
   demoBotClient,
+  // Replaces the JSON request used by read-only imports (src/v3/importers.mjs); tests inject a fake.
+  importJson,
   fetch,
   now = () => new Date(),
   log = message => console.error(message),
@@ -81,6 +83,7 @@ export function createServer({
     judge,
     llm,
     demoBotClient,
+    importJson,
     now,
     log,
     oidc: createOidcClient({ fetch }),

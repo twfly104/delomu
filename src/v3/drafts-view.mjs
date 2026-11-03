@@ -23,6 +23,19 @@ ${entities || empty('No entities.')}
 ${questions.length ? `<div class="sub"><h4>Open questions for the customer</h4><ul class="plain">${questions.map(q => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}`;
 }
 
+// The connector manifest: auth and one row per tool, with the tools that act marked.
+function connectorView(c) {
+  const auth = c.auth ?? {};
+  return `<table class="kv"><tbody>
+<tr><th scope="row">Base URL from</th><td><code>${esc(c.baseUrlEnv ?? '')}</code></td></tr>
+<tr><th scope="row">Auth</th><td>${esc(auth.type ?? '')}${auth.env ? ` from <code>${esc(auth.env)}</code>` : ''}${auth.header ? ` in <code>${esc(auth.header)}</code>` : ''}</td></tr>
+</tbody></table>
+<div class="scroll"><table><thead><tr><th>Tool</th><th>Request</th><th>Kind</th></tr></thead><tbody>
+${(c.tools ?? []).map(t => `<tr><td><code>${esc(t.name)}</code><div class="subtle">${esc(t.description)}</div></td><td><code>${esc(t.method)} ${esc(t.path)}</code></td><td>${t.kind === 'action' ? '<span class="badge warn">Acts</span>' : '<span class="badge">Reads</span>'}</td></tr>`).join('')}
+</tbody></table></div>
+${c.notes ? `<div class="sub"><h4>Notes</h4><p class="prose">${esc(c.notes)}</p></div>` : ''}`;
+}
+
 function integrationView(c) {
   const t = c.target ?? {};
   const rows = [
@@ -73,7 +86,7 @@ ${decisions.length ? `<div class="sub"><h4>Decisions</h4><table><thead><tr><th>D
 ${decisions.map(d => `<tr><td class="num nowrap">${esc(d.date)}</td><td>${esc(d.decision)}</td><td class="muted">${esc(d.reason)}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
 }
 
-const VIEWS = { mapping: mappingView, integration: integrationView, cases: casesView, fixes: fixesView, 'launch-report': launchView };
+const VIEWS = { mapping: mappingView, integration: integrationView, cases: casesView, fixes: fixesView, 'launch-report': launchView, connector: connectorView };
 
 export function draftContent(d) {
   const view = VIEWS[d.kind];
