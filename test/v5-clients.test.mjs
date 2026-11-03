@@ -32,7 +32,7 @@ test('sign-up offers both kinds; a company keeps the agents home', async () => {
   assert.match(page, /We sell an AI agent to companies/);
   assert.match(page, /We use an AI agent with our customers/);
   const cookie = await signUp({ email: 'lead@shop.test', company: 'Shop', kind: 'company' });
-  assert.match(await (await get('/', cookie)).text(), /Welcome to Delomu/);
+  assert.match(await (await get('/', cookie)).text(), /Welcome to Grapim/);
 });
 
 test('an AI vendor gets a clients home, adds separate client workspaces, and bills them all on its own plan', async () => {

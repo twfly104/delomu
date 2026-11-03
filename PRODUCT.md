@@ -14,7 +14,7 @@ Added 2026-11-02: **AI vendors** (heads of forward deployed or solutions enginee
 Secondary: support operations people who connect the help desk and set alerts, and engineers at AI startups who still use the deeper test-run and agent-draft tools (kept behind the More menu).
 
 ## Product Purpose
-Delomu finds the policy rules a support AI breaks, before customers do. It reads the company's policies, writes the customer messages most likely to make the AI break each rule, sends them to the AI and judges every answer against the exact clause. After launch it checks real conversations and alerts on high-risk breaks. Success: a support lead sees, in one screen, which rules break, the AI's actual reply, the clause it broke and the fix.
+Grapim finds the policy rules a support AI breaks, before customers do. It reads the company's policies, writes the customer messages most likely to make the AI break each rule, sends them to the AI and judges every answer against the exact clause. After launch it checks real conversations and alerts on high-risk breaks. Success: a support lead sees, in one screen, which rules break, the AI's actual reply, the clause it broke and the fix.
 
 ## Positioning
 Tests are built from the company's own policies and graded against the exact clause, not generic benchmarks. Every finding shows the real exchange and the clause. The agent proposes, a person decides, and every action is recorded in a tamper-evident audit log.
@@ -32,7 +32,7 @@ Tests are built from the company's own policies and graded against the exact cla
 - Runs are synchronous today and can take tens of seconds.
 
 ## Agents that act
-Added 2026-11-03: most new agents take actions (refunds, cancellations, codes, hand-offs). Delomu judges what the agent did as well as what it said, writes tests against the client's test account, and can check an action before it runs (the action guard). Show actions plainly under the reply as "What it did".
+Added 2026-11-03: most new agents take actions (refunds, cancellations, codes, hand-offs). Grapim judges what the agent did as well as what it said, writes tests against the client's test account, and can check an action before it runs (the action guard). Show actions plainly under the reply as "What it did".
 
 ## Evidence on Hand
 - Demo data only: in the web app, the made-up Tallyfox support assistant (`src/v3/demo-bot.mjs`, `src/v3/sample/`, which has deliberate bugs); for the CLI and older tests, the fictional Acme bot in `examples/`. Its scan results are a demonstration, never evidence of real-world error rates. No real customers, logos, testimonials or usage numbers exist; never invent them.
@@ -45,5 +45,5 @@ Added 2026-11-03: most new agents take actions (refunds, cancellations, codes, h
 
 ## Brand Commitments
 - Visual standard (confirmed 2026-11-01): look and feel at the level of Linear, Vercel and Stripe, played straight. Calm, precise product UI; no themed world or costume. Familiar navigation and controls.
-- The earlier Delomu Verify look (Inter, #5B5BF5) is not carried over.
-- Logo (confirmed 2026-11-01): the existing Delomu mark, a "D" cut by one diagonal slash, with the "Delomu" wordmark (capital D, confirmed 2026-11-01). Files in `assets/brand/`. Shown in the text colour (near-black on light, white on dark); the old purple app-icon tile is not used in the product UI.
+- The earlier Grapim Verify look (Inter, #5B5BF5) is not carried over.
+- Logo (confirmed 2026-11-01): the existing Grapim mark, a "D" cut by one diagonal slash, with the "Grapim" wordmark (capital D, confirmed 2026-11-01). Files in `assets/brand/`. Shown in the text colour (near-black on light, white on dark); the old purple app-icon tile is not used in the product UI.

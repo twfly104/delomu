@@ -50,21 +50,21 @@ import { finishLogin, getOidcConfig, LOGIN_TTL_MS, startLogin, STATE_COOKIE } fr
 import { checkTarget, listDeployments, registerDeployment, reportFile } from './workspace.mjs';
 
 const LOGIN_CSRF_COOKIE = 'delomu_login_csrf';
-// The Delomu mark (assets/brand/delomu-mark.svg), dark on light tabs and light on dark ones.
+// The Grapim mark (assets/brand/delomu-mark.svg), dark on light tabs and light on dark ones.
 // The UI typeface (Geist, OFL; src/v3/fonts/OFL.txt), served from this server so pages make no third-party calls.
-// What a person sees when a check fails. Problems with Delomu's own model are ours to fix, so the page says
+// What a person sees when a check fails. Problems with Grapim's own model are ours to fix, so the page says
 // so plainly and the details go to the server log; anything else (usually the customer's AI) is shown as is.
 function scanError(e, dir, name) {
   const detail = String(e?.message ?? e).split(dir).join(name);
   if (isAuthError(e) || /^(Meta Model API|Anthropic|no Meta Model API key)/i.test(detail) || e?.status >= 500) {
     console.error(`check failed for ${name}: ${detail}`);
-    return 'The check could not run because Delomu\u2019s AI model is unavailable right now. It did not count toward your plan. Try again in a few minutes; if it keeps happening, contact support.';
+    return 'The check could not run because Grapim\u2019s AI model is unavailable right now. It did not count toward your plan. Try again in a few minutes; if it keeps happening, contact support.';
   }
   return `The check could not finish: ${detail}`;
 }
 
 const FONTS = Object.fromEntries(['Geist-Variable.woff2', 'GeistMono-Variable.woff2'].map(f => [f, fs.readFileSync(new URL(`./fonts/${f}`, import.meta.url))]));
-const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>path{fill:#0b0b14}@media (prefers-color-scheme:dark){path{fill:#fff}}</style><defs><mask id="m"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" style="fill:none" stroke="#000" stroke-width="5.5"/></mask></defs><path d="M8 6 H30 A26 26 0 0 1 30 58 H8 Z" mask="url(#m)"/></svg>';
+const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.g{fill:#0b0b14}@media (prefers-color-scheme:dark){.g{fill:#fff}}</style><defs><mask id="m"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" style="fill:none" stroke="#000" stroke-width="5.5"/></mask></defs><path class="g" d="M48.7 12.1 A26 26 0 1 0 57.9 29.7 L36 29.7 L36 40 L39.5 40 A11 11 0 1 1 39.1 23.6 Z" mask="url(#m)"/></svg>';
 const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; script-src '${BUSY_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
@@ -834,7 +834,7 @@ function routes(ctx) {
   }, { public: true });
 
   // The fix loop (src/v1/fix.mjs): the agent drafts one change to the AI's instructions for the broken rules,
-  // a person edits and approves it, Delomu applies it where it can, and the same messages run again.
+  // a person edits and approves it, Grapim applies it where it can, and the same messages run again.
   r.add('POST', '/orgs/:org/deployments/:name/fix/draft', async ({ req, principal, params }) => {
     const form = await readForm(req, ctx.maxBodyBytes);
     requireCsrf(principal, form);

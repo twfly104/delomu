@@ -62,7 +62,8 @@ for (const step of steps.slice(1)) {
   if (step.mark) marks.push({ label: step.mark, caption: step.caption ?? '', speed: step.speed ?? 1, t: now() });
   // /__SCAN__ and /__ROLLOUT__ are the current agent's pages; /__CLIENTS__ is the vendor's Clients page.
   if (step.go === '/__SCAN__' || step.go === '/__ROLLOUT__') {
-    const dep = await js(`location.pathname.match(/^\\/orgs\\/[^/]+\\/deployments\\/[^/]+/)[0]`);
+    // From a page outside the agent (the client's sign-off link), go back to the agent last seen.
+    const dep = (await js(`(location.pathname.match(/^\\/orgs\\/[^/]+\\/deployments\\/[^/]+/) ?? [null])[0]`)) ?? vars.dep;
     vars.dep = dep;
     await navigate(base + dep + (step.go === '/__SCAN__' ? '/scan' : '/rollout'));
   } else if (step.go === '/__CLIENTS__') {
@@ -76,6 +77,7 @@ for (const step of steps.slice(1)) {
     for (const ch of step.value) { await js(`(() => { const e = document.activeElement; e.value += ${JSON.stringify(ch)}; e.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`); await sleep(45); }
     await sleep(300);
   }
+  if (step.select) await js(`(() => { const e = document.querySelector(${JSON.stringify(step.select)}); e.scrollIntoView({ block: 'center' }); e.value = ${JSON.stringify(step.value)}; e.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
   if (step.check) await js(`(() => { const e = document.querySelector(${JSON.stringify(step.check)}); e.click(); return true; })()`);
   if (step.click) {
     const sel = step.selector ?? 'button, a, label';

@@ -1,4 +1,4 @@
-// Links a person outside Delomu opens without signing in: a client's sign-off page for one check, and (later)
+// Links a person outside Grapim opens without signing in: a client's sign-off page for one check, and (later)
 // an agent's public page. Only a hash of each token is stored, so a link is shown once when it is made; a
 // link can expire and can be revoked.
 

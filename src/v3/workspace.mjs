@@ -36,7 +36,7 @@ export function deploymentDir(root, orgId, name) {
 const TARGET_TYPES = ['http', 'command', 'intercom', 'zendesk'];
 const HELP_DESK_SECRETS = { intercom: ['token'], zendesk: ['keyId', 'secret'] };
 const ENV_ONLY = /^\$\{([A-Za-z0-9_]+)\}$/;
-// A key the customer saved in Delomu (src/v3/secrets.mjs), referred to by name.
+// A key the customer saved in Grapim (src/v3/secrets.mjs), referred to by name.
 const SAVED = /^\$\{secret:[A-Z][A-Z0-9_]*\}$/;
 
 function checkUrl(value, field) {

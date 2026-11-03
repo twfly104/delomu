@@ -1,4 +1,4 @@
-# Delomu
+# Grapim
 
 **Find what your AI will get wrong at a customer, before your customer does.**
 
@@ -16,7 +16,7 @@ step. Details for judges: [hackathon/SUBMISSION.md](hackathon/SUBMISSION.md).
 
 1. reads them and lists the rules a support AI must keep, each with the exact clause and what breaks if it is not kept;
 2. writes the customer messages most likely to break each rule (day 35 of a 30-day window, "my manager approved it");
-3. Delomu sends them to the customer's AI, and Muse Spark judges every answer against the quoted clause and proposes
+3. Grapim sends them to the customer's AI, and Muse Spark judges every answer against the quoted clause and proposes
    the smallest fix;
 4. the probes are drafted into the permanent test set for an engineer to approve.
 
@@ -106,7 +106,7 @@ hash-chained `audit.jsonl`; `delomu audit <dir> --verify` checks it was not alte
 
 ## Connecting a help-desk AI (Intercom, Zendesk)
 
-When the customer's support AI lives inside a help desk, Delomu can talk to it there instead of through an
+When the customer's support AI lives inside a help desk, Grapim can talk to it there instead of through an
 HTTP endpoint. Pick Intercom or Zendesk in the web "New deployment" form, or set `target` in `delomu.json`.
 Credentials are always `${ENV_VAR}` references; on the v3 server they must start with `CUSTOMER_`.
 
@@ -171,7 +171,7 @@ Set up test mode (Stripe Dashboard in a sandbox, or the Stripe CLI):
 
 1. Create a meter: event name `delomu_extra_active_deployment`, aggregation **Sum**, customer mapping
    `stripe_customer_id`, value key `value`.
-2. Create a product "Delomu Team" with two monthly prices: a flat $499 recurring price (`STRIPE_PRICE_TEAM`)
+2. Create a product "Grapim Team" with two monthly prices: a flat $499 recurring price (`STRIPE_PRICE_TEAM`)
    and a usage-based $99 per-unit price on that meter (`STRIPE_PRICE_EXTRA`).
 3. Turn on the Customer Portal (Settings, Billing, Customer portal) so customers can change cards and cancel.
 4. Webhooks: point an endpoint at `https://<your host>/webhooks/stripe` with the events

@@ -36,7 +36,7 @@ test('a new user signs up, gets a key once, lands signed in, and can sign in aga
   assert.match(page, /shown only once/);
   const session = cookiesOf(res).find(c => c.startsWith('delomu_session='));
   const home = await (await fetch(`${open.base}/`, { headers: { cookie: session } })).text();
-  assert.match(home, /Welcome to Delomu/);
+  assert.match(home, /Welcome to Grapim/);
   assert.match(home, /Try it on a sample support bot/);
 
   // The key works for the API and for signing in.

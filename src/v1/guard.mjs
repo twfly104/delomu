@@ -98,7 +98,7 @@ export async function guardReply(dir, input, { llm, now = new Date(), timeoutMs 
     externalId: input?.id ? String(input.id).slice(0, 120) : null,
     message, answer: reply,
     status: unjudged ? 'unjudged' : violations.length ? 'flagged' : 'ok',
-    violations: violations.map(v => ({ ...v, fix: decision === 'rewrite' ? 'Delomu sent a rewritten reply instead.' : 'Delomu blocked this reply before the customer saw it.' })),
+    violations: violations.map(v => ({ ...v, fix: decision === 'rewrite' ? 'Grapim sent a rewritten reply instead.' : 'Grapim blocked this reply before the customer saw it.' })),
     decision, safeReply: safe || null, scanId: found.scanId,
   };
   keep('record', () => {

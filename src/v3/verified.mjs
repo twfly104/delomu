@@ -1,4 +1,4 @@
-// An agent's public page, off until an owner turns it on: facts from Delomu's own records, each with its
+// An agent's public page, off until an owner turns it on: facts from Grapim's own records, each with its
 // date (the latest check, live monitoring in the last 7 days, whether the audit log is intact). No score and
 // no "certified" wording: it says what was checked and when, nothing more.
 
@@ -27,8 +27,8 @@ export function verifiedPage({ company, name, facts }) {
   return layout({
     title: `${name} · ${company}`,
     body: `<div class="auth-card" style="max-width:600px">
-<span class="brand">${mark(26, 'm-ver')}<span>Delomu</span></span>
-<h1>${esc(name)}</h1><p class="lede">${esc(company)} tests this AI agent against its own written policies with Delomu. These are the facts in Delomu’s records.</p>
+<span class="brand">${mark(26, 'm-ver')}<span>Grapim</span></span>
+<h1>${esc(name)}</h1><p class="lede">${esc(company)} tests this AI agent against its own written policies with Grapim. These are the facts in Grapim’s records.</p>
 <table class="kv"><tbody>
 ${row('Latest policy check', c ? `${day(c.at)}: kept ${c.kept} of ${c.rules} rules` : 'None yet', c?.broken ? `${c.broken} rule${c.broken === 1 ? '' : 's'} broken in that check` : '')}
 ${row('Live monitoring, last 7 days', facts.live.checked ? `${facts.live.checked.toLocaleString('en-US')} conversations checked` : 'No conversations checked', facts.live.checked ? `${facts.live.flagged} broke a rule` : '')}

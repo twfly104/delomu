@@ -1,7 +1,7 @@
 # Linden & Co. test account for the Brightdesk rollout
 
 The assistant runs signed in as this test customer. Every test conversation sees these orders, and nothing else.
-Dates are relative to the moment of the test. Linden & Co. is a made-up company for testing Delomu.
+Dates are relative to the moment of the test. Linden & Co. is a made-up company for testing Grapim.
 
 | Order | Item | Price | Placed | Delivered | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |

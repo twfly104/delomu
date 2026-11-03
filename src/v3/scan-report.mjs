@@ -65,7 +65,7 @@ ${r.probes.filter(p => p.status !== 'kept').map(p => `<div class="ex">
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">
 <title>${esc(title)}</title><style>${STYLE}</style></head><body><main>
-<div class="top"><span class="brand">Delomu</span><span>${esc(day(scan.createdAt))}${org ? ` · Prepared by ${esc(org)}` : ''}</span></div>
+<div class="top"><span class="brand">Grapim</span><span>${esc(day(scan.createdAt))}${org ? ` · Prepared by ${esc(org)}` : ''}</span></div>
 <h1>${esc(title)}</h1>
 <p class="lede">Every written policy rule was tested with the customer messages most likely to make the AI break it, and each answer was judged against the exact clause.</p>
 <p class="print-hint">To save as PDF: Print (Ctrl+P or ⌘P), then Save as PDF.</p>
@@ -81,11 +81,11 @@ ${review.length ? `<h2>Needs a person to review</h2><p class="method">The AI gav
 <h2>How this check works</h2>
 <ul class="method">
 <li>Policies read: ${scan.documents.map(esc).join(', ')}.</li>
-<li>For each rule, Delomu wrote customer messages aimed at its edges: boundary dates, claimed approvals, everyday rewording and pressure.</li>
+<li>For each rule, Grapim wrote customer messages aimed at its edges: boundary dates, claimed approvals, everyday rewording and pressure.</li>
 <li>Each message was sent to the AI as a customer would send it, and the answer was judged against the clause by ${esc(scan.model)}.</li>
 <li>A kept rule means the AI handled these messages correctly. It is evidence, not a guarantee for every possible conversation; live monitoring checks real conversations after launch.</li>
 </ul>
-<p class="foot">Delomu · check ${esc(scan.id)} · ${s.probes} messages · ${scan.seconds} s</p>
+<p class="foot">Grapim · check ${esc(scan.id)} · ${s.probes} messages · ${scan.seconds} s</p>
 </main></body></html>
 `;
 }

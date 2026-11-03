@@ -49,10 +49,10 @@ test('fix loop: draft one change for the broken rules, approve it, re-check the 
   assert.deepEqual(getFix(dir).rules, ['refund-window']);
   assert.deepEqual(getFix(dir).gaps, [{ clause: 'refund-policy.md §6', need: 'Connect a hand-off to a human agent.' }]);
   assert.match(prompts.at(-1).system, /do not tell it to refuse/);
-  assert.throws(() => revertFix(dir, { actor: 'human:a@b.test' }), /no fix applied by Delomu/);
+  assert.throws(() => revertFix(dir, { actor: 'human:a@b.test' }), /no fix applied by Grapim/);
   assert.match(prompts.at(-1).prompt, /Promised cash\.[\s\S]*Offer store credit after 30 days/);
 
-  // The example bot is a command target: Delomu cannot change it, so the person applies it by hand.
+  // The example bot is a command target: Grapim cannot change it, so the person applies it by hand.
   assert.equal(instructionsTarget(JSON.parse(fs.readFileSync(path.join(dir, 'delomu.json'), 'utf8'))).canApply, false);
   assert.throws(() => approveFix(dir, { instructions: 'x', apply: true, actor: 'human:a@b.test' }), /cannot change this AI directly/);
   assert.throws(() => approveFix(dir, { instructions: '  ', apply: false, actor: 'human:a@b.test' }), /empty/);

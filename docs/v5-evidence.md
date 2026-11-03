@@ -2,7 +2,7 @@
 
 A printable record, for one AI agent (a deployment) over a date range, of how it was tested against the
 company's written policies, what was fixed, what live monitoring saw, and whether the audit log is intact.
-It is meant for legal, risk and compliance teams: every number is counted from records Delomu already stores,
+It is meant for legal, risk and compliance teams: every number is counted from records Grapim already stores,
 nothing is estimated, and each section names the records it came from.
 
 - Page: `GET /orgs/:org/deployments/:name/evidence.html?from=YYYY-MM-DD&to=YYYY-MM-DD`
@@ -35,7 +35,7 @@ A rule that ends up "needs review" (a message could not be judged) is not counte
 check is missing from `scans/`, the before count shows as unknown.
 
 ### Approved fixes
-Audit log entries in the period with action `fix.apply` (approved and applied by Delomu),
+Audit log entries in the period with action `fix.apply` (approved and applied by Grapim),
 `fix.applied_manually` (approved; the team applied it in their own tool) or `fix.revert` (earlier
 instructions put back), with who did it and the check it was for. When `fix.json` (which keeps only the latest
 fix) belongs to that check, its summary and rule count are added. If `fix.json` records an approval or revert

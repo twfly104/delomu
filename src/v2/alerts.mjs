@@ -32,7 +32,7 @@ function alertPayload({ results, caseIds, belowAcceptance, reportPath, update })
     belowAcceptance ? `pass rate ${pct(s.passRate)} is below the agreed ${pct(s.minPassRate)}` : '',
   ].filter(Boolean).join('; ');
   // Slack parses the top-level text as mrkdwn too (notifications), so it is escaped like the blocks.
-  const text = slackEsc(`${update ? 'Updated' : 'New'} Delomu alert for ${who}: ${what}.`);
+  const text = slackEsc(`${update ? 'Updated' : 'New'} Grapim alert for ${who}: ${what}.`);
   const lines = [`*${text}*`];
   if (caseIds.length) lines.push(`Regressed: ${idText(caseIds)}`);
   lines.push(`Pass rate ${pct(s.passRate)} (need ${pct(s.minPassRate)}), run \`${slackEsc(results.runId)}\``);
@@ -46,7 +46,7 @@ function alertPayload({ results, caseIds, belowAcceptance, reportPath, update })
 }
 
 function resolvedPayload({ results, reportPath }) {
-  const text = slackEsc(`Resolved: Delomu alert for ${results.customer} / ${results.deployment}. Pass rate is ${pct(results.summary.passRate)} and no regressed cases remain.`);
+  const text = slackEsc(`Resolved: Grapim alert for ${results.customer} / ${results.deployment}. Pass rate is ${pct(results.summary.passRate)} and no regressed cases remain.`);
   return {
     text,
     blocks: [

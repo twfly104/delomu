@@ -1,5 +1,5 @@
 // The evidence pack: one AI agent's record over a date range, for legal, risk and compliance. It gathers what
-// Delomu already wrote down (checks and re-checks in scans/, the fix in fix.json, live/<month>.jsonl and the
+// Grapim already wrote down (checks and re-checks in scans/, the fix in fix.json, live/<month>.jsonl and the
 // audit log) and estimates nothing: every number names the records it was counted from. buildEvidence returns
 // plain data; renderEvidence turns it into self-contained, printable HTML with every value escaped.
 
@@ -17,7 +17,7 @@ const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 90;
 const TOP_RULES = 5;
 
-const FIX_ACTIONS = { 'fix.apply': 'Approved and applied by Delomu', 'fix.applied_manually': 'Approved, applied by the team in their own tool', 'fix.revert': 'Reverted to the earlier instructions' };
+const FIX_ACTIONS = { 'fix.apply': 'Approved and applied by Grapim', 'fix.applied_manually': 'Approved, applied by the team in their own tool', 'fix.revert': 'Reverted to the earlier instructions' };
 
 const isoDay = d => d.toISOString().slice(0, 10);
 
@@ -141,7 +141,7 @@ export function buildEvidence(dir, { from, to, now = new Date() }) {
     // fix.json says it was approved or reverted in range but the audit log has no matching line: show it, flagged.
     const has = act => fixEvents.some(e => e.scanId === fix.scanId && act.includes(e.action));
     if (fix.approvedAt && inRange(fix.approvedAt) && !has(['fix.apply', 'fix.applied_manually'])) {
-      fixEvents.push({ at: fix.approvedAt, action: fix.appliedByDelomu ? 'fix.apply' : 'fix.applied_manually', actor: String(fix.approvedBy ?? ''), scanId: fix.scanId, seq: null, source: 'fix.json', summary: fix.summary ?? '', rules: (fix.rules ?? []).length });
+      fixEvents.push({ at: fix.approvedAt, action: fix.appliedByGrapim ? 'fix.apply' : 'fix.applied_manually', actor: String(fix.approvedBy ?? ''), scanId: fix.scanId, seq: null, source: 'fix.json', summary: fix.summary ?? '', rules: (fix.rules ?? []).length });
     }
     if (fix.revertedAt && inRange(fix.revertedAt) && !has(['fix.revert'])) {
       fixEvents.push({ at: fix.revertedAt, action: 'fix.revert', actor: String(fix.revertedBy ?? ''), scanId: fix.scanId, seq: null, source: 'fix.json', summary: fix.summary ?? '', rules: (fix.rules ?? []).length });
@@ -273,7 +273,7 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">
 <title>${esc(title)}</title><style>${STYLE}</style></head><body><main>
-<div class="top"><span class="brand">Delomu</span><span>${esc(period)}${org ? ` · Prepared by ${esc(org)}` : ''}</span></div>
+<div class="top"><span class="brand">Grapim</span><span>${esc(period)}${org ? ` · Prepared by ${esc(org)}` : ''}</span></div>
 <h1>${esc(title)}</h1>
 <p class="lede">The record of how this AI was tested against the company’s written policies, what was fixed, and what live monitoring saw, from ${esc(period)}. Every figure is counted from stored records; nothing is estimated.</p>
 <p class="print-hint">To save as PDF: Print (Ctrl+P or ⌘P), then Save as PDF.</p>
@@ -294,7 +294,7 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
 <li>The <b>audit chain</b> shows whether any record of these actions was changed after it was written.</li>
 <li>All times are UTC. The period includes both end dates.</li>
 </ul>
-<p class="foot">Delomu evidence pack · ${esc(name)} · period ${esc(range.from)} to ${esc(range.to)} · generated ${esc(stamp(data.generatedAt))}</p>
+<p class="foot">Grapim evidence pack · ${esc(name)} · period ${esc(range.from)} to ${esc(range.to)} · generated ${esc(stamp(data.generatedAt))}</p>
 </main></body></html>
 `;
 }

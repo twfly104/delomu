@@ -1,6 +1,6 @@
 # Design
 
-Delomu's product UI (the v3 web app in `src/v3/html.mjs` and `src/v3/drafts-view.mjs`) and the customer acceptance
+Grapim's product UI (the v3 web app in `src/v3/html.mjs` and `src/v3/drafts-view.mjs`) and the customer acceptance
 report (`src/report.mjs`) share one system, defined in `src/theme.mjs`. The bar is Linear, Vercel and Stripe: calm,
 precise, familiar controls, no themed world (see PRODUCT.md, Brand Commitments).
 
@@ -58,5 +58,5 @@ h1 24px at -0.03em, h2 15px, weight 600; `--mono` only for ids, code and data. N
 
 ## Logo
 
-The Delomu mark (a "D" cut by one diagonal slash) with the "Delomu" wordmark (capital D, confirmed 2026-11-01), drawn in the text colour.
+The Grapim mark (a "D" cut by one diagonal slash) with the "Grapim" wordmark (capital D, confirmed 2026-11-01), drawn in the text colour.
 Source files in `assets/brand/`; the favicon is served at `/favicon.svg` and adapts to dark tabs.

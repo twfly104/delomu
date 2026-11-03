@@ -5,7 +5,7 @@ connecting the agent to the client's own systems.
 
 ## Read-only import (Policies tab)
 
-Delomu imports straight from three client systems, so nobody has to export and upload files. The code is in
+Grapim imports straight from three client systems, so nobody has to export and upload files. The code is in
 `src/v3/importers.mjs`.
 
 | Source | What it brings in | Credentials |
@@ -16,7 +16,7 @@ Delomu imports straight from three client systems, so nobody has to export and u
 
 ### How the import treats the client's data
 
-- **Read only.** Delomu sends only GET requests, plus Intercom's search, which reads.
+- **Read only.** Grapim sends only GET requests, plus Intercom's search, which reads.
 - **Personal data is removed.** Emails, phone numbers and card numbers in ticket text are replaced with
   placeholders, and requester names and emails are never kept.
 - **The token is stored encrypted** in the deployment's saved keys, so **Import again** needs nothing typed.
@@ -38,7 +38,7 @@ The code is in `src/v1/connector.mjs`.
 2. **An engineer approves, edits or rejects the draft.** It is the `connector` kind on the Review tab. Validation
    checks that names are snake_case, every non-GET tool is an action, path placeholders are declared, and paths
    stay on the base URL.
-3. **Delomu generates the rest.** After approval it writes `connector.json`, and the Rollout page offers two
+3. **Grapim generates the rest.** After approval it writes `connector.json`, and the Rollout page offers two
    downloads:
    - `connector.js`: a dependency-free Node module with `anthropicTools`, `openaiTools` and
      `runTool(name, input, { message })`. With `DELOMU_API_KEY` set, every action tool calls this deployment's

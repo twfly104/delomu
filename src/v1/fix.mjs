@@ -1,5 +1,5 @@
 // Fix loop: after a check finds broken rules, the agent drafts one change to the AI's instructions that covers
-// them; a person edits and approves it; Delomu applies it where it can (an HTTP target that takes its
+// them; a person edits and approves it; Grapim applies it where it can (an HTTP target that takes its
 // instructions in the request) or the person pastes it into their help desk; then the same messages run again.
 // The proposal lives in fix.json; every step is in the audit log.
 
@@ -44,7 +44,7 @@ export function getFix(dir) {
 
 function saveFix(dir, fix) { fs.writeFileSync(fixFile(dir), JSON.stringify(fix, null, 2) + '\n'); }
 
-// The text the AI is given today, and where it lives. Delomu can apply a change only to an HTTP target that
+// The text the AI is given today, and where it lives. Grapim can apply a change only to an HTTP target that
 // sends its instructions in the request body (instructionsField, or the built-in sample bot and sample agent).
 export function instructionsTarget(config) {
   const t = config.target ?? {};
@@ -88,20 +88,20 @@ export function approveFix(dir, { instructions, apply, actor, now = new Date() }
   if (apply) {
     const config = loadConfig(dir);
     const { canApply, field } = instructionsTarget(config);
-    if (!canApply) throw new Error('Delomu cannot change this AI directly; paste the instructions into your help desk, then re-check');
+    if (!canApply) throw new Error('Grapim cannot change this AI directly; paste the instructions into your help desk, then re-check');
     config.target = { ...config.target, instructionsField: field, body: { ...(config.target.body ?? {}), [field]: text } };
     fs.writeFileSync(configFile, JSON.stringify(config, null, 2) + '\n');
   }
-  Object.assign(fix, { status: apply ? 'applied' : 'applied-manually', instructions: text, approvedAt: now.toISOString(), approvedBy: actor, appliedByDelomu: Boolean(apply) });
+  Object.assign(fix, { status: apply ? 'applied' : 'applied-manually', instructions: text, approvedAt: now.toISOString(), approvedBy: actor, appliedByGrapim: Boolean(apply) });
   saveFix(dir, fix);
   appendAudit(dir, { actor, action: apply ? 'fix.apply' : 'fix.applied_manually', target: fix.scanId, detail: { chars: text.length } }, now);
   return fix;
 }
 
-// Puts back the instructions the AI had before the last fix Delomu applied, when a re-check came out worse.
+// Puts back the instructions the AI had before the last fix Grapim applied, when a re-check came out worse.
 export function revertFix(dir, { actor, now = new Date() }) {
   const fix = getFix(dir);
-  if (fix?.status !== 'applied') throw new Error('there is no fix applied by Delomu to undo');
+  if (fix?.status !== 'applied') throw new Error('there is no fix applied by Grapim to undo');
   const configFile = path.join(dir, 'delomu.json');
   const config = loadConfig(dir);
   const { field } = instructionsTarget(config);

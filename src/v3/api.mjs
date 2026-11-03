@@ -217,7 +217,7 @@ function routes(ctx) {
     access(ctx, principal, params.org, 'usage:read');
     const month = url.searchParams.get('month') ?? ctx.now().toISOString().slice(0, 7);
     const usage = await orgUsage(ctx, params.org, month);
-    if (!usage) throw new ApiError('api_error', 'Usage metering is not installed on this server (needs Delomu v2).', { status: 501, code: 'not_implemented' });
+    if (!usage) throw new ApiError('api_error', 'Usage metering is not installed on this server (needs Grapim v2).', { status: 501, code: 'not_implemented' });
     return ok({ object: 'usage', ...usage });
   });
 

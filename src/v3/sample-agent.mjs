@@ -62,7 +62,7 @@ function runTool(name, input, orders) {
   return { ok: false, error: `Unknown tool ${name}` };
 }
 
-// A real answer from Claude with tools. instructions: extra instructions approved through a Delomu fix.
+// A real answer from Claude with tools. instructions: extra instructions approved through a Grapim fix.
 export async function storeAgentAnswer(message, { client = new Anthropic(), instructions = '', now = Date.now() } = {}) {
   const orders = storeOrders(now);
   const extra = String(instructions ?? '').trim().slice(0, 4000);
@@ -116,5 +116,5 @@ export function storeAgentScripted(message) {
 // makes the integration notes name the full endpoint, as a real client's notes would.
 export const storeSampleFiles = (origin = '') => fs.readdirSync(STORE_DIR).map(name => ({
   name,
-  text: fs.readFileSync(path.join(STORE_DIR, name), 'utf8').split('`POST /demo/store-agent` on the Delomu server').join(origin ? `\`POST ${origin}/demo/store-agent\`` : '`POST /demo/store-agent` on the Delomu server'),
+  text: fs.readFileSync(path.join(STORE_DIR, name), 'utf8').split('`POST /demo/store-agent` on the Grapim server').join(origin ? `\`POST ${origin}/demo/store-agent\`` : '`POST /demo/store-agent` on the Grapim server'),
 }));

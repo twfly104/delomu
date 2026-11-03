@@ -472,8 +472,9 @@ export const depPath = (org, name) => `${orgPath(org)}/deployments/${encodeURICo
 const VERDICT = { accepted: ['good', 'Accepted'], not_accepted: ['bad', 'Not accepted'], pending_review: ['warn', 'Needs review'] };
 export const verdictBadge = v => { const [cls, text] = VERDICT[v] ?? ['', v]; return `<span class="badge ${cls}">${esc(text)}</span>`; };
 
-// The Delomu mark: a "D" cut by one diagonal slash (assets/brand/delomu-mark.svg), drawn in the text colour.
-export const mark = (size, id) => `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><defs><mask id="${id}"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" fill="none" stroke="#000" stroke-width="5.5"/></mask></defs><path d="M8 6 H30 A26 26 0 0 1 30 58 H8 Z" fill="currentColor" mask="url(#${id})"/></svg>`;
+// The Grapim mark: a "D" cut by one diagonal slash (assets/brand/delomu-mark.svg), drawn in the text colour.
+// The Grapim mark: a solid G with one diagonal cut, in the same style as the earlier mark.
+export const mark = (size, id) => `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true"><defs><mask id="${id}"><rect width="64" height="64" fill="#fff"/><path d="M14 66 L34 -2" fill="none" stroke="#000" stroke-width="5.5"/></mask></defs><path d="M48.7 12.1 A26 26 0 1 0 57.9 29.7 L36 29.7 L36 40 L39.5 40 A11 11 0 1 1 39.1 23.6 Z" fill="currentColor" mask="url(#${id})"/></svg>`;
 
 // nav: { orgs, org?, active, pending, canAudit, billingOrgs (Set of org ids where Billing shows) }
 function rail({ user, csrf, nav = {} }) {
@@ -481,7 +482,7 @@ function rail({ user, csrf, nav = {} }) {
   const link = (href, label, ic, key, extra = '') => `<a href="${esc(href)}"${nav.active === key ? ' aria-current="page"' : ''}>${icon(ic)}${esc(label)}${extra}</a>`;
   const orgLinks = (nav.orgs ?? []).length ? `<div class="nav orgs-nav"><p class="nav-title">Organizations</p>${nav.orgs.map(o => `<a href="${esc(orgPath(o))}"${org?.id === o.id ? ' aria-current="page"' : ''}>${icon('building')}<span>${esc(o.name)}</span>${o.partner_org_id ? '<span class="org-kind">managed</span>' : ''}</a>`).join('')}</div>` : '';
   return `<nav class="rail" aria-label="Main">
-<a class="brand" href="/" aria-label="Delomu home">${mark(20, 'm-rail')}<span>Delomu</span></a>
+<a class="brand" href="/" aria-label="Grapim home">${mark(20, 'm-rail')}<span>Grapim</span></a>
 <div class="nav">
 ${link('/', 'Home', 'home', 'home', nav.pending ? `<span class="count" aria-label="${nav.pending} waiting">${nav.pending}</span>` : '')}
 ${org ? (org.kind === 'partner' ? link(orgPath(org), 'Clients', 'building', 'clients') : link(orgPath(org), 'AI agents', 'layers', 'deployments')) : ''}
@@ -497,7 +498,7 @@ ${orgLinks}
 function doc(title, body, bodyClass = '', refresh = 0) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>${esc(title)} · Delomu</title><style>${STYLE}</style></head>
+<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>${esc(title)} · Grapim</title><style>${STYLE}</style></head>
 <body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script></body></html>
 `;
 }
@@ -527,7 +528,7 @@ export function signupPage({ csrf, error, values = {} }) {
   return layout({
     title: 'Create your account',
     body: `<div class="auth-card">
-<a class="brand" href="/login" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
+<a class="brand" href="/login" aria-label="Grapim">${mark(26, 'm-auth')}<span>Grapim</span></a>
 <h1>Test your AI agent</h1><p class="lede">Find the policy rules your AI agent breaks, before your customers do. Free plan, no card.</p>
 ${notice(error)}
 <form method="post" action="/signup" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
@@ -546,9 +547,9 @@ export function signupKeyPage({ secret, email }) {
   return layout({
     title: 'Save your sign-in key',
     body: `<div class="auth-card">
-<a class="brand" href="/" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
+<a class="brand" href="/" aria-label="Grapim">${mark(26, 'm-auth')}<span>Grapim</span></a>
 <h1>Save your sign-in key</h1><p class="lede">You are signed in as ${esc(email)}. Next time, sign in with this key. It is shown only once, so save it in your password manager now.</p>
-<label class="field"><span>Sign-in key</span><input type="text" readonly value="${esc(secret)}" class="mono" aria-describedby="keyhint"><p class="hint" id="keyhint">It also works as an API key for the Delomu API.</p></label>
+<label class="field"><span>Sign-in key</span><input type="text" readonly value="${esc(secret)}" class="mono" aria-describedby="keyhint"><p class="hint" id="keyhint">It also works as an API key for the Grapim API.</p></label>
 <a class="btn primary block" href="/">I saved it, continue</a>
 </div>`,
   });
@@ -557,13 +558,13 @@ export function signupKeyPage({ secret, email }) {
 // The rules of the sample store's policy and how its agent did on them in a real check.
 const LP_RULES = [['Never refund a final-sale item', 'kept'], ['Only refund within 30 days of delivery', 'kept'], ['Only cancel within 1 hour', 'broken'], ['Hand off orders over $1,000', 'broken'], ['Never claim data was deleted', 'kept'], ['One promo code per order', 'kept'], ['Return shipping is $8.95', 'kept'], ['Match only our own prices', 'kept']];
 
-const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Delomu home">${mark(22, 'm-lp')}<span>Delomu</span></a>
+const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(22, 'm-lp')}<span>Grapim</span></a>
 <nav><a href="/#how">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
-const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span class="lp-foot-brand">${mark(16, 'm-lpf')} Delomu</span>
+const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span class="lp-foot-brand">${mark(16, 'm-lpf')} Grapim</span>
 <nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
-<p class="subtle">Results shown are from Delomu’s made-up sample store, not from customers.</p></footer>`;
+<p class="subtle">Results shown are from Grapim’s made-up sample store, not from customers.</p></footer>`;
 
 // The page a signed-out visitor sees at /. It shows the product doing its job on the sample store, in the
 // product's own parts, and states only what is true: no customers, logos or numbers that do not exist.
@@ -580,11 +581,11 @@ export function landingPage({ signup = false, plans }) {
 <main class="lp">
 <section class="lp-hero">
 <h1>Prove your AI agent keeps the policy</h1>
-<p class="lede">Delomu reads your policy, sends your agent the messages most likely to break it, and judges what it said and what it did, clause by clause. Before launch and on every reply after.</p>
+<p class="lede">Grapim reads your policy, sends your agent the messages most likely to break it, and judges what it said and what it did, clause by clause. Before launch and on every reply after.</p>
 <div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="#how">How it works</a></div>
 <p class="subtle lp-note">Free plan, no card. Try it on a sample agent in two minutes.</p>
 <div class="lp-stage">
-<figure class="lp-window" aria-label="A Delomu check of the sample store's agent">
+<figure class="lp-window" aria-label="A Grapim check of the sample store's agent">
 <div class="lp-chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="path"><span>Linden &amp; Co.</span><span class="sep">›</span><span>Lia, store agent</span><span class="sep">›</span><b>Check results</b></span></div>
 <div class="lp-win">
 <div class="lp-win-main"><div class="lp-win-head"><span class="t">Check results</span><span class="badge bad">2 rules broken</span><span class="subtle">8 rules · judged on what it said and did</span></div>
@@ -598,10 +599,10 @@ export function landingPage({ signup = false, plans }) {
 </div></div></figure>
 <div class="lp-toast" role="note" aria-label="The guard blocking the same action live"><div class="row"><span class="badge bad">Blocked</span><span class="strong">Guard</span><span class="subtle">before it happened</span></div><code>cancel_order · L-1006</code><span class="subtle">§5 Only cancel within 1 hour. Placed 3 h ago.</span></div>
 </div>
-<p class="lp-cap">A real check of the sample store in Delomu. The agent said the right thing and did the wrong thing.</p>
+<p class="lp-cap">A real check of the sample store in Grapim. The agent said the right thing and did the wrong thing.</p>
 </section>
 
-<section class="lp-statement" id="how"><h2>Your policy is the test. <span>Delomu turns the rules a company already wrote into the messages most likely to break them, judges every answer and every action against the exact clause, and keeps checking after launch.</span></h2>
+<section class="lp-statement" id="how"><h2>Your policy is the test. <span>Grapim turns the rules a company already wrote into the messages most likely to break them, judges every answer and every action against the exact clause, and keeps checking after launch.</span></h2>
 <div class="lp-figs">
 <div><span class="fig">FIG 0.1</span><div class="lp-fig"><div class="lp-doc"><span class="h">Returns and support policy</span>
 <span><span class="sec">§5</span>Orders can be cancelled within <mark>1 hour</mark> of being placed.</span>
@@ -632,7 +633,7 @@ export function landingPage({ signup = false, plans }) {
 </section>
 
 <section class="lp-chapter">
-<div class="lp-ch-head"><h2>A guard on every<br>reply and action</h2><div><p>For teams running an AI agent. Before a refund or a cancellation happens, ask Delomu. After launch, real conversations are judged against the same rules, with alerts when one breaks.</p><a class="lp-more" href="${start}">Try it on the sample store ${icon('arrow', { size: 14 })}</a></div></div>
+<div class="lp-ch-head"><h2>A guard on every<br>reply and action</h2><div><p>For teams running an AI agent. Before a refund or a cancellation happens, ask Grapim. After launch, real conversations are judged against the same rules, with alerts when one breaks.</p><a class="lp-more" href="${start}">Try it on the sample store ${icon('arrow', { size: 14 })}</a></div></div>
 <div class="lp-comp lp-comp-r" aria-label="A guard API call and live conversations">
 <div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Live</span><span class="subtle">sample store, last 24 hours</span></div>
 <ul class="lp-convs">
@@ -673,7 +674,7 @@ export function landingPage({ signup = false, plans }) {
 <div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing">See pricing</a></div></section>
 </main>
 ${lpFoot()}`;
-  return doc('Delomu: prove your AI agent keeps the policy', body, 'lp-page');
+  return doc('Grapim: prove your AI agent keeps the policy', body, 'lp-page');
 }
 
 // The public pricing page, built from the plan table in billing.mjs so it never disagrees with what is charged.
@@ -699,10 +700,10 @@ export function pricingPage({ signup = false, plans = {} }) {
 <p class="lp-price">${t.price}${t.per ? `<span>${t.per}</span>` : ''}</p><p class="subtle">${t.for}</p>
 ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle">Invoiced by contract.</p>'}${list(t.items)}</div>`).join('');
   const faq = [
-    ['What is a check?', 'One run of the policy check on one AI agent: Delomu writes the test messages from the policy, sends them to the agent and judges every answer and action. Re-checks after an approved fix count as checks.'],
+    ['What is a check?', 'One run of the policy check on one AI agent: Grapim writes the test messages from the policy, sends them to the agent and judges every answer and action. Re-checks after an approved fix count as checks.'],
     ['What is an active agent or client workspace?', 'An AI agent with at least one completed check this month. A vendor’s clients each get their own workspace, billed to the vendor.'],
     ['Do my clients need an account?', 'No. A client reads the result and signs off from a link that expires after 30 days and can be revoked.'],
-    ['What happens at a limit?', 'On Free, Delomu stops at the limit, says which one, and keeps your results. On Team and Vendor, extra agents or clients are billed at the price shown.'],
+    ['What happens at a limit?', 'On Free, Grapim stops at the limit, says which one, and keeps your results. On Team and Vendor, extra agents or clients are billed at the price shown.'],
     ['Which AI agents can I connect?', 'Intercom, Zendesk, any OpenAI-compatible API, or your own HTTP endpoint. Keys you paste are stored encrypted.'],
   ].map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('');
   const body = `${lpTop(start, cta, 'pricing')}
@@ -723,7 +724,7 @@ export function loginPage({ csrf, error, signup = false }) {
   return layout({
     title: 'Sign in',
     body: `<div class="auth-card">
-<a class="brand" href="/login" aria-label="Delomu">${mark(26, 'm-auth')}<span>Delomu</span></a>
+<a class="brand" href="/login" aria-label="Grapim">${mark(26, 'm-auth')}<span>Grapim</span></a>
 <h1>Sign in</h1><p class="lede">Continue with your company account.</p>
 ${notice(error)}
 <form method="get" action="/sso/start" novalidate>
@@ -733,7 +734,7 @@ ${notice(error)}
 <form method="post" action="/login" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>API key</span><input type="password" id="api_key" name="api_key" required autocomplete="off" placeholder="dk_…"></label>
 <button class="btn block">Sign in with API key</button></form>
-${signup ? '<p class="subtle" style="margin-top:16px;text-align:center">New to Delomu? <a href="/signup">Create a free account</a></p>' : ''}
+${signup ? '<p class="subtle" style="margin-top:16px;text-align:center">New to Grapim? <a href="/signup">Create a free account</a></p>' : ''}
 </div>`,
   });
 }
@@ -800,7 +801,7 @@ export function homePage({ user, csrf, nav, now, deployments, review, canWrite }
   const orgs = nav.orgs ?? [];
   if (!deployments.length && canWrite && orgs.length === 1) {
     return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
-<div class="page-head"><div><h1>Welcome to Delomu</h1><p class="sub">Run your first check in about two minutes.</p></div></div>${onboarding(orgs[0], csrf)}` });
+<div class="page-head"><div><h1>Welcome to Grapim</h1><p class="sub">Run your first check in about two minutes.</p></div></div>${onboarding(orgs[0], csrf)}` });
   }
   const broken = deployments.filter(d => d.ov.scans[0]?.summary.broken).length;
   const summary = deployments.length
@@ -882,7 +883,7 @@ export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage
 <div><p class="v num">${live}</p><p class="k">Live</p></div></div>` : '';
   return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
 <div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div>
-<div class="actions"><a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
+<div class="actions">${canManage && clients.length ? `<form method="post" action="${esc(orgPath(org))}/clients/sample"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn ghost" data-busy="Setting up…">${icon('spark')}Add a sample client</button></form>` : ''}<a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
 ${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th><th class="hide-sm">Engineer hours</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
@@ -918,7 +919,7 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 <label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://bot.example.com/chat"></label>
 <label class="field"><span>API key <span class="subtle" style="font-weight:400">(if your endpoint needs one)</span></span><input type="password" name="api_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Sent as a Bearer token. Saved encrypted for this agent and never shown again.</p></label>
 <label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
-<label class="field"><span>Field holding the actions <span class="subtle" style="font-weight:400">(if your agent takes actions)</span></span><input type="text" name="actions" value="${v('actions')}" placeholder="actions"><p class="hint">Dot path to the list of tool calls it made, such as refunds or cancellations. Delomu judges what it did, not only what it said.</p></label>
+<label class="field"><span>Field holding the actions <span class="subtle" style="font-weight:400">(if your agent takes actions)</span></span><input type="text" name="actions" value="${v('actions')}" placeholder="actions"><p class="hint">Dot path to the list of tool calls it made, such as refunds or cancellations. Grapim judges what it did, not only what it said.</p></label>
 </div><div class="conn conn-openai">${section('OpenAI-compatible API', 'Each test message is sent as the user turn of a chat completion; the answer is the first choice.')}
 <label class="field"><span>Chat completions URL</span><input type="url" name="openai_url" value="${v('openai_url')}" placeholder="https://api.openai.com/v1/chat/completions"></label>
 <label class="field"><span>Model</span><input type="text" name="openai_model" maxlength="120" value="${v('openai_model')}" placeholder="the model your agent uses"></label>
@@ -1076,7 +1077,7 @@ export function metricsPage({ user, csrf, nav, org, m }) {
 <div><p class="v num">${m.medianDaysToLive === null ? '—' : m.medianDaysToLive}</p><p class="k">Median days to first live chat</p></div></div>
 <div class="panel-body"><p style="margin:0"><span class="badge ${cls}">${esc(label)}</span> <span class="strong">Gate: deployment 5 takes under half the hours of deployment 1.</span> <span class="subtle">${esc(m.gate.message)}</span></p>
 ${compare}
-<p class="subtle" style="margin:8px 0 0">Service revenue share needs onboarding fees, which Delomu does not record, so it is not shown. Hours come from what engineers log on each agent’s Rollout page.</p></div></section>
+<p class="subtle" style="margin:8px 0 0">Service revenue share needs onboarding fees, which Grapim does not record, so it is not shown. Hours come from what engineers log on each agent’s Rollout page.</p></div></section>
 <section class="panel">${m.deployments.length ? `<div class="scroll"><table><thead><tr><th>#</th><th>AI agent</th><th>Started</th><th>Engineer hours</th><th class="hide-sm">Steps drafted by the agent</th><th class="hide-sm">Days to live</th><th class="hide-sm">Playbook</th></tr></thead><tbody>
 ${rows}
 </tbody></table></div>` : '<div class="emptystate"><span class="strong">No deployments yet</span>Metrics appear once an AI agent is added.</div>'}</section>`;
@@ -1172,7 +1173,7 @@ function connectorPanel({ base, csrf, can, connector: c }) {
   const draft = can.write ? `<form method="post" action="${esc(base)}/agent">${hidden}<input type="hidden" name="task" value="connector"><button class="btn${c ? '' : ' primary'}" data-busy="Drafting…">${icon('spark')}${c ? 'Draft again from the API docs' : 'Draft from the client’s API docs'}</button></form>` : '';
   if (!c) {
     return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2><span class="aside subtle">The tools your agent calls in this client’s systems</span></div><div class="panel-body">
-<p class="subtle" style="margin:0 0 12px">Add the client’s API docs on the Policies tab. The agent drafts one tool per endpoint; once you approve it, Delomu generates the code and tool definitions, with the guard in front of every action.</p>${draft}</div></section>`;
+<p class="subtle" style="margin:0 0 12px">Add the client’s API docs on the Policies tab. The agent drafts one tool per endpoint; once you approve it, Grapim generates the code and tool definitions, with the guard in front of every action.</p>${draft}</div></section>`;
   }
   const acts = c.tools.filter(t => t.kind === 'action').length;
   return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2><span class="badge good">Approved</span><span class="aside subtle">${c.tools.length} tools · ${acts} that act, each checked by the guard first</span></div>
@@ -1297,7 +1298,7 @@ function importPanel({ base, csrf, imports = {} }) {
 <div class="imp-body">${again}<form method="post" action="${esc(base)}/import" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}">
 <div class="row-inline">${s.fields.map(([n, l, ph]) => `<label class="field"><span>${esc(l)}</span><input type="text" name="${n}" value="${esc(st[n] ?? '')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}
 <label class="field" style="flex:1;min-width:220px"><span>${st.saved ? 'New token (optional)' : 'Token'}</span><input type="password" name="token" autocomplete="off" placeholder="${st.saved ? 'Saved encrypted' : ''}"></label></div>
-<p class="hint" style="margin:-8px 0 12px">${esc(s.token)}. Delomu only reads, removes emails, phone and card numbers from tickets, and stores the token encrypted.</p>
+<p class="hint" style="margin:-8px 0 12px">${esc(s.token)}. Grapim only reads, removes emails, phone and card numbers from tickets, and stores the token encrypted.</p>
 <button class="btn primary" data-busy="Importing…">${icon('upload')}Import from ${esc(s.label)}</button></form></div></details>`;
   };
   return `<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Import from the client’s systems</h2><span class="aside subtle">Read-only. No exporting or uploading by hand.</span></div>
@@ -1454,7 +1455,7 @@ ${applied && can.write ? `<form method="post" action="${esc(base)}/fix/revert" s
 <div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p></div>
 ${gaps(fix.gaps)}
 <label class="field" style="margin:0"><span>Extra instructions for your AI <span class="subtle" style="font-weight:400">(edit before approving)</span></span><textarea name="instructions" maxlength="4000" style="min-height:180px;font:13.5px/1.55 var(--font)">${esc(fix.instructions)}</textarea>
-<p class="hint">${target.canApply ? 'Delomu sends these with every message to this AI, so approving applies them right away.' : 'Delomu cannot change this AI directly. Paste these into its instructions (Intercom Fin: Fin, then Guidance; Zendesk: the AI agent\'s instructions), then re-check.'}</p></label>
+<p class="hint">${target.canApply ? 'Grapim sends these with every message to this AI, so approving applies them right away.' : 'Grapim cannot change this AI directly. Paste these into its instructions (Intercom Fin: Fin, then Guidance; Zendesk: the AI agent\'s instructions), then re-check.'}</p></label>
 <div class="row-inline" style="gap:8px;flex-wrap:wrap">${target.canApply ? `<button class="btn primary" name="mode" value="apply" data-busy="Applying…">${icon('check')}Approve, apply and re-check</button>` : `<button class="btn primary" name="mode" value="manual" data-busy="Starting…">${icon('check')}I applied it, re-check</button>`}</div></form></section>`;
   const verdict = s.broken
     ? `<p class="verdict bad num"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
@@ -1609,7 +1610,7 @@ ${usageRow('Live conversations', b.conversations ?? 0, plan.conversationsPerMont
   const cta = p => {
     if (p.id === plan.id) return '<span class="badge accent">Current plan</span>';
     if (p.id === 'team' && plan.id === 'free' && b.configured) return form('checkout', 'Upgrade', true);
-    if (p.id === 'enterprise' || p.id === 'vendor') return sales ? `<a class="btn" href="${esc(sales)}">Contact sales</a>` : '<span class="subtle">Ask your Delomu contact</span>';
+    if (p.id === 'enterprise' || p.id === 'vendor') return sales ? `<a class="btn" href="${esc(sales)}">Contact sales</a>` : '<span class="subtle">Ask your Grapim contact</span>';
     return '';
   };
   const pricing = `<section class="panel"><div class="panel-head"><h2>Plans</h2><span class="aside subtle">Prices in USD, billed monthly</span></div>

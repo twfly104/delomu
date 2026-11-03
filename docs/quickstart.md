@@ -35,5 +35,5 @@ See [v5-guard.md](v5-guard.md).
 
 ## Getting help
 
-Reply to the email that brought you here, or write to the founder. Every result in Delomu shows the clause it comes
+Reply to the email that brought you here, or write to the founder. Every result in Grapim shows the clause it comes
 from; if a verdict looks wrong, tell us which one.

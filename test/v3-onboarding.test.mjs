@@ -51,7 +51,7 @@ test('the demo bot answers like the sample customer, bugs included', async () =>
 
 test('a new engineer gets the first-run guide, a one-click sample customer, and a live risk scan', async () => {
   const eng = await signIn('eng@newco.test');
-  assert.match(eng.home, /Welcome to Delomu/);
+  assert.match(eng.home, /Welcome to Grapim/);
   assert.match(eng.home, /Try it on a sample support bot/);
 
   const org = `/orgs/${o.org.id}`;

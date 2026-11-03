@@ -1,5 +1,5 @@
 // Outbound calls to addresses a tenant chose: the customer's AI, a help desk base URL, an alert webhook, an
-// SSO issuer. On a shared server a tenant must not aim Delomu at the server's own network (localhost, the cloud
+// SSO issuer. On a shared server a tenant must not aim Grapim at the server's own network (localhost, the cloud
 // metadata address, private ranges), so the server turns the guard on and each such call first checks every
 // address the host name resolves to, and refuses redirects. The CLI leaves it off: there localhost is normal.
 // A host that changes its DNS answer between this check and the request itself is not covered here.

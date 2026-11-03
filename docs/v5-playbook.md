@@ -5,7 +5,7 @@ v4 knowledge library ([v4.md](v4.md)) inside the web app, kept separately for ea
 
 ## What goes in
 
-When a client agrees, Delomu adds that client's rollout to the vendor's playbook:
+When a client agrees, Grapim adds that client's rollout to the vendor's playbook:
 
 - the test set (`cases.csv`);
 - the test messages from the latest policy check, each with the behaviour its rule expects, tagged
@@ -34,7 +34,7 @@ Nothing is added without the client's agreement. The agreement can be recorded i
 - **On the Rollout page.** For an agreement made elsewhere, such as a contract or an email, the vendor enters
   who agreed and how, and confirms it.
 
-Delomu stores the agreement in the rollout's `delomu.json` as `library.consent`, `consentedBy`, `consentedAt`
+Grapim stores the agreement in the rollout's `delomu.json` as `library.consent`, `consentedBy`, `consentedAt`
 and `sourceId`. It writes `library.consent` and `library.harvest` to the rollout's audit log.
 
 **Remove from playbook** withdraws the agreement and deletes every entry that rollout added. **Refresh from this

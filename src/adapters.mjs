@@ -88,7 +88,7 @@ function callCommand(target, input, cwd) {
   });
 }
 
-// A target may refer to a key the customer saved in Delomu as ${secret:NAME}. Only the server can read those
+// A target may refer to a key the customer saved in Grapim as ${secret:NAME}. Only the server can read those
 // (src/v3/secrets.mjs registers the resolver); the values replace the references just before the call.
 let secretResolver = null;
 export const setSecretResolver = fn => { secretResolver = fn; };
@@ -97,7 +97,7 @@ const SECRET_REF = /\$\{secret:([A-Z][A-Z0-9_]*)\}/g;
 function withSecrets(target, cwd) {
   const json = JSON.stringify(target ?? {});
   if (!json.includes('${secret:')) return target;
-  if (!secretResolver) throw new Error('this AI agent uses a key saved in Delomu, which only the Delomu server can read');
+  if (!secretResolver) throw new Error('this AI agent uses a key saved in Grapim, which only the Grapim server can read');
   return JSON.parse(json.replace(SECRET_REF, (_, name) => JSON.stringify(secretResolver(name, cwd)).slice(1, -1)));
 }
 

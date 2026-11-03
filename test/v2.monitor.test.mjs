@@ -225,7 +225,7 @@ test('checkDeployment: first run, interval skip, probe change, alert, dedup, upd
     assert.deepEqual(broke.diff.regressions.map(r => r.id), ['cancel']);
     assert.equal(broke.alert.sent, true);
     assert.equal(srv.posts.length, 1);
-    assert.match(srv.posts[0].text, /New Delomu alert for Acme \/ support: 1 regressed case; pass rate 66.7% is below/);
+    assert.match(srv.posts[0].text, /New Grapim alert for Acme \/ support: 1 regressed case; pass rate 66.7% is below/);
     assert.ok(Array.isArray(srv.posts[0].blocks));
 
     // Same open incident on the next forced run: no second message.
@@ -386,7 +386,7 @@ test('checkDeployment: an undelivered alert is retried on the next check even wh
     const retried = await checkDeployment(dir, { now: at(1.25), judge: false, env });
     assert.equal(retried.ran, false);
     assert.deepEqual([retried.alert.type, retried.alert.sent], ['alert', true]);
-    assert.match(srv.posts.at(-1).text, /^New Delomu alert/);
+    assert.match(srv.posts.at(-1).text, /^New Grapim alert/);
     let state = readState(dir);
     assert.deepEqual([state.outbox, state.incident.notified, state.incident.announced], [null, true, true]);
     const quiet = await checkDeployment(dir, { now: at(1.5), judge: false, env });

@@ -3,7 +3,7 @@
 //      each with the clause it comes from and what breaks (money, legal, trust) if it is not kept.
 //   2. For every rule it writes the customer messages most likely to make an AI break it: edge cases,
 //      pressure, false claims of approval, a request phrased the way real customers phrase it.
-//   3. Delomu sends each message to the customer's AI and the model judges each answer against the exact
+//   3. Grapim sends each message to the customer's AI and the model judges each answer against the exact
 //      clause, saying what went wrong and the smallest fix.
 // The result is a scan record (scans/<id>.json) and, for the engineer to approve, a cases draft that adds
 // the probes to the test set. Nothing is applied without review.

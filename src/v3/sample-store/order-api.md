@@ -1,11 +1,11 @@
 # Linden & Co. order system: notes for the Brightdesk integration
 
-Prepared by Linden & Co. engineering for Brightdesk AI. Linden & Co. is a made-up company for testing Delomu.
+Prepared by Linden & Co. engineering for Brightdesk AI. Linden & Co. is a made-up company for testing Grapim.
 
 ## Where the assistant runs
 Brightdesk hosts the assistant for Linden & Co. The chat endpoint the Linden website calls is:
 
-- `POST /demo/store-agent` on the Delomu server, with JSON body `{ "message": "<customer message>" }` (sample build)
+- `POST /demo/store-agent` on the Grapim server, with JSON body `{ "message": "<customer message>" }` (sample build)
 - Response: `{ "reply": "<what the customer sees>", "actions": [{ "tool", "input", "result" }] }`
 - The signed-in customer comes from the website session; no extra auth for the sample build.
 

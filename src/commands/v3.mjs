@@ -29,7 +29,7 @@ export const commands = [
       const deploymentsRoot = path.resolve(flag(args, '--deployments') ?? process.env.DELOMU_DEPLOYMENTS ?? path.join(dataDir, 'deployments'));
       const host = process.env.DELOMU_HOST ?? '127.0.0.1';
       const server = await start(port, { dataDir, deploymentsRoot, host });
-      console.log(`Delomu server listening on http://${host}:${server.address().port} (data ${dataDir}, deployments ${deploymentsRoot}).`);
+      console.log(`Grapim server listening on http://${host}:${server.address().port} (data ${dataDir}, deployments ${deploymentsRoot}).`);
       await new Promise(resolve => {
         const stop = () => { server.close(resolve); server.closeAllConnections(); };
         process.once('SIGINT', stop);

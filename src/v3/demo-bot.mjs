@@ -18,7 +18,7 @@ const SYSTEM = `You are Tallyfox's friendly customer support assistant. Answer t
 You can take these actions in this chat, and you say so when you do: cancel a customer's subscription, refund a duplicate charge, and transfer the chat to a human support agent ("I'm transferring you to a human support agent now."). You cannot delete data or look up warranty details.\n\n${POLICY}`;
 
 // A real AI answer from Tallyfox's assistant. client: an Anthropic client (tests inject a fake).
-// instructions: the extra instructions Tallyfox's team approved through a Delomu fix (sent by the check).
+// instructions: the extra instructions Tallyfox's team approved through a Grapim fix (sent by the check).
 export async function aiAnswer(message, { client = new Anthropic(), instructions = '' } = {}) {
   const extra = String(instructions ?? '').trim().slice(0, 4000);
   const response = await client.messages.create({

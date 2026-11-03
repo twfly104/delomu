@@ -1,6 +1,6 @@
 // Client sign-off: the client opens a link (src/v3/shares.mjs), reads the result of one check and the launch
 // summary, and accepts the AI agent or sends it back with a reason. Decisions are kept in the deployment
-// folder (signoff.json, newest last) and in its audit log; the page itself needs no Delomu account.
+// folder (signoff.json, newest last) and in its audit log; the page itself needs no Grapim account.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -48,9 +48,9 @@ export function signoffPage({ csrf, token, preparedBy, client, name, scan, launc
   return layout({
     title: `Sign off ${name}`,
     body: `<div class="auth-card" style="max-width:640px">
-<span class="brand">${mark(26, 'm-sign')}<span>Delomu</span></span>
+<span class="brand">${mark(26, 'm-sign')}<span>Grapim</span></span>
 <h1>Accept ${esc(name)}${client ? ` for ${esc(client)}` : ''}?</h1>
-<p class="lede">${esc(preparedBy)} asks you to review this AI agent before it goes live. Delomu tested it against your own policies and judged every answer against the exact clause.</p>
+<p class="lede">${esc(preparedBy)} asks you to review this AI agent before it goes live. Grapim tested it against your own policies and judged every answer against the exact clause.</p>
 ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : ''}
 ${scan ? `${verdict}<p><a class="btn block" href="/signoff/${esc(token)}/report.html">Read the full check report</a></p>
 <p class="subtle">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>` : '<p>There is no check to review yet.</p>'}

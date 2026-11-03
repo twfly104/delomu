@@ -1,7 +1,7 @@
 # Inline guard
 
 Live monitoring (`POST .../conversations`) judges an exchange after the customer has already read the
-answer. The inline guard checks the reply **before** it is sent: the customer's code asks Delomu whether
+answer. The inline guard checks the reply **before** it is sent: the customer's code asks Grapim whether
 the reply keeps the company's policy rules, and gets back a decision it can act on immediately.
 
 It uses the same rules as live monitoring (the latest risk scan's), the same scrubbing of emails, phone
@@ -88,7 +88,7 @@ The wording of the prompt follows the deployment's agent kind (`src/v1/kinds.mjs
 
 ## Cost and latency
 
-These depend on your rules and traffic; Delomu has not published measured numbers.
+These depend on your rules and traffic; Grapim has not published measured numbers.
 
 - **Cost:** one model call per check. The prompt holds every rule of the latest scan plus the message and
   reply, so cost grows with the number of rules. A `rewrite` adds output tokens for the safe reply.

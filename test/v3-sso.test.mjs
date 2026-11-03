@@ -52,7 +52,7 @@ async function fakeProvider() {
   });
   issuer = await listen(server);
 
-  // Turns the authorization request Delomu sent into a code, as a real provider would after login.
+  // Turns the authorization request Grapim sent into a code, as a real provider would after login.
   function authorize(location, { claims = {}, signer = {} } = {}) {
     const q = new URL(location).searchParams;
     assert.equal(q.get('response_type'), 'code');

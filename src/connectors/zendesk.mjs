@@ -53,7 +53,7 @@ export function zendeskReply(messages, sent) {
 export async function callZendesk(target, input) {
   const api = client(target);
   const timeoutMs = target.timeoutMs ?? 60_000;
-  const { user } = await api('/users', { method: 'POST', body: { externalId: `delomu-${randomUUID()}`, profile: { givenName: 'Delomu', surname: 'Test' } } });
+  const { user } = await api('/users', { method: 'POST', body: { externalId: `delomu-${randomUUID()}`, profile: { givenName: 'Grapim', surname: 'Test' } } });
   if (!user?.id) throw new ConnectorError('Zendesk did not return a user id');
   const { conversation } = await api('/conversations', { method: 'POST', body: { type: 'personal', participants: [{ userId: user.id }] } });
   if (!conversation?.id) throw new ConnectorError('Zendesk did not return a conversation id');

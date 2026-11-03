@@ -16,7 +16,7 @@ const MANIFEST = {
   ],
 };
 
-// A fake client API and a fake Delomu guard on one local server; the guard blocks L-1006.
+// A fake client API and a fake Grapim guard on one local server; the guard blocks L-1006.
 const calls = [];
 const api = http.createServer((req, res) => {
   let body = '';

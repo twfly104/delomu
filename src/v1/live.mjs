@@ -168,7 +168,7 @@ async function alert(dir, record, { now, fetchImpl, log }) {
   const due = high.filter(v => !(now.getTime() - (sent[v.rule] ?? 0) < ALERT_EVERY_MS));
   if (!due.length) return;
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const text = `Delomu: the live AI broke ${due.length === 1 ? 'a high-risk rule' : `${due.length} high-risk rules`} in a real conversation`;
+  const text = `Grapim: the live AI broke ${due.length === 1 ? 'a high-risk rule' : `${due.length} high-risk rules`} in a real conversation`;
   const lines = due.map(v => `• *${esc(v.text)}* (${esc(v.clause)}): ${esc(v.what_happened)}`);
   try {
     await postWebhook(webhook, { text, blocks: [{ type: 'section', text: { type: 'mrkdwn', text: `*${text}*\n${lines.join('\n')}` } }, { type: 'context', elements: [{ type: 'mrkdwn', text: `Conversation ${record.id}` }] }] }, fetchImpl ? { fetchImpl } : {});

@@ -33,7 +33,7 @@ async function findOrCreateContact(api, externalId) {
   });
   if (found.data?.[0]?.id) return found.data[0];
   try {
-    return await api('/contacts', { method: 'POST', body: { role: 'user', external_id: externalId, name: 'Delomu test' } });
+    return await api('/contacts', { method: 'POST', body: { role: 'user', external_id: externalId, name: 'Grapim test' } });
   } catch (e) {
     // Search can lag behind a contact created moments ago; the conflict error names the existing id.
     const id = e.status === 409 && /id=([0-9a-f]+)/i.exec(e.message)?.[1];

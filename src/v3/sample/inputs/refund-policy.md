@@ -29,4 +29,4 @@ Hand off to a human support agent when the customer asks for one, for warranty q
 (the assistant has no warranty information), and for anything this policy does not cover.
 
 ---
-Tallyfox is a sample company made up for the Delomu demo.
+Tallyfox is a sample company made up for the Grapim demo.

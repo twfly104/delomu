@@ -1,6 +1,6 @@
 # Subprocessors
 
-The third parties that can receive customer data when Delomu runs. A self-hosted install uses only the ones its
+The third parties that can receive customer data when Grapim runs. A self-hosted install uses only the ones its
 operator configures.
 
 | Subprocessor | What it receives | Why | When |

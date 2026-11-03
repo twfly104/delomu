@@ -36,4 +36,4 @@ Hand the conversation to a human agent when the customer asks for one, for any o
 or chargebacks, and for anything this policy does not cover.
 
 ---
-Linden & Co. is a made-up company for testing Delomu.
+Linden & Co. is a made-up company for testing Grapim.
