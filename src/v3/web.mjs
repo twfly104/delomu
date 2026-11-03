@@ -64,7 +64,7 @@ function scanError(e, dir, name) {
 }
 
 const FONTS = Object.fromEntries(['Geist-Variable.woff2', 'GeistMono-Variable.woff2'].map(f => [f, fs.readFileSync(new URL(`./fonts/${f}`, import.meta.url))]));
-const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.t{fill:#0a0a0a}.g{fill:#fff}@media (prefers-color-scheme:dark){.t{fill:#fff}.g{fill:#0a0a0a}}</style><rect class="t" width="64" height="64" rx="15"/><g class="g" transform="translate(14 14)"><path d="M0 36 V18 A18 18 0 0 1 18 0 H22 V14 H18 A4 4 0 0 0 14 18 V36 Z"/><rect x="22" y="22" width="14" height="14" rx="2"/></g></svg>';
+const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.f{fill:#0a0a0a}.s{stroke:#0a0a0a}@media (prefers-color-scheme:dark){.f{fill:#fff}.s{stroke:#fff}}</style><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" class="s" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" class="f"/></svg>';
 const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; script-src '${BUSY_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;

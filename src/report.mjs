@@ -80,7 +80,7 @@ footer{margin-top:48px;padding-top:16px;border-top:1px solid var(--line);font-si
 @media (max-width:640px){.io{grid-template-columns:1fr}main{padding:24px 16px 56px}}
 @media print{body{background:#fff}.case{break-inside:avoid}details.case:not([open])>*:not(summary){display:block}}
 </style></head><body><main>
-<div class="top"><svg width="18" height="18" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#0a0a0a"/><g transform="translate(14 14)" fill="#fff"><path d="M0 36 V18 A18 18 0 0 1 18 0 H22 V14 H18 A4 4 0 0 0 14 18 V36 Z"/><rect x="22" y="22" width="14" height="14" rx="2"/></g></svg>Grapim</div>
+<div class="top"><svg width="18" height="18" viewBox="0 0 64 64" aria-hidden="true"><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" stroke="currentColor" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" fill="currentColor"/></svg>Grapim</div>
 <h1>Acceptance report</h1>
 <p class="meta">${esc(r.customer)} · ${esc(r.deployment)} · ${esc(r.generatedAt.slice(0, 10))}</p>
 

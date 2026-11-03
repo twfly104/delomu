@@ -473,9 +473,9 @@ const VERDICT = { accepted: ['good', 'Accepted'], not_accepted: ['bad', 'Not acc
 export const verdictBadge = v => { const [cls, text] = VERDICT[v] ?? ['', v]; return `<span class="badge ${cls}">${esc(text)}</span>`; };
 
 // The Grapim mark: a "D" cut by one diagonal slash (assets/brand/delomu-mark.svg), drawn in the text colour.
-// The Grapim mark: the corner G (a quarter-round corner and a square) in white on a black tile; white tile and
-// black G in dark mode. id is unused and kept for callers.
-export const mark = (size, id) => `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true" data-mark="${id}"><rect width="64" height="64" rx="15" fill="currentColor"/><g transform="translate(14 14)" style="fill:var(--canvas,#fff)"><path d="M0 36 V18 A18 18 0 0 1 18 0 H22 V14 H18 A4 4 0 0 0 14 18 V36 Z"/><rect x="22" y="22" width="14" height="14" rx="2"/></g></svg>`;
+// The Grapim mark: a solid rounded tile in front of an outlined diamond, in the text color (black, or white in
+// dark mode). id is unused and kept for callers.
+export const mark = (size, id) => `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true" data-mark="${id}"><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" stroke="currentColor" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" fill="currentColor"/></svg>`;
 
 // nav: { orgs, org?, active, pending, canAudit, billingOrgs (Set of org ids where Billing shows) }
 function rail({ user, csrf, nav = {} }) {

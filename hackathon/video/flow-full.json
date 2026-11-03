@@ -13,7 +13,7 @@
   { "wait": 1.5 },
   { "click": "Open a sample client" },
 
-  { "mark": "rollout", "caption": "One click: Delomu drafts every step from the client's own material, then runs the policy check", "speed": 1 },
+  { "mark": "rollout", "caption": "One click: Grapim drafts every step from the client's own material, then runs the policy check", "speed": 1 },
   { "wait": 2 },
   { "click": "Run the rollout" },
   { "wait": 3 },
@@ -32,7 +32,7 @@
   { "click": "Approve and apply", "selector": "form[action*='-cases-'] button" },
   { "wait": 2 },
   { "go": "/__ROLLOUT__" },
-  { "mark": "code", "caption": "Approved: Delomu generates the code, and every action asks the guard before it runs", "speed": 1 },
+  { "mark": "code", "caption": "Approved: Grapim generates the code, and every action asks the guard before it runs", "speed": 1 },
   { "scrollTo": "Client-system connector", "hold": 5 },
 
   { "go": "/__SCAN__" },
