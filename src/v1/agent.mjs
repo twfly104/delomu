@@ -111,22 +111,29 @@ export function toTarget(a) {
   };
 }
 
-export async function draftIntegration(dir, { llm, now = new Date(), limits } = {}) {
+// examples: de-identified integration templates from the vendor's earlier rollouts (src/v3/playbook.mjs), shown
+// to the model as shapes to start from; the client's own docs still decide every endpoint and field.
+export async function draftIntegration(dir, { llm, now = new Date(), limits, examples = [] } = {}) {
   preflight(dir, llm);
   const reader = createInputReader(dir, limits);
   const { docs, notes } = readMaterial(reader, rel => !isCsv(rel));
   if (!docs.length) return failure(dir, 'integration', `no readable docs (non-CSV files) in ${reader.root}`);
   const mappingFile = path.join(dir, 'mapping.json');
   const mapping = fs.existsSync(mappingFile) ? `\n\nApproved data mapping (Delomu's own file):\n<run_data>\n${neutral(fs.readFileSync(mappingFile, 'utf8'))}\n</run_data>` : '';
+  const shapes = examples.length ? `\n\nIntegration shapes this team approved for earlier clients (de-identified: [HOST] and [VALUE] are placeholders). Start from one if this client's docs describe the same kind of API; never copy a placeholder or a field the docs do not show:\n<run_data>\n${neutral(JSON.stringify(examples, null, 1))}\n</run_data>` : '';
 
-  const r = await ask(llm, 'integration', `Draft the integration target.${mapping}\n\n${materialBlock(docs, notes)}`, integrationSchema);
+  const r = await ask(llm, 'integration', `Draft the integration target.${mapping}${shapes}\n\n${materialBlock(docs, notes)}`, integrationSchema);
   if (!r.ok) return failure(dir, 'integration', REFUSALS[r.reason] ?? r.reason);
   const { target, problem } = toTarget(r.data);
   const content = { target, notes: r.data.notes };
   const problems = problem ? [problem] : validateIntegration(content);
   if (problems.length) return failure(dir, 'integration', `model output failed validation: ${problems.join('; ')}`);
-  return { ok: true, drafts: [createDraft(dir, { kind: 'integration', step: 2, content, rationale: r.data.rationale }, now)] };
+  const basis = examples.length ? `\n${PLAYBOOK_NOTE} ${examples.length} integration shape${examples.length === 1 ? '' : 's'} from earlier rollouts.` : '';
+  return { ok: true, drafts: [createDraft(dir, { kind: 'integration', step: 2, content, rationale: `${r.data.rationale}${basis}` }, now)] };
 }
+
+// Marks a draft the playbook helped with, so Deployment metrics can compare rollouts with and without it.
+export const PLAYBOOK_NOTE = 'Started from your playbook:';
 
 // Past tickets from every CSV in inputs/, each with a stable ticket id for traceability.
 function readTickets(docs) {

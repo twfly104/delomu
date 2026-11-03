@@ -605,7 +605,7 @@ export function landingPage({ signup = false, plans }) {
 </div></section>
 
 <section class="lp-chapter">
-<div class="lp-ch-head"><h2>Client rollouts<br>and sign-off</h2><div><p>For AI vendors. Every client gets its own workspace. One click drafts the data mapping, the integration and the test set from the client’s own material, then the check runs on their policy. The client accepts from a link.</p><a class="lp-more" href="${start}">Open a sample client ${icon('arrow', { size: 14 })}</a></div></div>
+<div class="lp-ch-head"><h2>Client rollouts<br>and sign-off</h2><div><p>For AI vendors. Every client gets its own workspace. One click drafts the data mapping, the integration and the test set from the client’s own material, starting from your earlier rollouts, then the check runs on their policy. The client accepts from a link.</p><a class="lp-more" href="${start}">Open a sample client ${icon('arrow', { size: 14 })}</a></div></div>
 <div class="lp-comp" aria-label="The clients page and a client sign-off">
 <div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Clients</span><span class="subtle">3 workspaces</span></div>
 <table class="lp-clients"><thead><tr><th>Client</th><th>Rollout</th><th>Check</th><th>Status</th></tr></thead><tbody>
@@ -617,7 +617,7 @@ export function landingPage({ signup = false, plans }) {
 <div class="lp-p-body"><p class="subtle">Linden &amp; Co. · Lia, store agent</p><p class="lp-big">8 of 8 rules kept</p><p class="subtle">After one approved fix, on the same messages.</p>
 <div class="lp-accepted">${icon('check', { size: 14 })}<span><span class="strong">Accepted</span> by the client’s head of support</span></div></div></div>
 </div>
-<div class="lp-feats"><span class="subtle">Features</span><ul><li>Workspace per client</li><li>One-click rollout drafts</li><li>Sign-off links</li><li>Engineer hours per rollout</li></ul></div>
+<div class="lp-feats"><span class="subtle">Features</span><ul><li>Workspace per client</li><li>One-click rollout drafts</li><li>A playbook from past rollouts</li><li>Sign-off links</li></ul></div>
 </section>
 
 <section class="lp-chapter">
@@ -655,7 +655,7 @@ export function landingPage({ signup = false, plans }) {
 <div class="lp-panel lp-p-float"><div class="lp-p-bar"><span class="strong">Evidence pack</span><span class="subtle">Lia, store agent</span></div>
 <div class="lp-ev"><div><span class="n">2</span><span class="subtle">Rules found broken</span></div><div><span class="n ok">2</span><span class="subtle">Fixed and re-checked</span></div><div><span class="n">1</span><span class="subtle">Approval by a person</span></div><div><span class="n ok">${icon('check', { size: 22 })}</span><span class="subtle">Audit chain verified</span></div></div></div>
 </div>
-<div class="lp-feats"><span class="subtle">Trust</span><ul><li>A person approves every change</li><li>Keys stored encrypted</li><li>Data never crosses workspaces</li><li>Personal data scrubbed before judging</li></ul></div>
+<div class="lp-feats"><span class="subtle">Trust</span><ul><li>A person approves every change</li><li>Keys stored encrypted</li><li>Client data stays in its workspace</li><li>Personal data scrubbed before judging</li></ul></div>
 </section>
 
 <section class="lp-end"><h2>Find the rule your agent breaks before a customer does.</h2>
@@ -680,7 +680,7 @@ export function pricingPage({ signup = false, plans = {} }) {
     { name: 'Team', price: usd(team.monthlyUsd ?? 499), per: '/month', for: 'For a company running its own AI agent.', act: `<a class="btn primary" href="${start}">${cta}</a>`,
       items: [`${team.includedActiveDeployments ?? 5} AI agents, ${usd(team.extraActiveDeploymentUsd ?? 99)} per extra`, 'Unlimited checks', `${num(team.conversationsPerMonth ?? 10000)} live conversations a month`, 'Drafted fixes and re-checks', 'The guard API for replies and actions', 'Slack alerts'] },
     { name: 'Vendor', tag: 'For AI vendors', price: usd(vendor.monthlyUsd ?? 1500), per: '/month', for: 'For AI vendors rolling an agent out to clients.', pick: true, act: `<a class="btn primary" href="${start}">${cta}</a>`,
-      items: [`${vendor.includedActiveDeployments ?? 5} client workspaces, ${usd(vendor.extraActiveDeploymentUsd ?? 200)} per extra`, 'Everything in Team', `${num(vendor.conversationsPerMonth ?? 50000)} live conversations a month`, 'One-click rollout drafts per client', 'Client sign-off links, no account needed', 'Engineer hours and rollout metrics'] },
+      items: [`${vendor.includedActiveDeployments ?? 5} client workspaces, ${usd(vendor.extraActiveDeploymentUsd ?? 200)} per extra`, 'Everything in Team', `${num(vendor.conversationsPerMonth ?? 50000)} live conversations a month`, 'One-click rollout drafts per client', 'A playbook: each rollout starts from earlier ones, with client consent', 'Client sign-off links, no account needed', 'Engineer hours and rollout metrics'] },
     { name: 'Enterprise', price: 'Custom', per: '', for: 'For security reviews and contract terms.', act: '',
       items: ['Single sign-on', 'Self-hosting', 'Contract terms and invoicing', 'Custom limits'] },
   ];
@@ -1052,15 +1052,21 @@ export function metricsPage({ user, csrf, nav, org, m }) {
 <td class="subtle nowrap">${esc(fmtDate(d.startedAt))}</td>
 <td class="num">${d.hours ? h(d.hours) : '<span class="subtle">None logged</span>'}</td>
 <td class="hide-sm num">${d.stepsDone ? `${d.stepsDrafted} of ${d.stepsDone}` : '<span class="subtle">—</span>'}</td>
-<td class="hide-sm num">${d.daysToLive === null ? '<span class="subtle">Not live</span>' : `${d.daysToLive} day${d.daysToLive === 1 ? '' : 's'}`}</td></tr>`).join('\n');
+<td class="hide-sm num">${d.daysToLive === null ? '<span class="subtle">Not live</span>' : `${d.daysToLive} day${d.daysToLive === 1 ? '' : 's'}`}</td>
+<td class="hide-sm">${d.usedPlaybook ? `<span class="badge good">Used</span>${d.playbookCases ? ` <span class="subtle num">${d.playbookCases} msgs</span>` : ''}` : '<span class="subtle">—</span>'}</td></tr>`).join('\n');
+  const pb = m.playbook;
+  const compare = pb && pb.withIt.count && pb.without.count
+    ? `<p style="margin:8px 0 0"><span class="strong">With your playbook: ${h(pb.withIt.averageHours)} per rollout</span> <span class="subtle">(${pb.withIt.count}) against ${h(pb.without.averageHours)} without (${pb.without.count}), from logged hours.</span></p>`
+    : `<p class="subtle" style="margin:8px 0 0">${pb?.used ? `${pb.used} rollout${pb.used === 1 ? '' : 's'} started from your playbook.` : 'No rollout has started from your playbook yet.'} Log hours on rollouts with and without it to compare.</p>`;
   const body = `<div class="page-head"><div><h1>Deployment metrics</h1><p class="sub">${esc(org.name)} · ${m.deployments.length} deployment${m.deployments.length === 1 ? '' : 's'}, oldest first</p></div></div>
 <section class="panel"><div class="stats">
 <div><p class="v num">${h(m.totalHours)}</p><p class="k">Engineer hours logged</p></div>
 <div><p class="v num">${m.automation === null ? '—' : `${Math.round(m.automation * 100)}%`}</p><p class="k">Finished steps drafted by the agent</p></div>
 <div><p class="v num">${m.medianDaysToLive === null ? '—' : m.medianDaysToLive}</p><p class="k">Median days to first live chat</p></div></div>
 <div class="panel-body"><p style="margin:0"><span class="badge ${cls}">${esc(label)}</span> <span class="strong">Gate: deployment 5 takes under half the hours of deployment 1.</span> <span class="subtle">${esc(m.gate.message)}</span></p>
+${compare}
 <p class="subtle" style="margin:8px 0 0">Service revenue share needs onboarding fees, which Delomu does not record, so it is not shown. Hours come from what engineers log on each agent’s Rollout page.</p></div></section>
-<section class="panel">${m.deployments.length ? `<div class="scroll"><table><thead><tr><th>#</th><th>AI agent</th><th>Started</th><th>Engineer hours</th><th class="hide-sm">Steps drafted by the agent</th><th class="hide-sm">Days to live</th></tr></thead><tbody>
+<section class="panel">${m.deployments.length ? `<div class="scroll"><table><thead><tr><th>#</th><th>AI agent</th><th>Started</th><th>Engineer hours</th><th class="hide-sm">Steps drafted by the agent</th><th class="hide-sm">Days to live</th><th class="hide-sm">Playbook</th></tr></thead><tbody>
 ${rows}
 </tbody></table></div>` : '<div class="emptystate"><span class="strong">No deployments yet</span>Metrics appear once an AI agent is added.</div>'}</section>`;
   return layout({ title: 'Deployment metrics', user, csrf, nav: { ...nav, org, active: org.kind === 'partner' ? 'clients' : 'deployments' }, crumbs: [[org.kind === 'partner' ? 'Clients' : 'AI agents', orgPath(org)], ['Metrics']], body });
@@ -1086,8 +1092,36 @@ ${active ? `<form method="post" action="${esc(base)}/signoff/revoke">${hidden}<b
   return `<section class="panel"><div class="panel-head"><h2>Client sign-off</h2></div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}</div></section>`;
 }
 
+// The playbook on the Rollout page: what the vendor's library holds, whether this client agreed to reuse, and the
+// controls to record an agreement, refresh this rollout's entries or remove them.
+function playbookPanel({ base, csrf, can, playbook }) {
+  if (!playbook) return '';
+  const { stats, consent, contributed: inIt } = playbook;
+  const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
+  const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+  const holds = stats
+    ? `${n(stats.byKind.case ?? 0, 'test message', 'test messages')} and ${n(stats.byKind.integration ?? 0, 'integration shape', 'integration shapes')} from ${n(stats.sources, 'rollout', 'rollouts')}`
+    : 'Empty';
+  const button = (action, label, cls = '') => `<form method="post" action="${esc(base)}/playbook">${hidden}<input type="hidden" name="action" value="${action}"><button class="btn${cls}" data-busy="Saving…">${label}</button></form>`;
+  let state;
+  if (inIt) {
+    state = `<p style="margin:0"><span class="badge good">In your playbook</span> Agreed by ${esc(consent?.by ?? 'the client')} on ${esc(consent?.at ?? '')}.</p>
+${can.write ? `<div class="row-inline" style="margin-top:12px">${button('refresh', `${icon('spark')}Refresh from this rollout`)}${button('withdraw', 'Remove from playbook', ' ghost')}</div>` : ''}`;
+  } else if (consent) {
+    state = `<p style="margin:0">Agreed by ${esc(consent.by)} on ${esc(consent.at)}, not added yet.</p>${can.write ? `<div class="row-inline" style="margin-top:12px">${button('refresh', `${icon('plus')}Add to playbook`, ' primary')}${button('withdraw', 'Withdraw agreement', ' ghost')}</div>` : ''}`;
+  } else {
+    state = `<p style="margin:0" class="subtle">Not in your playbook. The client can agree on the sign-off page, or record an agreement made elsewhere.</p>
+${can.write ? `<form method="post" action="${esc(base)}/playbook" style="margin-top:12px" novalidate>${hidden}<input type="hidden" name="action" value="consent">
+<div class="row-inline"><label class="field" style="flex:1;margin:0"><span>Who agreed, and how</span><input type="text" name="by" maxlength="160" placeholder="Dana Lee, Head of Support, contract §4"></label></div>
+<label class="check" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0"><input type="checkbox" name="confirm" value="yes"><span>The client agreed in writing that de-identified test messages and the integration shape from this rollout may be reused for our other clients.</span></label>
+<button class="btn" data-busy="Adding…">${icon('plus')}Record agreement and add</button></form>` : ''}`;
+  }
+  return `<section class="panel"><div class="panel-head"><h2>Playbook</h2><span class="aside subtle">${esc(holds)}</span></div><div class="panel-body">
+<p class="subtle" style="margin:0 0 12px">Each new rollout starts from earlier clients’ test messages and integration shapes, with names, contacts, keys and order data removed.</p>${state}</div></section>`;
+}
+
 export function rolloutPage(args) {
-  const { org, name, ov, csrf, can, rollout, signoff = {} } = args;
+  const { org, name, ov, csrf, can, rollout, signoff = {}, playbook } = args;
   const base = depPath(org, name);
   const badge = ([cls, text]) => `<span class="badge ${cls}${cls === 'accent' ? ' plain' : ''}">${esc(text)}</span>`;
   const running = rollout?.status === 'running';
@@ -1096,8 +1130,8 @@ export function rolloutPage(args) {
   const job = rollout ? `<div class="rows">${rollout.steps.map(s => `<div class="row">${icon(s.state === 'done' ? 'check' : s.state === 'failed' ? 'alert' : 'clock')}<div class="what"><p class="strong">${esc(s.label)}</p>${s.detail ? `<p class="subtle">${esc(s.detail)}</p>` : ''}</div>${badge(ROLLOUT_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>` : '';
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
-  const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
-<p class="panel-body subtle" style="margin:0">Drafts the mapping, integration and test set, then runs the check. You approve every draft.</p>
+  const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}${playbookPanel({ base, csrf, can, playbook })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
+<p class="panel-body subtle" style="margin:0">Drafts the mapping, integration and test set, adds matching test messages from your playbook, then runs the check. You approve every draft.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
 <p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>

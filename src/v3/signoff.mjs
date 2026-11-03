@@ -43,6 +43,7 @@ export function signoffPage({ csrf, token, preparedBy, client, name, scan, launc
 <label><input type="radio" name="decision" value="accepted"${values.decision === 'declined' ? '' : ' checked'}><span><span class="strong">Accept this AI agent</span></span></label>
 <label><input type="radio" name="decision" value="declined"${values.decision === 'declined' ? ' checked' : ''}><span><span class="strong">Send it back</span><span class="hint" style="display:block;margin:2px 0 0">Say what must change in the note.</span></span></label></div></div>
 <label class="field"><span>Note <span class="subtle" style="font-weight:400">(optional)</span></span><textarea name="note" maxlength="${MAX_NOTE}" rows="3">${esc(values.note ?? '')}</textarea></label>
+<label class="check" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 16px"><input type="checkbox" name="reuse" value="yes"${values.reuse ? ' checked' : ''}><span><span class="strong">Let ${esc(preparedBy)} reuse what it learned here</span><span class="hint" style="display:block;margin:2px 0 0">Test messages and the shape of the integration, with names, contact details, keys and order data removed, for its other rollouts. Only with “Accept”. Ask ${esc(preparedBy)} to remove it at any time.</span></span></label>
 <button class="btn primary block" data-busy="Saving…">Record my decision</button></form>`;
   return layout({
     title: `Sign off ${name}`,

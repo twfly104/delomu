@@ -15,6 +15,7 @@ import { deploymentMetrics } from './metrics.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { getScan, listScans, recheck } from '../v1/risk.mjs';
 import { PLANS as PLAN_LIST } from './billing.mjs';
+import { addToPlaybook, consentOf, contributed, integrationExamples, playbookStats, removeFromPlaybook, setConsent, suggestFromPlaybook } from './playbook.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
@@ -69,7 +70,7 @@ const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
 const REPLAY_LIMIT = 6;
 const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report'];
 // What one click on Run the rollout does, in order. Fixes and the launch report follow a test run, so they come later.
-const ROLLOUT_STEPS = [['mapping', 'Draft the data mapping'], ['integration', 'Draft the integration'], ['cases', 'Draft the test set'], ['check', 'Run the policy check']];
+const ROLLOUT_STEPS = [['mapping', 'Draft the data mapping'], ['integration', 'Draft the integration'], ['cases', 'Draft the test set'], ['playbook', 'Add test messages from your playbook'], ['check', 'Run the policy check']];
 const NOTICES = {
   created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
@@ -86,6 +87,7 @@ const NOTICES = {
   replayed: 'Sample traffic checked. Every conversation below was judged against the policy rules.',
   alerts: 'Alert settings saved.',
   hours: 'Hours logged. They count toward Deployment metrics.',
+  playbook: 'Playbook updated.',
 };
 
 class Redirect {
@@ -559,6 +561,7 @@ function routes(ctx) {
   // One click for the whole rollout (src/v1/agent.mjs): the agent drafts the data mapping, the integration and
   // the test set, each as a draft a person reviews, then the policy check runs. Nothing is applied without a person.
   const rollouts = new Map();
+  const playbookOwner = org => org.partner_org_id ?? org.id;
   r.add('POST', '/orgs/:org/deployments/:name/rollout', async ({ req, principal, params }) => {
     const form = await readForm(req, ctx.maxBodyBytes);
     requireCsrf(principal, form);
@@ -571,10 +574,20 @@ function routes(ctx) {
     rollouts.set(dir, job);
     event(ctx, principal, org.id, 'rollout.start', params.name);
     const llm = ctx.llm ?? createLlm();
+    const play = { root: ctx.deploymentsRoot, pepper: ctx.pepper, ownerId: playbookOwner(org), dir, now: ctx.now() };
     job.done = (async () => {
       for (const step of job.steps) {
         step.state = 'running';
         try {
+          if (step.key === 'playbook') {
+            if (!playbookStats(play.root, play.ownerId)) { Object.assign(step, { state: 'skipped', detail: 'Your playbook is empty. It fills when a client agrees to reuse at sign-off.' }); continue; }
+            let draft = null;
+            try { draft = suggestFromPlaybook(play); } catch { /* nothing to match on yet */ }
+            if (!draft) { Object.assign(step, { state: 'skipped', detail: 'Nothing in your playbook matches this client yet.' }); continue; }
+            event(ctx, principal, org.id, 'agent.draft', `${params.name}/playbook`, { drafts: [draft.id], via: 'rollout' });
+            Object.assign(step, { state: 'done', detail: `${draft.content.rows.length} test message${draft.content.rows.length === 1 ? '' : 's'} from earlier clients, waiting for review.` });
+            continue;
+          }
           if (step.key === 'check') {
             const inputs = path.join(dir, 'inputs');
             if (!fs.existsSync(inputs) || !fs.readdirSync(inputs, { withFileTypes: true }).some(e => e.isFile() && !e.name.toLowerCase().endsWith('.csv'))) {
@@ -587,7 +600,7 @@ function routes(ctx) {
             Object.assign(step, scan.status === 'done' ? { state: 'done', detail: 'Check finished.' } : { state: 'failed', detail: scan.error });
             continue;
           }
-          const result = await TASKS[step.key](dir, { llm });
+          const result = await TASKS[step.key](dir, { llm, ...(step.key === 'integration' && { examples: integrationExamples(play) }) });
           if (!result.ok) Object.assign(step, { state: 'skipped', detail: result.reason });
           else {
             event(ctx, principal, org.id, 'agent.draft', `${params.name}/${step.key}`, { drafts: result.drafts.map(d => d.id), via: 'rollout' });
@@ -635,9 +648,43 @@ function routes(ctx) {
     freshLinks.delete(principal.token);
     const job = rollouts.get(ws.dir);
     const signoff = { latest: latestSignoff(ws.dir), active: activeShares(db, ws.org.id, params.name, 'signoff', ctx.now()).length, link: extra.link ?? fresh };
-    return html(rolloutPage({ ...ws, rollout: job, signoff, error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
+    const owner = playbookOwner(ws.org);
+    const playbook = { stats: playbookStats(ctx.deploymentsRoot, owner), consent: consentOf(ws.dir), contributed: contributed(ctx.deploymentsRoot, ctx.pepper, owner, ws.dir), vendor: ws.org.partner_org_id ? getOrg(db, ws.org.partner_org_id)?.name : ws.org.name };
+    return html(rolloutPage({ ...ws, rollout: job, signoff, playbook, error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
   };
   r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => showRollout(principal, params, url));
+
+  // The playbook (src/v3/playbook.mjs): record that the client agreed to reuse elsewhere (a contract, an email),
+  // withdraw it, which removes this rollout's entries, or refresh them after the rollout changed.
+  r.add('POST', '/orgs/:org/deployments/:name/playbook', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const play = { root: ctx.deploymentsRoot, pepper: ctx.pepper, ownerId: playbookOwner(org), dir, now: ctx.now() };
+    const action = String(form.action ?? '');
+    try {
+      if (action === 'consent') {
+        const by = String(form.by ?? '').trim();
+        if (!by) return showRollout(principal, params, null, { error: 'Enter who at the client agreed, and how (for example “Dana Lee, contract §4”).' }, 400);
+        if (form.confirm !== 'yes') return showRollout(principal, params, null, { error: 'Confirm that the client agreed before adding their rollout to your playbook.' }, 400);
+        setConsent(dir, { consent: true, by, names: [org.name, loadConfig(dir).customer].filter(Boolean), actor: principal.actor }, ctx.now());
+        const res = addToPlaybook({ ...play, by: principal.email });
+        event(ctx, principal, org.id, 'playbook.add', params.name, { entries: res.added });
+      } else if (action === 'refresh') {
+        const res = addToPlaybook({ ...play, by: principal.email });
+        event(ctx, principal, org.id, 'playbook.add', params.name, { entries: res.added });
+      } else if (action === 'withdraw') {
+        setConsent(dir, { consent: false, actor: principal.actor }, ctx.now());
+        const res = removeFromPlaybook(play);
+        event(ctx, principal, org.id, 'playbook.remove', params.name, { entries: res.removed });
+      } else throw new ApiError('invalid_request_error', 'Unknown playbook action.');
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+      return showRollout(principal, params, null, { error: `The playbook could not be updated: ${String(e.message ?? e).split(dir).join(params.name)}` }, 400);
+    }
+    return new Redirect(`${depPath(org, params.name)}/rollout?notice=playbook`);
+  });
 
   // Client sign-off (src/v3/signoff.mjs): a link to the latest check, shown once, that the client opens without
   // an account to accept the AI agent or send it back.
@@ -695,13 +742,20 @@ function routes(ctx) {
     const c = signoffContext(params.token);
     const form = await readForm(req, ctx.maxBodyBytes);
     requireCsrf(parseCookies(req.headers.cookie)[SIGNOFF_CSRF] ?? '', form);
-    const values = { name: String(form.name ?? '').trim(), decision: form.decision === 'declined' ? 'declined' : 'accepted', note: String(form.note ?? '') };
+    const values = { name: String(form.name ?? '').trim(), decision: form.decision === 'declined' ? 'declined' : 'accepted', note: String(form.note ?? ''), reuse: form.reuse === 'yes' };
     const again = (error, status) => html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, error, values }), status);
     if (c.done || !c.scan) return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done: c.done }), 409);
     if (!signoffLimit(ctx.clientIp(req)).ok) return again('Too many attempts from this network. Try again in a few minutes.', 429);
     if (!values.name) return again('Enter your name so the team knows who decided.', 400);
     const done = recordSignoff(c.dir, { ...values, scanId: c.scan.id, shareId: c.share.id, ip: ctx.clientIp(req) }, ctx.now());
     recordEvent(db, { orgId: c.share.org_id, actor: `client:${done.name}`, action: `signoff.${done.decision}`, target: c.share.deployment, detail: { scan: c.scan.id, share: c.share.id }, ip: ctx.clientIp(req) }, ctx.now());
+    if (values.reuse && done.decision === 'accepted') {
+      try {
+        setConsent(c.dir, { consent: true, by: `${done.name} (sign-off)`, names: [c.org.name, c.config.customer, done.name].filter(Boolean), actor: `client:${done.name}` }, ctx.now());
+        const res = addToPlaybook({ root: ctx.deploymentsRoot, pepper: ctx.pepper, ownerId: playbookOwner(c.org), dir: c.dir, by: `client:${done.name}`, now: ctx.now() });
+        recordEvent(db, { orgId: c.share.org_id, actor: `client:${done.name}`, action: 'playbook.add', target: c.share.deployment, detail: { entries: res.added }, ip: ctx.clientIp(req) }, ctx.now());
+      } catch (e) { ctx.log(`playbook harvest failed for ${c.share.deployment}: ${e.message}`); }
+    }
     return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done }));
   }, { public: true });
 

@@ -23,6 +23,7 @@ test('scrub: payment cards are Luhn-checked', () => {
   assert.equal(s('card 4111 1111 1111 1111.').text, 'card [CARD].');
   assert.equal(s('card 5500-0000-0000-0004').text, 'card [CARD]');
   assert.equal(s('amex 378282246310005').text, 'amex [CARD]');
+  assert.equal(s('charged card 4111 1111 1111 1111 40 days ago').text, 'charged card [CARD] 40 days ago', 'a number right after a card');
   assert.equal(luhn('4111111111111111'), true);
   assert.equal(luhn('4111111111111112'), false);
   assert.equal(s('ref 4111111111111112').found.card, undefined);

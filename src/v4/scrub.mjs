@@ -140,9 +140,16 @@ export function scrub(text, { names = [], patterns = {} } = {}) {
     }
     return m;
   });
+  // A card number followed by another number ("card 4111 1111 1111 1111 40 days ago") reads as one long run, so
+  // when the whole run fails, the longest leading groups that make a valid card are replaced and the rest kept.
+  const isCard = d => d.length >= 13 && d.length <= 19 && luhn(d);
   out = replaceOutside(out, CARD_RE, m => {
-    const d = digitsOf(m);
-    return d.length >= 13 && d.length <= 19 && luhn(d) ? swap('card')() : m;
+    if (isCard(digitsOf(m))) return swap('card')();
+    const cuts = [...m.matchAll(/[ -]/g)].map(x => x.index).reverse();
+    for (const at of cuts) {
+      if (isCard(digitsOf(m.slice(0, at)))) return `${swap('card')()}${m.slice(at)}`;
+    }
+    return m;
   });
   out = replaceOutside(out, SSN_RE, swap('ssn'));
   out = replaceOutside(out, IPV6_RE, m => (m.includes('::') || m.split(':').length === 8) && net.isIPv6(m) ? swap('ip')() : m);

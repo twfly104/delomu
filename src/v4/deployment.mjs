@@ -53,7 +53,10 @@ export function sourceHash(dir, config, env = process.env) {
   const salt = env.DELOMU_LIBRARY_SALT;
   if (!salt) throw new Error('DELOMU_LIBRARY_SALT is not set; set it to a long random secret shared by everyone who writes to this library');
   if (salt.length < MIN_SALT_LENGTH) throw new Error(`DELOMU_LIBRARY_SALT must be at least ${MIN_SALT_LENGTH} characters`);
-  const identity = `${config.customer ?? path.basename(path.resolve(dir))}\u0000${config.name ?? 'deployment'}`;
+  // library.sourceId, when set (the web app sets org/deployment), keeps two deployments with the same customer
+  // and name apart; otherwise the customer and deployment name identify it.
+  const id = config.library?.sourceId;
+  const identity = typeof id === 'string' && id.trim() ? `id\u0000${id.trim()}` : `${config.customer ?? path.basename(path.resolve(dir))}\u0000${config.name ?? 'deployment'}`;
   return crypto.createHmac('sha256', salt).update(identity).digest('hex').slice(0, 32);
 }
 
@@ -84,6 +87,26 @@ export function readCaseRows(dir) {
   return parseCsv(text).map((r, i) => ({ ...r, id: r.id || `case-${i + 1}` }))
     .filter(r => valid.has(r.id) && !seen.has(r.id) && seen.add(r.id))
     .map(r => Object.fromEntries([['id', r.id], ...CASE_FIELDS.map(f => [f, r[f] ?? ''])]));
+}
+
+// The latest policy check's test messages (src/v1/risk.mjs) as case rows: each message with the behaviour the
+// rule expects, tagged with the rule's severity and, when the AI broke it, "broke-a-rule".
+export function readScanRows(dir) {
+  const root = path.join(dir, 'scans');
+  if (!fs.existsSync(root)) return [];
+  const latest = fs.readdirSync(root).filter(f => /^[\w-]+\.json$/.test(f)).sort().at(-1);
+  if (!latest) return [];
+  let scan;
+  try { scan = JSON.parse(fs.readFileSync(path.join(root, latest), 'utf8')); } catch { return []; }
+  return (scan.rules ?? []).flatMap(r => (r.probes ?? []).map((p, i) => ({
+    id: `scan-${r.id}-${i + 1}`,
+    input: String(p.message ?? ''),
+    expected: String(p.expected || `Keeps the rule: ${r.rule}`),
+    must_include: (p.must_include ?? []).join('|'),
+    must_not_include: (p.must_not_include ?? []).join('|'),
+    regex: '',
+    tags: ['policy-check', r.severity, ...(p.status === 'broken' ? ['broke-a-rule'] : [])].filter(Boolean).join('|'),
+  }))).filter(r => r.input.trim());
 }
 
 // Normalized form used to recognise the same case across deployments.

@@ -1,5 +1,5 @@
-// Harvest: turns one consented deployment into de-identified library entries: its test cases, an
-// integration template and its recurring failure patterns. Re-harvesting a deployment replaces its
+// Harvest: turns one consented deployment into de-identified library entries: its test cases (cases.csv and the
+// latest policy check's test messages), an integration template and its recurring failure patterns. Re-harvesting a deployment replaces its
 // earlier entries, and every harvest (or refusal) is written to the deployment's audit log.
 
 import fs from 'node:fs';
@@ -9,7 +9,7 @@ import { appendAudit } from '../core/audit.mjs';
 import { paths } from '../deployment.mjs';
 import { scrub, addFound } from './scrub.mjs';
 import { replaceSource, checkLibraryDir } from './store.mjs';
-import { readRawConfig, checkConsent, privacyOptions, sourceHash, industryOf, sourceSystems, readCaseRows } from './deployment.mjs';
+import { readRawConfig, checkConsent, privacyOptions, sourceHash, industryOf, sourceSystems, readCaseRows, readScanRows, caseKey } from './deployment.mjs';
 
 const SCHEMA = 1;
 const splitList = v => String(v ?? '').split('|').map(x => x.trim()).filter(Boolean);
@@ -43,6 +43,12 @@ function caseEntries(rows, clean) {
       tags: splitList(r.tags).map(t => clean(t).toLowerCase()),
     };
   }).filter(e => e.input.trim() && [e.expected, e.must_include, e.must_not_include, e.regex].some(v => v.trim()));
+}
+
+// cases.csv rows first, then the policy check's messages it does not already have.
+function withScanRows(rows, scanRows) {
+  const seen = new Set(rows.map(r => caseKey(r.input)));
+  return [...rows, ...scanRows.filter(r => !seen.has(caseKey(r.input)) && seen.add(caseKey(r.input)))];
 }
 
 // The customer's target with every header value and the URL host replaced, so the shape of the
@@ -124,7 +130,7 @@ export function harvest(dir, { libraryDir, by, env = process.env, now = new Date
 
   const common = { sourceSystems: sourceSystems(dir, privacy), industry: industryOf(config), source, createdAt: now.toISOString() };
   const bodies = [
-    ...caseEntries(readCaseRows(dir), clean).map(b => ['case', b]),
+    ...caseEntries(withScanRows(readCaseRows(dir), readScanRows(dir)), clean).map(b => ['case', b]),
     ...[integrationEntry(config.target, clean)].filter(Boolean).map(b => ['integration', b]),
     ...failureEntries(dir, clean).map(b => ['failure', b]),
   ];
