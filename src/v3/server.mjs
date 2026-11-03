@@ -15,6 +15,9 @@ import { checkPepper } from './keys.mjs';
 import { createOidcClient } from './oidc.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { createWebHandler } from './web.mjs';
+import { monitorTick } from './monitoring.mjs';
+import { deploymentDir } from './workspace.mjs';
+import { recordEvent } from './events.mjs';
 
 export const DEFAULT_MAX_BODY = 1024 * 1024;
 
@@ -36,6 +39,8 @@ export function createServer({
   allowCommandTargets = env.DELOMU_ALLOW_COMMAND_TARGETS === '1',
   targetEnvPrefix = env.DELOMU_TARGET_ENV_PREFIX || 'CUSTOMER_',
   maxBodyBytes = DEFAULT_MAX_BODY,
+  // How often the server checks monitored deployments (step 6). 0 turns the timer off.
+  monitorMinutes = Number(env.DELOMU_MONITOR_MINUTES ?? 15),
   rateLimit = {},
   judge,
   llm,
@@ -109,7 +114,28 @@ export function createServer({
     else if (url.pathname === '/v1' || url.pathname.startsWith('/v1/')) await api(req, res, url);
     else await web(req, res, url);
   });
-  server.on('close', () => db.close());
+  // Regression monitoring for the deployments that turned it on (src/v3/monitoring.mjs). One pass at a time.
+  let ticking = false;
+  const tick = async () => {
+    if (ticking) return;
+    ticking = true;
+    try {
+      const list = db.prepare('SELECT org_id, name FROM deployments ORDER BY org_id, name').all()
+        .map(r => ({ orgId: r.org_id, name: r.name, dir: deploymentDir(ctx.deploymentsRoot, r.org_id, r.name) }));
+      for (const r of await monitorTick(ctx, list)) {
+        if (r.ran) recordEvent(db, { orgId: r.orgId, actor: 'system', action: 'monitor.run', target: r.name, detail: { reason: r.reason } }, ctx.now());
+        if (r.error) log(`monitor: ${r.name}: ${r.error}`);
+      }
+    } catch (e) {
+      log(`monitor pass failed: ${e.message}`);
+    } finally {
+      ticking = false;
+    }
+  };
+  ctx.monitorTick = tick;
+  const timer = monitorMinutes > 0 ? setInterval(tick, monitorMinutes * 60_000) : null;
+  timer?.unref();
+  server.on('close', () => { if (timer) clearInterval(timer); db.close(); });
   return server;
 }
 

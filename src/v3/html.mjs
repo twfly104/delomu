@@ -183,6 +183,7 @@ details.history .note{font-style:italic}
 .bubble.ai{background:var(--surface);border:1px solid var(--line)}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--line)}
 .stats>div{padding:16px;border-right:1px solid var(--line)}.stats>div:last-child{border-right:0}
+.stats.four{grid-template-columns:repeat(4,minmax(0,1fr))}@media (max-width:860px){.stats.four{grid-template-columns:1fr 1fr}.stats.four>div:nth-child(2){border-right:0}.stats.four>div:nth-child(-n+2){border-bottom:1px solid var(--line)}}
 .stats .v{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1}.stats .v.bad{color:var(--bad)}
 .stats .k{font-size:12.5px;color:var(--text-3);margin-top:4px}
 .rulebars{list-style:none;margin:0;padding:8px 16px 14px}
@@ -319,6 +320,11 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 @keyframes wait{50%{background:color-mix(in srgb,var(--accent) 22%,var(--sunken));border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}}
 @keyframes stamp{from{opacity:0;transform:scale(.96)}}
 @keyframes grow{from{transform:scaleY(0)}}
+.prod-reasons{margin:10px 0 0;padding-left:18px;display:grid;gap:4px;color:var(--text-2)}
+.prod-checks{display:flex;flex-wrap:wrap;gap:8px 18px}
+.prod-q{display:grid;gap:10px}.prod-q>div{display:grid;grid-template-columns:72px minmax(0,1fr) 190px;gap:12px;align-items:center;font-size:13px}
+.prod-bar{display:flex;height:10px;border-radius:99px;background:var(--sunken);overflow:hidden}.prod-bar .svc{background:var(--warn)}.prod-bar .sw{background:var(--accent)}
+@media (max-width:640px){.prod-q>div{grid-template-columns:64px minmax(0,1fr)}.prod-q>div>span:last-child{grid-column:1/-1}}
 .lp-page{background:var(--canvas)}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 24px}
@@ -871,7 +877,7 @@ export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage
 <div><p class="v num">${live}</p><p class="k">Live</p></div></div>` : '';
   return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
 <div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div>
-<div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
+<div class="actions"><a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
 ${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th><th class="hide-sm">Engineer hours</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
@@ -1058,7 +1064,7 @@ export function metricsPage({ user, csrf, nav, org, m }) {
   const compare = pb && pb.withIt.count && pb.without.count
     ? `<p style="margin:8px 0 0"><span class="strong">With your playbook: ${h(pb.withIt.averageHours)} per rollout</span> <span class="subtle">(${pb.withIt.count}) against ${h(pb.without.averageHours)} without (${pb.without.count}), from logged hours.</span></p>`
     : `<p class="subtle" style="margin:8px 0 0">${pb?.used ? `${pb.used} rollout${pb.used === 1 ? '' : 's'} started from your playbook.` : 'No rollout has started from your playbook yet.'} Log hours on rollouts with and without it to compare.</p>`;
-  const body = `<div class="page-head"><div><h1>Deployment metrics</h1><p class="sub">${esc(org.name)} · ${m.deployments.length} deployment${m.deployments.length === 1 ? '' : 's'}, oldest first</p></div></div>
+  const body = `<div class="page-head"><div><h1>Deployment metrics</h1><p class="sub">${esc(org.name)} · ${m.deployments.length} deployment${m.deployments.length === 1 ? '' : 's'}, oldest first</p></div><div class="actions"><a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a></div></div>
 <section class="panel"><div class="stats">
 <div><p class="v num">${h(m.totalHours)}</p><p class="k">Engineer hours logged</p></div>
 <div><p class="v num">${m.automation === null ? '—' : `${Math.round(m.automation * 100)}%`}</p><p class="k">Finished steps drafted by the agent</p></div>
@@ -1120,8 +1126,42 @@ ${can.write ? `<form method="post" action="${esc(base)}/playbook" style="margin-
 <p class="subtle" style="margin:0 0 12px">Each new rollout starts from earlier clients’ test messages and integration shapes, with names, contacts, keys and order data removed.</p>${state}</div></section>`;
 }
 
+// Step 6 on the Rollout page: regression monitoring on or off, how often, the model version to watch, and the
+// last result.
+function monitorPanel({ base, csrf, can, monitor }) {
+  if (!monitor) return '';
+  const { settings: m, status: st, hasTests, intervals } = monitor;
+  const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
+  const incident = st?.incident;
+  const state = !m.enabled ? '<span class="badge">Off</span>'
+    : incident ? '<span class="badge bad">Regression</span>' : st?.lastRunAt ? '<span class="badge good">Watching</span>' : '<span class="badge accent plain">Waiting for the first run</span>';
+  const last = st ? `<p class="subtle" style="margin:8px 0 0">Last check ${esc(fmtDate(st.lastCheckAt))}${st.lastRunAt ? ` · last run ${esc(fmtDate(st.lastRunAt))}` : ''}${st.version ? ` · model version ${esc(st.version)}` : ''}${incident ? ` · ${incident.caseIds?.length ?? 0} test${incident.caseIds?.length === 1 ? '' : 's'} regressed since ${esc(fmtDate(incident.openedAt))}` : ''}</p>` : '';
+  const form = can.write ? `<form method="post" action="${esc(base)}/monitor" style="margin-top:14px" novalidate>${hidden}
+<div class="row-inline"><label class="field"><span>Monitoring</span><select name="enabled"><option value="1"${m.enabled ? ' selected' : ''}>On</option><option value="0"${m.enabled ? '' : ' selected'}>Off</option></select></label>
+<label class="field"><span>Re-run at least every</span><select name="intervalHours">${intervals.map(h => `<option value="${h}"${m.intervalHours === h ? ' selected' : ''}>${h} hours</option>`).join('')}</select></label></div>
+<div class="row-inline"><label class="field" style="flex:2"><span>Model version URL <span class="subtle" style="font-weight:400">(optional)</span></span><input type="url" name="versionUrl" value="${esc(m.versionUrl)}" placeholder="https://api.client.example/version"></label>
+<label class="field" style="flex:1"><span>Version field</span><input type="text" name="versionPath" value="${esc(m.versionPath)}" placeholder="model.version"></label></div>
+<p class="hint" style="margin:-6px 0 12px">When the version it reports changes, the tests run again right away. Alerts go to the webhook set on the Live page.</p>
+<button class="btn" data-busy="Saving…">Save</button></form>${m.enabled && hasTests ? `<form method="post" action="${esc(base)}/monitor" style="margin-top:8px">${hidden}<input type="hidden" name="action" value="check"><button class="btn ghost" data-busy="Checking…">${icon('play')}Check now</button></form>` : ''}` : '';
+  return `<section class="panel"><div class="panel-head"><h2>Monitoring</h2>${state}<span class="aside subtle">Step 6: re-runs the saved tests when anything changes</span></div><div class="panel-body">
+${hasTests ? '' : '<p class="subtle" style="margin:0">Approve a test set first: monitoring re-runs the saved test set.</p>'}${last}${form}</div></section>`;
+}
+
+// What this client pays, in the vendor's own numbers: it separates service revenue (onboarding) from software
+// revenue (monthly) for Productization health.
+function revenuePanel({ base, csrf, revenue }) {
+  if (!revenue) return '';
+  const v = n => (n ? String(n) : '');
+  return `<form method="post" action="${esc(base)}/revenue" class="panel" novalidate><div class="panel-head"><h2>Revenue from this client</h2><span class="aside subtle">Your numbers, for Productization health</span></div><div class="panel-body">
+<input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
+<label class="field"><span>Onboarding fee, one time (USD)</span><input type="number" name="onboardingUsd" min="0" step="1" value="${v(revenue.onboardingUsd)}" style="max-width:180px"></label>
+<label class="field"><span>Monthly fee (USD)</span><input type="number" name="monthlyUsd" min="0" step="1" value="${v(revenue.monthlyUsd)}" style="max-width:180px"></label>
+<label class="field"><span>Monthly fee since</span><input type="text" name="since" pattern="\\d{4}-\\d{2}" placeholder="2026-11" value="${esc(revenue.since ?? '')}" style="max-width:120px"></label></div>
+<button class="btn" data-busy="Saving…">Save</button></div></form>`;
+}
+
 export function rolloutPage(args) {
-  const { org, name, ov, csrf, can, rollout, signoff = {}, playbook } = args;
+  const { org, name, ov, csrf, can, rollout, signoff = {}, playbook, monitor } = args;
   const base = depPath(org, name);
   const badge = ([cls, text]) => `<span class="badge ${cls}${cls === 'accent' ? ' plain' : ''}">${esc(text)}</span>`;
   const running = rollout?.status === 'running';
@@ -1130,18 +1170,64 @@ export function rolloutPage(args) {
   const job = rollout ? `<div class="rows">${rollout.steps.map(s => `<div class="row">${icon(s.state === 'done' ? 'check' : s.state === 'failed' ? 'alert' : 'clock')}<div class="what"><p class="strong">${esc(s.label)}</p>${s.detail ? `<p class="subtle">${esc(s.detail)}</p>` : ''}</div>${badge(ROLLOUT_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>` : '';
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
-  const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}${playbookPanel({ base, csrf, can, playbook })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
+  const body = `<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
 <p class="panel-body subtle" style="margin:0">Drafts the mapping, integration and test set, adds matching test messages from your playbook, then runs the check. You approve every draft.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
 <p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>
+${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
 ${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2><span class="aside subtle">They feed Deployment metrics: is each rollout cheaper than the last?</span></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
 <label class="field"><span>Step</span><select name="step">${HOUR_STEPS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></label>
 <label class="field"><span>Hours</span><input type="number" name="hours" min="0.25" max="200" step="0.25" required style="max-width:110px"></label>
 <label class="field" style="flex:1"><span>Note <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="note" maxlength="200"></label></div>
-<button class="btn" data-busy="Saving…">${icon('clock')}Log hours</button></div></form>` : ''}`;
+<label class="field"><span>What needed a person <span class="subtle" style="font-weight:400">(a short tag; the same tag three times puts it on the feature list)</span></span><input type="text" name="tag" maxlength="60" list="intervention-tags" placeholder="client API has no docs"><datalist id="intervention-tags">${(args.tags ?? []).map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
+<button class="btn" data-busy="Saving…">${icon('clock')}Log hours</button></div></form>
+${revenuePanel({ base, csrf, revenue: args.revenue })}` : ''}`;
   return deploymentShell({ ...args, tab: 'rollout', title: 'Rollout' }, body);
+}
+
+// Productization health (src/v3/productization.mjs): is each rollout more software and less services?
+const HEALTH = { software: ['good', 'Becoming software'], watch: ['warn', 'Watch'], services: ['bad', 'Becoming a services company'], not_enough_data: ['', 'Not enough data'] };
+
+export function productizationPage({ user, csrf, nav, org, h, settings, canManage, error, notice: msg }) {
+  const [cls, label] = HEALTH[h.verdict] ?? HEALTH.not_enough_data;
+  const money = n => `$${Math.round(n).toLocaleString('en-US')}`;
+  const latestShare = h.quarters.filter(q => q.serviceShare !== null).at(-1);
+  const stat = (v, k, sub = '') => `<div><p class="v num">${v}</p><p class="k">${k}</p>${sub ? `<p class="subtle" style="font-size:12px;margin-top:2px">${sub}</p>` : ''}</div>`;
+  const stats = `<div class="stats four">
+${stat(h.gate.status === 'met' ? 'Met' : h.gate.status === 'not_met' ? 'Not met' : '—', 'Rollout 5 under half the hours of rollout 1', esc(h.gate.message))}
+${stat(h.automation === null ? '—' : `${Math.round(h.automation * 100)}%`, 'Finished steps drafted by the agent')}
+${stat(latestShare ? `${Math.round(latestShare.serviceShare * 100)}%` : '—', 'Service share of revenue', latestShare ? esc(latestShare.quarter.replace(/^(\d{4})-(Q\d)$/, '$2 $1')) : 'Add revenue on each client’s Rollout page')}
+${stat(h.revenuePerPerson === null ? '—' : money(h.revenuePerPerson), 'Revenue per person, last 12 months', h.teamSize ? `${h.teamSize} people` : 'Set your team size below')}</div>`;
+  const verdict = `<div class="panel-body"><p style="margin:0"><span class="badge ${cls}">${esc(label)}</span></p>
+${h.reasons.length ? `<ul class="prod-reasons">${h.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : '<p class="subtle" style="margin:8px 0 0">Log hours on at least three rollouts to see the trend.</p>'}</div>`;
+  const tagRow = t => `<tr><td><span class="strong">${esc(t.tag.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase()))}</span>${t.auto ? ' <span class="subtle" style="font-size:12px">recorded from drafts</span>' : ''}${t.notes.length ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(t.notes.join(' · '))}</span>` : ''}</td>
+<td class="num">${t.count}</td><td class="num hide-sm">${t.clients.length}</td><td class="num hide-sm">${t.hours ? `${Math.round(t.hours * 10) / 10} h` : '—'}</td><td class="hide-sm subtle">${esc(t.steps.join(', '))}</td></tr>`;
+  const table = rows => `<div class="scroll"><table><thead><tr><th>Manual work</th><th>Times</th><th class="hide-sm">Clients</th><th class="hide-sm">Hours</th><th class="hide-sm">Steps</th></tr></thead><tbody>${rows.map(tagRow).join('')}</tbody></table></div>`;
+  const backlog = `<section class="panel"><div class="panel-head"><h2>Make it a feature</h2><span class="aside subtle">Manual work that came back 3 times or more</span></div>
+${h.backlog.length ? table(h.backlog) : '<div class="emptystate"><span class="strong">Nothing has come back three times yet</span>Tag manual steps when you log hours; drafts a person rewrote or rejected are counted on their own.</div>'}</section>`;
+  const rest = h.tags.filter(t => t.count < 3);
+  const others = rest.length ? `<section class="panel"><div class="panel-head"><h2>Other manual work</h2><span class="aside subtle">${h.interventions} recorded in all</span></div>${table(rest.slice(0, 20))}</section>` : '';
+  const off = `<section class="panel"><div class="panel-head"><h2>Outside your focus</h2><span class="aside subtle">Clients that make each rollout less alike</span></div>
+${h.offFocus.length ? `<div class="rows">${h.offFocus.map(o => `<div class="row">${icon('alert')}<div class="what"><p class="strong"><a href="${esc(depPath(o.org, o.name))}/rollout">${esc(o.org.name)} · ${esc(o.name)}</a></p><p class="subtle">${esc(o.issues.map(i => i.text).join('; '))}</p></div></div>`).join('')}</div>` : '<div class="emptystate"><span class="strong">Every client fits your focus</span>Set the focus below to check new clients against it.</div>'}</section>`;
+  const quarters = h.hasRevenue ? `<section class="panel"><div class="panel-head"><h2>Service and software revenue</h2><span class="aside subtle">From the fees entered per client</span></div><div class="panel-body"><div class="prod-q">
+${h.quarters.map(q => { const total = q.service + q.software; const s = total ? Math.round(100 * q.service / total) : 0; return `<div><span class="subtle num">${esc(q.quarter.replace(/^(\d{4})-(Q\d)$/, '$2 $1'))}</span><span class="prod-bar" role="img" aria-label="${s}% service">${total ? `<i class="svc" style="width:${s}%"></i><i class="sw" style="width:${100 - s}%"></i>` : ''}</span><span class="num">${total ? `${s}% service · ${money(total)}` : '<span class="subtle">No revenue</span>'}</span></div>`; }).join('')}
+</div><p class="subtle" style="margin:10px 0 0">Monthly recurring: ${money(h.mrr)}. Onboarding fees count as service revenue, monthly fees as software revenue.</p></div></section>` : '';
+  const kinds = Object.entries(AGENT_KINDS).map(([k, v]) => `<label class="check"><input type="checkbox" name="kinds" value="${k}"${settings.focus.kinds.includes(k) ? ' checked' : ''}>${esc(v.label)}</label>`).join('');
+  const conns = CONNECTIONS.filter(c => c.type !== 'command').map(c => `<label class="check"><input type="checkbox" name="connections" value="${c.type}"${settings.focus.connections.includes(c.type) ? ' checked' : ''}>${esc(c.label)}</label>`).join('');
+  const form = canManage ? `<form method="post" action="${esc(orgPath(org))}/productization" class="panel" novalidate><div class="panel-head"><h2>Focus and team</h2><span class="aside subtle">One kind of client and a few systems keep rollouts alike</span></div><div class="panel-body">
+<input type="hidden" name="csrf" value="${esc(csrf)}">
+<div class="field"><span>The kind of AI agent you roll out</span><div class="prod-checks">${kinds}</div></div>
+<label class="field"><span>Industry <span class="subtle" style="font-weight:400">(optional, matched against each client’s industry)</span></span><input type="text" name="industry" maxlength="60" value="${esc(settings.focus.industry)}" placeholder="ecommerce" style="max-width:280px"></label>
+<div class="field"><span>Systems you support</span><div class="prod-checks">${conns}</div><p class="hint">A client on anything else is flagged as one-off work.</p></div>
+<label class="field"><span>Team size</span><input type="number" name="teamSize" min="1" step="1" value="${settings.teamSize ?? ''}" style="max-width:120px"></label>
+<button class="btn" data-busy="Saving…">Save</button></div></form>` : '';
+  const body = `<div class="page-head"><div><h1>Productization health</h1><p class="sub">${esc(org.name)} · is each rollout more software and less services? ${h.deployments} rollout${h.deployments === 1 ? '' : 's'}</p></div><div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
+${notice(msg, 'good')}${notice(error)}
+<section class="panel">${stats}${verdict}</section>
+${backlog}${others}${off}${quarters}${form}`;
+  return layout({ title: 'Productization health', user, csrf, nav: { ...nav, org, active: org.kind === 'partner' ? 'clients' : 'deployments' }, crumbs: [[org.kind === 'partner' ? 'Clients' : 'AI agents', orgPath(org)], ['Productization health']], body });
 }
 
 export function runsPage(args) {

@@ -15,6 +15,8 @@ import { deploymentMetrics } from './metrics.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
 import { getScan, listScans, recheck } from '../v1/risk.mjs';
 import { PLANS as PLAN_LIST } from './billing.mjs';
+import { INTERVALS as MONITOR_INTERVALS, monitorSettings, monitorStatus, monitorTick, setMonitor } from './monitoring.mjs';
+import { getOrgSettings, getRevenue, logIntervention, normTag, productizationHealth, readInterventions, setOrgSettings, setRevenue } from './productization.mjs';
 import { addToPlaybook, consentOf, contributed, integrationExamples, playbookStats, removeFromPlaybook, setConsent, suggestFromPlaybook } from './playbook.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
@@ -31,11 +33,11 @@ import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
 import { aiAnswer, demoAnswer, sampleFiles } from './demo-bot.mjs';
 import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample-agent.mjs';
-import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readJson, send } from './http.mjs';
+import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
   auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, landingPage, pricingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
-  livePage, metricsPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
+  livePage, metricsPage, productizationPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
@@ -88,6 +90,11 @@ const NOTICES = {
   alerts: 'Alert settings saved.',
   hours: 'Hours logged. They count toward Deployment metrics.',
   playbook: 'Playbook updated.',
+  revenue: 'Revenue saved. It counts toward Productization health.',
+  focus: 'Focus and team saved.',
+  monitor: 'Monitoring settings saved.',
+  monitorran: 'The saved test set ran again. See the result under Monitoring.',
+  monitorchecked: 'Nothing changed since the last run, so the tests were not run again.',
 };
 
 class Redirect {
@@ -629,8 +636,48 @@ function routes(ctx) {
     }
     logHours(dir, form.step, hours, String(form.note ?? '').replace(/[\r\n]+/g, ' ').slice(0, 200), ctx.now().toISOString().slice(0, 10));
     appendAudit(dir, { actor: principal.actor, action: 'hours.log', target: form.step, detail: { hours } }, ctx.now());
+    // A tag makes the hours a manual intervention for Productization health.
+    if (normTag(form.tag)) logIntervention(dir, { step: form.step, tag: form.tag, hours, note: form.note ?? '', by: principal.actor }, ctx.now());
     event(ctx, principal, org.id, 'hours.log', params.name, { step: form.step, hours });
     return new Redirect(`${depPath(org, params.name)}/rollout?notice=hours`);
+  });
+
+  // Revenue from one client, entered by the vendor: service (onboarding) and software (monthly) revenue.
+  r.add('POST', '/orgs/:org/deployments/:name/revenue', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    try {
+      setRevenue(dir, form, { actor: principal.actor, now: ctx.now() });
+    } catch (e) {
+      return showRollout(principal, params, null, { error: e.message }, 400);
+    }
+    event(ctx, principal, org.id, 'revenue.set', params.name);
+    return new Redirect(`${depPath(org, params.name)}/rollout?notice=revenue`);
+  });
+
+  // Productization health (src/v3/productization.mjs) for an org and, for an AI vendor, every client it can open.
+  const showProductization = (principal, params, url, extra = {}, status = 200) => {
+    const { org, role } = access(ctx, principal, params.org, 'deployments:read');
+    const orgs = org.kind === 'partner' ? [org, ...orgsOf(principal).filter(o => o.partner_org_id === org.id)] : [org];
+    const rows = orgs.flatMap(deploymentsOf);
+    const settings = getOrgSettings(ctx.deploymentsRoot, org.id);
+    const h = productizationHealth({ rows, m: deploymentMetrics(rows), settings, now: ctx.now() });
+    return html(productizationPage({ ...base(principal), org, h, settings, canManage: principalAllows(principal, role, 'org:manage'), error: extra.error, notice: NOTICES[url?.searchParams.get('notice')], nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }) }), status);
+  };
+  r.add('GET', '/orgs/:org/productization', ({ principal, params, url }) => showProductization(principal, params, url));
+  r.add('POST', '/orgs/:org/productization', async ({ req, principal, params }) => {
+    const { form, all } = await readFormAll(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'org:manage');
+    try {
+      setOrgSettings(ctx.deploymentsRoot, org.id, { teamSize: form.teamSize, kinds: all('kinds'), industry: form.industry ?? '', connections: all('connections') });
+    } catch (e) {
+      return showProductization(principal, params, null, { error: e.message }, 400);
+    }
+    event(ctx, principal, org.id, 'productization.settings', org.id);
+    return new Redirect(`${orgPath(org)}/productization?notice=focus`);
   });
 
   // The plan's deployment metrics. An AI vendor's include every client workspace it can open.
@@ -650,9 +697,33 @@ function routes(ctx) {
     const signoff = { latest: latestSignoff(ws.dir), active: activeShares(db, ws.org.id, params.name, 'signoff', ctx.now()).length, link: extra.link ?? fresh };
     const owner = playbookOwner(ws.org);
     const playbook = { stats: playbookStats(ctx.deploymentsRoot, owner), consent: consentOf(ws.dir), contributed: contributed(ctx.deploymentsRoot, ctx.pepper, owner, ws.dir), vendor: ws.org.partner_org_id ? getOrg(db, ws.org.partner_org_id)?.name : ws.org.name };
-    return html(rolloutPage({ ...ws, rollout: job, signoff, playbook, error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
+    const tags = [...new Set(readInterventions(ws.dir).map(i => i.tag))].slice(0, 30);
+    const monitor = { settings: monitorSettings(ws.dir), status: monitorStatus(ws.dir), hasTests: fs.existsSync(path.join(ws.dir, 'tests.json')), intervals: MONITOR_INTERVALS };
+    return html(rolloutPage({ ...ws, rollout: job, signoff, playbook, monitor, tags, revenue: getRevenue(ws.dir), error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
   };
   r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => showRollout(principal, params, url));
+
+  // Step 6 (src/v3/monitoring.mjs): turn regression monitoring on or off, or check this deployment now.
+  r.add('POST', '/orgs/:org/deployments/:name/monitor', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    try {
+      if (form.action === 'check') {
+        const [r] = await monitorTick(ctx, [{ orgId: org.id, name: params.name, dir }]);
+        if (r?.error) return showRollout(principal, params, null, { error: `The monitor could not run: ${String(r.error).split(dir).join(params.name)}` }, 400);
+        event(ctx, principal, org.id, 'monitor.check', params.name, { ran: Boolean(r?.ran) });
+        return new Redirect(`${depPath(org, params.name)}/rollout?notice=${r?.ran ? 'monitorran' : 'monitorchecked'}`);
+      }
+      const settings = setMonitor(dir, { enabled: form.enabled === '1', intervalHours: form.intervalHours, versionUrl: form.versionUrl, versionPath: form.versionPath }, { actor: principal.actor, now: ctx.now() });
+      event(ctx, principal, org.id, settings.enabled ? 'monitor.on' : 'monitor.off', params.name, { intervalHours: settings.intervalHours });
+    } catch (e) {
+      if (e instanceof ApiError) throw e;
+      return showRollout(principal, params, null, { error: String(e.message ?? e).split(dir).join(params.name) }, 400);
+    }
+    return new Redirect(`${depPath(org, params.name)}/rollout?notice=monitor`);
+  });
 
   // The playbook (src/v3/playbook.mjs): record that the client agreed to reuse elsewhere (a contract, an email),
   // withdraw it, which removes this rollout's entries, or refresh them after the rollout changed.

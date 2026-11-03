@@ -86,7 +86,7 @@ export function nextAction(steps, { pending, runs, inputs, scans = 1 }) {
   if (step.key === 'fixes' && !runs) return { text: 'Run the saved test set against your AI.', action: 'run' };
   if (step.key === 'fixes') return { text: 'Tests are below the agreed pass rate. Ask the agent to group the failures into fixes, then run again.', action: 'agent', task: 'fixes' };
   if (step.key === 'launch-report') return { text: 'Tests pass. Ask the agent to draft the launch report for sign-off.', action: 'agent', task: 'launch-report' };
-  if (step.key === 'monitoring' && step.state === 'todo') return { text: 'Launched. Turn on monitoring (delomu watch) so any change re-runs the tests.', action: null };
+  if (step.key === 'monitoring' && step.state === 'todo') return { text: 'Launched. Turn on Monitoring on the Rollout page so any change re-runs the tests.', action: null };
   return { text: 'Everything is up to date.', action: null };
 }
 

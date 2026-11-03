@@ -94,6 +94,14 @@ export async function readForm(req, limit) {
   return Object.fromEntries(new URLSearchParams(await readBody(req, limit)));
 }
 
+// Like readForm, but keeps repeated fields (checkbox groups): { form, all(name) -> [values] }.
+export async function readFormAll(req, limit) {
+  const type = String(req.headers['content-type'] ?? '');
+  if (!type.startsWith('application/x-www-form-urlencoded')) throw invalid('Expected a form submission.');
+  const params = new URLSearchParams(await readBody(req, limit));
+  return { form: Object.fromEntries(params), all: name => params.getAll(name) };
+}
+
 export function parseCookies(header = '') {
   const out = {};
   for (const part of header.split(';')) {
