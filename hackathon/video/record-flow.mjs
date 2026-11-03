@@ -101,7 +101,9 @@ for (const step of steps.slice(1)) {
     const deadline = now() + (step.max ?? 300);
     let seenStart = !step.after;
     while (now() < deadline) {
-      const t = await text();
+      // A page in the middle of loading has no document to read yet; try again on the next tick.
+      let t = '';
+      try { t = await text(); } catch { await sleep(1000); continue; }
       if (!seenStart && new RegExp(step.after).test(t)) seenStart = true;
       if (seenStart && new RegExp(step.until).test(t)) break;
       await sleep(1000);

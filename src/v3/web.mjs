@@ -19,6 +19,7 @@ import { INTERVALS as MONITOR_INTERVALS, monitorSettings, monitorStatus, monitor
 import { getOrgSettings, getRevenue, logIntervention, normTag, productizationHealth, readInterventions, setOrgSettings, setRevenue } from './productization.mjs';
 import { importFrom, SOURCES as IMPORT_SOURCES } from './importers.mjs';
 import { readConnector, generateConnectorCode, toolSchemas } from '../v1/connector.mjs';
+import { ask as askAssistant, deploymentContext, MAX_HISTORY, MAX_MESSAGE, orgContext, resolveActions, suggestions as assistantSuggestions } from './assistant.mjs';
 import { addToPlaybook, consentOf, contributed, integrationExamples, playbookStats, removeFromPlaybook, setConsent, suggestFromPlaybook } from './playbook.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
@@ -38,8 +39,8 @@ import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, clientsPage, landingPage, pricingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
-  livePage, metricsPage, productizationPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, clientsPage, landingPage, pricingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
@@ -65,7 +66,7 @@ function scanError(e, dir, name) {
 
 const FONTS = Object.fromEntries(['Geist-Variable.woff2', 'GeistMono-Variable.woff2'].map(f => [f, fs.readFileSync(new URL(`./fonts/${f}`, import.meta.url))]));
 const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.f{fill:#0a0a0a}.s{stroke:#0a0a0a}@media (prefers-color-scheme:dark){.f{fill:#fff}.s{stroke:#fff}}</style><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" class="s" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" class="f"/></svg>';
-const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; script-src '${BUSY_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
+const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; script-src '${BUSY_SCRIPT_HASH}' '${ASSISTANT_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.html']);
@@ -681,6 +682,77 @@ function routes(ctx) {
     }
     event(ctx, principal, org.id, 'productization.settings', org.id);
     return new Redirect(`${orgPath(org)}/productization?notice=focus`);
+  });
+
+  // The assistant (src/v3/assistant.mjs). It answers about the page the person is on (from: that page's path)
+  // and proposes actions that become links or forms for the routes below; it never runs anything itself.
+  // Conversations are kept per session, in memory, for the last 12 messages (MAX_HISTORY).
+  const assistantChats = new Map();
+  const assistantLimit = createRateLimiter({ capacity: 15, refillPerSec: 1 / 8 });
+  const assistantJson = (status, value) => ({ status, body: JSON.stringify(value), type: 'application/json' });
+  function assistantScope(principal, from) {
+    const m = /^\/orgs\/([^/?#]+)(?:\/deployments\/([^/?#]+))?/.exec(String(from ?? ''));
+    let org, role;
+    try { ({ org, role } = access(ctx, principal, m ? decodeURIComponent(m[1]) : principal.homeOrgId, 'deployments:read')); } catch { ({ org, role } = access(ctx, principal, principal.homeOrgId, 'deployments:read')); }
+    const canWrite = principalAllows(principal, role, 'deployments:write');
+    const vendor = org.partner_org_id ? orgsOf(principal).find(o => o.id === org.partner_org_id) : null;
+    const orgBase = orgPath(vendor ?? org);
+    const page = String(from ?? '').slice(0, 200) || '/';
+    const name = m?.[2] ? decodeURIComponent(m[2]) : null;
+    const row = name ? deploymentsOf(org).find(d => d.name === name) : null;
+    if (row) {
+      return { page, canWrite, orgBase, label: `${org.name} · ${row.name}`, deployment: deploymentContext(row), base: ref => (ref === 'this' || ref === row.name ? depPath(org, row.name) : null) };
+    }
+    const orgs = org.kind === 'partner' ? [org, ...orgsOf(principal).filter(o => o.partner_org_id === org.id)] : [org];
+    const rows = orgs.flatMap(deploymentsOf);
+    return { page, canWrite, orgBase, label: org.name, org: orgContext({ org, rows }), base: ref => { const i = /^d(\d+)$/.exec(String(ref))?.[1]; const r = i ? rows[Number(i) - 1] : rows.find(x => x.name === ref); return r ? depPath(r.org, r.name) : null; } };
+  }
+  async function assistantTurn(principal, from, message) {
+    const scope = assistantScope(principal, from);
+    const history = assistantChats.get(principal.token) ?? [];
+    let answer;
+    try {
+      answer = await askAssistant({ llm: ctx.llm ?? createLlm(), scope, history, message });
+    } catch (e) {
+      answer = { reply: isAuthError(e) ? 'The assistant has no model credentials on this server.' : 'I couldn’t answer just now. Try again in a moment.', actions: [] };
+    }
+    const actions = resolveActions(answer.actions, scope);
+    const next = [...history, { role: 'user', text: message }, { role: 'assistant', text: answer.reply, actions }].slice(-MAX_HISTORY);
+    assistantChats.set(principal.token, next);
+    if (assistantChats.size > 5000) assistantChats.delete(assistantChats.keys().next().value);
+    return { reply: answer.reply, actions, label: scope.label };
+  }
+  const readMessage = form => String(form.message ?? '').trim().slice(0, MAX_MESSAGE);
+
+  r.add('GET', '/assistant/state', ({ principal, url }) => {
+    const scope = assistantScope(principal, url.searchParams.get('from'));
+    return assistantJson(200, { label: scope.label, suggestions: assistantSuggestions(scope), history: assistantChats.get(principal.token) ?? [] });
+  });
+  r.add('POST', '/assistant/ask', async ({ req, principal }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const message = readMessage(form);
+    if (!message) return assistantJson(400, { error: 'Type a question first.' });
+    if (!assistantLimit(principal.token).ok) return assistantJson(429, { error: 'That’s a lot of questions at once. Try again in a minute.' });
+    return assistantJson(200, await assistantTurn(principal, form.from, message));
+  });
+  r.add('POST', '/assistant/clear', async ({ req, principal }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    assistantChats.delete(principal.token);
+    return assistantJson(200, { ok: true });
+  });
+  // The same assistant as a page, for browsers without JavaScript.
+  r.add('GET', '/assistant', ({ principal, url }) => {
+    const from = url.searchParams.get('from') ?? '';
+    const scope = assistantScope(principal, from);
+    return html(assistantPage({ ...base(principal), nav: navFor(principal), from, label: scope.label, suggestions: assistantSuggestions(scope), history: assistantChats.get(principal.token) ?? [] }));
+  });
+  r.add('POST', '/assistant', async ({ req, principal }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const message = readMessage(form);
+    if (message && assistantLimit(principal.token).ok) await assistantTurn(principal, form.from, message);
+    return new Redirect(`/assistant?from=${encodeURIComponent(String(form.from ?? ''))}`);
   });
 
   // The plan's deployment metrics. An AI vendor's include every client workspace it can open.
