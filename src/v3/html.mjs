@@ -246,7 +246,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 .probe .vf,.probe .vf-pair,.probe .vo{grid-column:1/-1;justify-self:start}
 .linkbtn{border:0;background:none;padding:0;font:500 12.5px var(--font);color:var(--text-3);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}.linkbtn:hover{color:var(--text);text-decoration-color:currentColor}
 .vo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2)}.vo .i{color:var(--good)}
-.imp-or{display:flex;align-items:center;gap:10px;margin:20px 0 12px;font-size:12.5px;font-weight:500;color:var(--text-3)}.imp-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.imp-body details.alt{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}.imp-body details.alt>summary:hover{background:none;color:var(--text)}.imp-body details.alt>summary::before{content:"+ "}.imp-body details.alt[open]>summary::before{content:"− "}.imp-body details.alt>summary{display:block;padding:0;border:0;background:none;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--text-2);margin-bottom:12px}
 .steps-mini{margin:0 0 12px;padding-left:18px;font-size:12.5px;color:var(--text-2);display:grid;gap:3px}.steps-mini code{font-size:11.5px}
 .content.soft-in{animation:soft-in .35s ease-out both}@keyframes soft-in{from{opacity:.55}}@media (prefers-reduced-motion:reduce){.content.soft-in{animation:none}}
 .meter[data-ease] i{background-image:linear-gradient(90deg,transparent 0,rgb(255 255 255/.45) 50%,transparent 100%);background-size:60% 100%;background-repeat:no-repeat;animation:sheen 1.6s ease-in-out infinite}
@@ -1366,24 +1366,29 @@ const IMPORTS = [
 ];
 function importPanel({ base, csrf, imports = {} }) {
   // New Zendesk accounts cannot make API tokens, so Zendesk also connects through the client's own OAuth client.
-  const zendeskOauth = st => `<div class="imp-or"><span>New Zendesk account? Connect with OAuth</span></div>
-${st.auth === 'oauth' ? `<p class="vo" style="margin:0 0 12px">${icon('check', { size: 14 })}<span>Connected to <b>${esc(st.subdomain ?? '')}.zendesk.com</b> with OAuth. Use Import again above.</span></p>` : ''}
-<ol class="steps-mini"><li>In Zendesk: Admin Center › Apps and integrations › OAuth clients › Add OAuth client.</li><li>Client kind <b>Confidential</b>; redirect URL <code>${esc(imports.zendeskRedirect ?? '/oauth/zendesk/callback')}</code>.</li><li>Paste its identifier and secret here, then click Allow in Zendesk.</li></ol>
+  // Zendesk: OAuth comes first (new Zendesk accounts cannot make API tokens); the token form is the fallback.
+  const zendeskOauth = st => `<ol class="steps-mini"><li>In Zendesk: Admin Center › Apps and integrations › OAuth clients › Add OAuth client.</li><li>Client kind <b>Confidential</b>; redirect URL <code>${esc(imports.zendeskRedirect ?? '/oauth/zendesk/callback')}</code>.</li><li>Paste its identifier and secret here, then click Allow in Zendesk.</li></ol>
 <form method="post" action="${esc(base)}/import/zendesk/connect" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <div class="row-inline"><label class="field"><span>Subdomain</span><input type="text" name="subdomain" value="${esc(st.subdomain ?? '')}" placeholder="acme" autocomplete="off"></label>
 <label class="field"><span>Unique identifier</span><input type="text" name="client_id" value="${esc(st.clientId ?? '')}" placeholder="grapim" autocomplete="off"></label>
 <label class="field" style="flex:1;min-width:200px"><span>Secret</span><input type="password" name="client_secret" autocomplete="off" placeholder="${st.clientId ? 'Saved encrypted' : ''}"></label></div>
-<button class="btn" data-busy="Opening Zendesk…">Connect Zendesk</button></form>`;
+<button class="btn${st.auth === 'oauth' ? '' : ' primary'}" data-busy="Opening Zendesk…">${st.auth === 'oauth' ? 'Connect again' : 'Connect Zendesk'}</button></form>`;
+  const tokenForm = (s, st, primary = true) => `<form method="post" action="${esc(base)}/import" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}">
+<div class="row-inline">${s.fields.map(([n, l, ph]) => `<label class="field"><span>${esc(l)}</span><input type="text" name="${n}" value="${esc(st[n] ?? '')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}
+<label class="field" style="flex:1;min-width:220px"><span>${st.saved && st.auth !== 'oauth' ? 'New token (optional)' : 'Token'}</span><input type="password" name="token" autocomplete="off" placeholder="${st.saved && st.auth !== 'oauth' ? 'Saved encrypted' : ''}"></label></div>
+<p class="hint" style="margin:-8px 0 12px">${esc(s.token)}</p>
+<button class="btn${primary ? ' primary' : ''}" data-busy="Importing…">${icon('upload')}Import from ${esc(s.label)}</button></form>`;
   const card = s => {
     const st = imports[s.id] ?? {};
     const last = st.at ? `<span class="subtle" style="font-size:12.5px">Last import ${esc(fmtDate(st.at))}: ${[st.tickets && `${st.tickets} tickets`, st.articles && `${st.articles} articles`, st.policies && `${st.policies} policies`].filter(Boolean).join(', ') || 'nothing new'}</span>` : '';
-    const again = st.saved ? `<form method="post" action="${esc(base)}/import"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}"><button class="btn" data-busy="Importing…">${icon('upload')}Import again</button></form>` : '';
-    return `<details class="imp"${st.at ? '' : ''}><summary><span class="strong">${esc(s.label)}</span><span class="subtle">${esc(s.what)}</span>${last}</summary>
-<div class="imp-body">${again}<form method="post" action="${esc(base)}/import" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}">
-<div class="row-inline">${s.fields.map(([n, l, ph]) => `<label class="field"><span>${esc(l)}</span><input type="text" name="${n}" value="${esc(st[n] ?? '')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}
-<label class="field" style="flex:1;min-width:220px"><span>${st.saved ? 'New token (optional)' : 'Token'}</span><input type="password" name="token" autocomplete="off" placeholder="${st.saved ? 'Saved encrypted' : ''}"></label></div>
-<p class="hint" style="margin:-8px 0 12px">${esc(s.token)}</p>
-<button class="btn primary" data-busy="Importing…">${icon('upload')}Import from ${esc(s.label)}</button></form>${s.id === 'zendesk' ? zendeskOauth(st) : ''}</div></details>`;
+    const again = st.saved ? `<form method="post" action="${esc(base)}/import"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}"><button class="btn primary" data-busy="Importing…">${icon('upload')}Import again</button></form>` : '';
+    const body = s.id !== 'zendesk'
+      ? `${again}${tokenForm(s, st, !st.saved)}`
+      : st.auth === 'oauth'
+        ? `<p class="vo" style="margin:0 0 12px">${icon('check', { size: 14 })}<span>Connected to <b>${esc(st.subdomain ?? '')}.zendesk.com</b> with OAuth.</span></p>${again}<details class="alt"><summary>Connect again</summary>${zendeskOauth(st)}</details>`
+        : `${again}${zendeskOauth(st)}<details class="alt"><summary>Use an API token instead (older Zendesk accounts)</summary>${tokenForm(s, st, false)}</details>`;
+    return `<details class="imp"><summary><span class="strong">${esc(s.label)}</span><span class="subtle">${esc(s.what)}</span>${last}</summary>
+<div class="imp-body">${body}</div></details>`;
   };
   return `<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Import from the client’s systems</h2><span class="aside subtle">Read-only · personal data removed · token encrypted</span></div>
 ${IMPORTS.map(card).join('')}</section>`;

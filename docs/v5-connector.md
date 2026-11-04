@@ -10,7 +10,7 @@ Grapim imports straight from three client systems, so nobody has to export and u
 
 | Source | What it brings in | Credentials |
 | --- | --- | --- |
-| Zendesk Support | Up to 50 solved tickets, with the customer's message and the agent's final public reply, as `zendesk-tickets.csv`; Help Center articles as `zendesk-help-center.md` | Subdomain, agent email, API token |
+| Zendesk Support | Up to 50 solved tickets, with the customer's message and the agent's final public reply, as `zendesk-tickets.csv`; Help Center articles as `zendesk-help-center.md` | **OAuth** (Connect Zendesk: the client's own Confidential OAuth client, PKCE, read scope; the token refreshes once when it expires), or subdomain, agent email and API token for older accounts. New Zendesk accounts cannot make API tokens, and existing ones stop working on 30 April 2027 |
 | Intercom | Up to 50 closed conversations as `intercom-tickets.csv`; published articles as `intercom-help-center.md` | Access token (read permissions are enough) |
 | Shopify | Store policies (refund, shipping, privacy, terms) as `shopify-policies.md` | Store domain (`*.myshopify.com`), Admin API token with `read_legal_policies` |
 
@@ -56,5 +56,5 @@ rule 3 of the plan: customize in configuration, never in one-off code.
   5 that act), and each action's description carries its policy limit.
 - **Generated code:** the tests run it against a local fake API and guard. It reads with GET, sends the body for
   actions, and does not act when the guard blocks.
-- **Imports:** tested against recorded API shapes only. They have not yet run against real Zendesk, Intercom or
-  Shopify accounts.
+- **Imports:** Zendesk ran for real on 2026-11-05: a new trial account connected through OAuth from the live site
+  and imported a solved ticket. Intercom and Shopify are tested against recorded API shapes only.
