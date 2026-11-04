@@ -15,7 +15,7 @@ import { AGENT_KINDS } from '../v1/kinds.mjs';
 export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh;if(r)setInterval(function(){var a=document.activeElement;if(document.body.classList.contains('asst-open')||document.querySelector('details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;location.reload();},r*1000);var t0=Date.now();function tick(){var d=Date.now()-t0;document.querySelectorAll('[data-elapsed]').forEach(function(e){e.textContent=Math.floor((+e.dataset.elapsed+d)/1000)+' s';});document.querySelectorAll('.meter[data-ease],.meter[data-creep]').forEach(function(m){var w;if(m.dataset.ease){var x=(+m.dataset.ease+d)/1000;w=70*(1-Math.exp(-x/45));}else{w=+m.getAttribute('aria-valuenow')+(+m.dataset.creep)*0.8*(1-Math.exp(-d/3000));}var k='meter:'+location.pathname+':'+m.dataset.run,p=0;try{p=+sessionStorage.getItem(k)||0;}catch(_){}w=Math.min(100,Math.max(2,w,p));try{sessionStorage.setItem(k,w);}catch(_){}var i=m.firstElementChild;if(i)i.style.width=w+'%';m.setAttribute('aria-valuenow',Math.round(w));});}if(document.querySelector('[data-elapsed],.meter[data-ease],.meter[data-creep]')){tick();setInterval(tick,250);}";
 // The assistant panel (src/v3/assistant.mjs): opens from the launcher, keeps its state across pages in
 // sessionStorage, asks /assistant/ask and renders proposed actions as forms or links the person clicks.
-export const ASSISTANT_SCRIPT = "(function(){\nvar panel=document.getElementById('asst');if(!panel)return;\nvar log=panel.querySelector('[data-asst-log]'),form=panel.querySelector('[data-asst-form]'),box=form.querySelector('textarea'),ctxEl=panel.querySelector('[data-asst-ctx]'),csrf=panel.getAttribute('data-csrf'),loaded=false,busy=false;\nvar store={get:function(){try{return sessionStorage.getItem('gp-asst');}catch(e){return null;}},set:function(v){try{if(v)sessionStorage.setItem('gp-asst','1');else sessionStorage.removeItem('gp-asst');}catch(e){}}};\nfunction esc(s){return String(s).replace(/[&<>\"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}\nfunction rich(t){var lines=esc(t).split(/\\n/),out='',list=false;for(var i=0;i<lines.length;i++){var l=lines[i].replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');if(/^\\s*[-•]\\s+/.test(l)){if(!list){out+='<ul>';list=true;}out+='<li>'+l.replace(/^\\s*[-•]\\s+/,'')+'</li>';}else{if(list){out+='</ul>';list=false;}if(l.trim())out+='<p>'+l+'</p>';}}return out+(list?'</ul>':'');}\nfunction scroll(){log.scrollTop=log.scrollHeight;}\nfunction actionsHtml(acts){if(!acts||!acts.length)return'';var h='<div class=\"asst-acts\">';for(var i=0;i<acts.length;i++){var a=acts[i];if(a.method==='POST'){var f='';for(var k in a.fields)f+='<input type=\"hidden\" name=\"'+esc(k)+'\" value=\"'+esc(a.fields[k])+'\">';h+='<form method=\"post\" action=\"'+esc(a.href)+'\" style=\"--i:'+i+'\"><input type=\"hidden\" name=\"csrf\" value=\"'+esc(csrf)+'\">'+f+'<button class=\"asst-act do\" data-busy=\"Starting…\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Runs on click</span></button></form>';}else h+='<a class=\"asst-act\" style=\"--i:'+i+'\" href=\"'+esc(a.href)+'\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Open</span></a>';}return h+'</div>';}\nfunction add(role,text,acts,fresh){var d=document.createElement('div');d.className='asst-m '+(role==='user'?'me':'bot')+(fresh?' fresh':'');d.innerHTML=role==='user'?'<div class=\"asst-b\">'+esc(text)+'</div>':'<div class=\"asst-b\">'+rich(text)+'</div>'+actionsHtml(acts);log.appendChild(d);scroll();return d;}\nfunction empty(sugs){log.innerHTML='<div class=\"asst-hello\"><p class=\"asst-hi\">Hi. I can see this page.</p><p class=\"subtle\">Ask about the results, what to do next, or ask me to run something. You click before anything runs.</p><div class=\"asst-sugs\">'+sugs.map(function(s,i){return'<button type=\"button\" class=\"asst-sug\" style=\"--i:'+i+'\">'+esc(s)+'</button>';}).join('')+'</div></div>';}\nfunction load(){if(loaded)return;loaded=true;fetch('/assistant/state?from='+encodeURIComponent(location.pathname),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(s){ctxEl.textContent=s.label||'';if(s.history&&s.history.length){log.innerHTML='';s.history.forEach(function(m){add(m.role,m.text,m.actions,false);});}else empty(s.suggestions||[]);}).catch(function(){empty([]);});}\nfunction open(animate){if(!panel.hidden&&document.body.classList.contains('asst-open'))return;panel.hidden=false;if(animate===false){document.body.classList.add('asst-open','asst-instant');setTimeout(function(){document.body.classList.remove('asst-instant');},50);}else requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('asst-open');});});store.set(true);load();setTimeout(function(){box.focus();},animate===false?0:250);}\nfunction close(){document.body.classList.remove('asst-open');store.set(false);setTimeout(function(){if(!document.body.classList.contains('asst-open'))panel.hidden=true;},320);}\nfunction typing(){var d=document.createElement('div');d.className='asst-m bot fresh';d.innerHTML='<div class=\"asst-b asst-typing\" aria-label=\"Thinking\"><i></i><i></i><i></i></div>';log.appendChild(d);scroll();return d;}\nfunction send(text){text=String(text||'').trim();if(!text||busy)return;busy=true;var hello=log.querySelector('.asst-hello');if(hello)hello.remove();add('user',text,null,true);box.value='';fit();var t=typing();var body=new URLSearchParams({csrf:csrf,message:text,from:location.pathname});\nfetch('/assistant/ask',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});}).then(function(x){t.remove();if(!x.ok){add('bot',x.j.error||'Something went wrong.',null,true).classList.add('err');return;}if(x.j.label)ctxEl.textContent=x.j.label;add('bot',x.j.reply,x.j.actions,true);}).catch(function(){t.remove();add('bot','I couldn’t reach Grapim. Check your connection and try again.',null,true).classList.add('err');}).then(function(){busy=false;box.focus();});}\nfunction fit(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,140)+'px';}\ndocument.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-asst-open]');if(t){e.preventDefault();if(document.body.classList.contains('asst-open'))close();else open();return;}if(e.target.closest&&e.target.closest('[data-asst-close]')){close();return;}var s=e.target.closest&&e.target.closest('.asst-sug');if(s){send(s.textContent);return;}if(e.target.closest&&e.target.closest('[data-asst-clear]')){fetch('/assistant/clear',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:csrf}).toString()}).then(function(){loaded=false;log.innerHTML='';load();});}});\nform.addEventListener('submit',function(e){e.preventDefault();send(box.value);});\nbox.addEventListener('input',fit);\nbox.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send(box.value);}});\ndocument.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('asst-open'))close();if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='j'){e.preventDefault();if(document.body.classList.contains('asst-open'))close();else open();}});\nif(store.get()==='1')open(false);\n})();";
+export const ASSISTANT_SCRIPT = "(function(){\nvar panel=document.getElementById('asst');if(!panel)return;\nvar log=panel.querySelector('[data-asst-log]'),form=panel.querySelector('[data-asst-form]'),box=form.querySelector('textarea'),ctxEl=panel.querySelector('[data-asst-ctx]'),csrf=panel.getAttribute('data-csrf'),loaded=false,busy=false;\nvar store={get:function(){try{return sessionStorage.getItem('gp-asst');}catch(e){return null;}},set:function(v){try{if(v)sessionStorage.setItem('gp-asst','1');else sessionStorage.removeItem('gp-asst');}catch(e){}}};\nfunction esc(s){return String(s).replace(/[&<>\"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}\nfunction rich(t){var lines=esc(t).split(/\\n/),out='',list=false;for(var i=0;i<lines.length;i++){var l=lines[i].replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');if(/^\\s*[-•]\\s+/.test(l)){if(!list){out+='<ul>';list=true;}out+='<li>'+l.replace(/^\\s*[-•]\\s+/,'')+'</li>';}else{if(list){out+='</ul>';list=false;}if(l.trim())out+='<p>'+l+'</p>';}}return out+(list?'</ul>':'');}\nfunction scroll(){log.scrollTop=log.scrollHeight;}\nfunction actionsHtml(acts){if(!acts||!acts.length)return'';var h='<div class=\"asst-acts\">';for(var i=0;i<acts.length;i++){var a=acts[i];if(a.method==='POST'){var f='';for(var k in a.fields)f+='<input type=\"hidden\" name=\"'+esc(k)+'\" value=\"'+esc(a.fields[k])+'\">';h+='<form method=\"post\" action=\"'+esc(a.href)+'\" style=\"--i:'+i+'\"><input type=\"hidden\" name=\"csrf\" value=\"'+esc(csrf)+'\">'+f+'<button class=\"asst-act do\" data-busy=\"Starting…\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Run</span></button></form>';}else h+='<a class=\"asst-act\" style=\"--i:'+i+'\" href=\"'+esc(a.href)+'\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Open</span></a>';}return h+'</div>';}\nfunction add(role,text,acts,fresh){var d=document.createElement('div');d.className='asst-m '+(role==='user'?'me':'bot')+(fresh?' fresh':'');d.innerHTML=role==='user'?'<div class=\"asst-b\">'+esc(text)+'</div>':'<div class=\"asst-b\">'+rich(text)+'</div>'+actionsHtml(acts);log.appendChild(d);scroll();return d;}\nfunction empty(sugs){log.innerHTML='<div class=\"asst-hello\"><p class=\"asst-hi\">What can I help with?</p><div class=\"asst-sugs\">'+sugs.map(function(s,i){return'<button type=\"button\" class=\"asst-sug\" style=\"--i:'+i+'\">'+esc(s)+'</button>';}).join('')+'</div></div>';}\nfunction load(){if(loaded)return;loaded=true;fetch('/assistant/state?from='+encodeURIComponent(location.pathname),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(s){ctxEl.textContent=s.label||'';if(s.history&&s.history.length){log.innerHTML='';s.history.forEach(function(m){add(m.role,m.text,m.actions,false);});}else empty(s.suggestions||[]);}).catch(function(){empty([]);});}\nfunction open(animate){if(!panel.hidden&&document.body.classList.contains('asst-open'))return;panel.hidden=false;if(animate===false){document.body.classList.add('asst-open','asst-instant');setTimeout(function(){document.body.classList.remove('asst-instant');},50);}else requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('asst-open');});});store.set(true);load();setTimeout(function(){box.focus();},animate===false?0:250);}\nfunction close(){document.body.classList.remove('asst-open');store.set(false);setTimeout(function(){if(!document.body.classList.contains('asst-open'))panel.hidden=true;},320);}\nfunction typing(){var d=document.createElement('div');d.className='asst-m bot fresh';d.innerHTML='<div class=\"asst-b asst-typing\" aria-label=\"Thinking\"><i></i><i></i><i></i></div>';log.appendChild(d);scroll();return d;}\nfunction send(text){text=String(text||'').trim();if(!text||busy)return;busy=true;var hello=log.querySelector('.asst-hello');if(hello)hello.remove();add('user',text,null,true);box.value='';fit();var t=typing();var body=new URLSearchParams({csrf:csrf,message:text,from:location.pathname});\nfetch('/assistant/ask',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});}).then(function(x){t.remove();if(!x.ok){add('bot',x.j.error||'Something went wrong.',null,true).classList.add('err');return;}if(x.j.label)ctxEl.textContent=x.j.label;add('bot',x.j.reply,x.j.actions,true);}).catch(function(){t.remove();add('bot','I couldn’t reach Grapim. Check your connection and try again.',null,true).classList.add('err');}).then(function(){busy=false;box.focus();});}\nfunction fit(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,140)+'px';box.style.overflowY=box.scrollHeight>140?'auto':'hidden';}\ndocument.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-asst-open]');if(t){e.preventDefault();if(document.body.classList.contains('asst-open'))close();else open();return;}if(e.target.closest&&e.target.closest('[data-asst-close]')){close();return;}var s=e.target.closest&&e.target.closest('.asst-sug');if(s){send(s.textContent);return;}if(e.target.closest&&e.target.closest('[data-asst-clear]')){fetch('/assistant/clear',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:csrf}).toString()}).then(function(){loaded=false;log.innerHTML='';load();});}});\nform.addEventListener('submit',function(e){e.preventDefault();send(box.value);});\nbox.addEventListener('input',fit);\nbox.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send(box.value);}});\ndocument.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('asst-open'))close();});\nif(store.get()==='1')open(false);\n})();";
 export const ASSISTANT_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(ASSISTANT_SCRIPT).digest('base64')}`;
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
@@ -36,6 +36,10 @@ ${TOKENS}
 .nav a[aria-current=page]{background:var(--hover);color:var(--text);font-weight:500}
 .nav .count{margin-left:auto;min-width:20px;height:18px;padding:0 6px;border-radius:9px;background:var(--line);color:var(--text-2);font-size:11px;font-weight:600;display:grid;place-items:center}
 .nav .org-kind{margin-left:auto;font-size:11px;color:var(--text-3)}
+.rail-up{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:12.5px;line-height:1.3;transition:border-color .15s,transform .15s}
+.rail-up:hover{text-decoration:none;border-color:var(--line-strong);transform:translateY(-1px)}.rail-up>span:first-child{display:flex;flex-direction:column}.rail-up .strong{font-size:13px}
+.rail-up-cta{flex:none;padding:5px 10px;border-radius:7px;background:var(--ink);color:var(--on-ink);font-weight:500}
+.rail-up+.rail-foot{margin-top:8px}
 .rail-foot{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px 0;display:flex;align-items:center;gap:8px}
 .rail-foot .who{min-width:0;flex:1;font-size:13px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .icon-btn{width:30px;height:30px;display:grid;place-items:center;border-radius:var(--r-sm);border:0;background:transparent;color:var(--text-2);cursor:pointer}
@@ -334,14 +338,16 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .imp summary::-webkit-details-marker{display:none}.imp summary:hover{background:var(--hover)}
 .imp[open] summary{border-bottom:1px solid var(--line)}.imp-body{padding:16px;display:grid;gap:12px}
 @media (max-width:640px){.imp summary{grid-template-columns:1fr}}
-.asst-launch{position:fixed;right:20px;bottom:20px;z-index:40;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px 0 14px;border-radius:99px;background:var(--ink);color:var(--on-ink);font:500 14px var(--font);box-shadow:0 8px 24px -8px rgb(11 19 36/.45),0 2px 6px rgb(11 19 36/.18);transition:transform .2s cubic-bezier(.16,1,.3,1),box-shadow .2s,opacity .2s}
+.asst-launch{position:fixed;right:22px;bottom:22px;z-index:40;display:grid;place-items:center;width:48px;height:48px;border-radius:50%;animation:asst-pop .5s cubic-bezier(.16,1,.3,1) .4s both;background:var(--ink);color:var(--on-ink);font:500 14px var(--font);box-shadow:0 8px 24px -8px rgb(11 19 36/.45),0 2px 6px rgb(11 19 36/.18);transition:transform .2s cubic-bezier(.16,1,.3,1),box-shadow .2s,opacity .2s}
 .asst-launch:hover{text-decoration:none;transform:translateY(-2px);box-shadow:0 14px 30px -10px rgb(11 19 36/.5),0 2px 6px rgb(11 19 36/.2)}
-.asst-launch kbd{font:500 11px var(--font);padding:2px 6px;border-radius:5px;background:color-mix(in srgb,var(--on-ink) 16%,transparent);color:color-mix(in srgb,var(--on-ink) 80%,transparent)}
+.asst-launch:active{transform:scale(.94)}
+.app{transition:padding-right .34s cubic-bezier(.16,1,.3,1)}
+@media (min-width:1100px){.asst-open .app{padding-right:min(400px,100vw)}}
 .asst-open .asst-launch{opacity:0;pointer-events:none;transform:translateY(8px)}
-.asst{position:fixed;top:0;right:0;bottom:0;z-index:50;width:min(420px,100vw);display:flex;flex-direction:column;background:var(--surface);border-left:1px solid var(--line);box-shadow:-24px 0 60px -30px rgb(11 19 36/.35);transform:translateX(104%);transition:transform .34s cubic-bezier(.16,1,.3,1)}
+.asst{position:fixed;top:0;right:0;bottom:0;z-index:50;width:min(400px,100vw);display:flex;flex-direction:column;background:var(--surface);border-left:1px solid var(--line);box-shadow:-24px 0 60px -30px rgb(11 19 36/.35);transform:translateX(104%);transition:transform .34s cubic-bezier(.16,1,.3,1)}
 .asst-open .asst{transform:none}.asst-instant .asst{transition:none}
-.asst-head{display:flex;align-items:center;gap:8px;padding:12px 12px 12px 16px;border-bottom:1px solid var(--line)}
-.asst-who{display:flex;align-items:center;gap:10px;min-width:0;flex:1}.asst-who>span{display:flex;flex-direction:column;min-width:0}
+.asst-head{display:flex;align-items:center;gap:4px;height:52px;padding:0 10px 0 18px;border-bottom:1px solid var(--line)}
+.asst-who{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25}
 .asst-ctx{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .asst-clear{border:0;background:none;color:var(--text-2);font:500 12.5px var(--font);padding:6px 8px;border-radius:var(--r-sm);cursor:pointer}.asst-clear:hover{background:var(--hover);color:var(--text)}
 .asst-log{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
@@ -361,15 +367,16 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .asst-hello{margin:auto 0;padding:8px 2px;animation:asst-in .45s cubic-bezier(.16,1,.3,1) both}.asst-hi{font-size:17px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
 .asst-sugs{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}.asst-sugs form{margin:0}
 .asst-sug{border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 12.5px var(--font);padding:7px 11px;border-radius:99px;cursor:pointer;animation:asst-in .4s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--i,0) * 70ms + 150ms);transition:background .15s,border-color .15s}.asst-sug:hover{background:var(--hover);border-color:var(--text-3)}
-.asst-form{display:flex;align-items:flex-end;gap:8px;margin:0 12px;padding:8px 8px 8px 12px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface);transition:border-color .15s,box-shadow .15s}
+.asst-form{display:flex;align-items:flex-end;gap:8px;margin:0 12px 14px;padding:8px 8px 8px 12px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface);transition:border-color .15s,box-shadow .15s}
 .asst-form:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
-.asst-form textarea{flex:1;min-height:22px;height:22px;max-height:140px;padding:2px 0;border:0;background:none;resize:none;font:14px/1.5 var(--font);color:var(--text);box-shadow:none}.asst-form textarea:focus-visible{box-shadow:none;border:0}
+.asst-form textarea{flex:1;min-height:22px;height:22px;max-height:140px;padding:2px 0;border:0;background:none;resize:none;overflow-y:hidden;scrollbar-width:thin;font:14px/1.5 var(--font);color:var(--text);box-shadow:none}.asst-form textarea:focus-visible{box-shadow:none;border:0}
 .asst-send{flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:9px;background:var(--ink);color:var(--on-ink);cursor:pointer;transition:transform .15s}.asst-send:hover{transform:translateY(-1px)}.asst-send .i{transform:rotate(-90deg)}
 .asst-foot{padding:8px 16px 14px;font-size:11.5px;color:var(--text-3);text-align:center}
 .asst-page .asst-log{max-height:none;min-height:260px}.asst-page .asst-form{margin:0 16px}
+@keyframes asst-pop{from{opacity:0;transform:scale(.6)}}
 @keyframes asst-in{from{opacity:0;transform:translateY(8px);filter:blur(2px)}}
 @keyframes asst-dot{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-4px);opacity:1}}
-@media (max-width:640px){.asst{width:100vw;border-left:0}.asst-launch{right:14px;bottom:14px;width:46px;height:46px;padding:0;justify-content:center}.asst-launch span,.asst-launch kbd{display:none}}
+@media (max-width:640px){.asst{width:100vw;border-left:0}.asst-launch{right:14px;bottom:14px}}
 @media print{.asst,.asst-launch{display:none!important}}
 .lp-page{background:var(--canvas)}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
@@ -532,6 +539,7 @@ ${org && nav.canAudit ? link(`${orgPath(org)}/audit`, 'Audit log', 'shield', 'au
 ${org && nav.billingOrgs?.has(org.id) ? link(`${orgPath(org)}/billing`, 'Billing', 'card', 'billing') : ''}
 </div>
 ${orgLinks}
+${nav.upgrade ? `<a class="rail-up" href="${esc(orgPath(nav.upgrade))}/billing"><span><span class="strong">Free plan</span><span class="subtle">3 checks a month</span></span><span class="rail-up-cta">Upgrade</span></a>` : ''}
 <div class="rail-foot"><span class="who" title="${esc(user.email)}">${esc(user.email)}</span>
 <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="icon-btn" title="Sign out" aria-label="Sign out">${icon('logout')}</button></form></div>
 </nav>`;
@@ -540,7 +548,7 @@ ${orgLinks}
 function doc(title, body, bodyClass = '', refresh = 0) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>${esc(title)} · Grapim</title><style>${STYLE}</style></head>
+<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml"><title>${esc(title)} · Grapim</title><style>${STYLE}</style></head>
 <body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}</body></html>
 `;
 }
@@ -548,13 +556,12 @@ function doc(title, body, bodyClass = '', refresh = 0) {
 // crumbs: [[label, href?], ...]
 // The assistant: a launcher (a link to the full page without JavaScript) and the panel the script fills.
 function assistantShell(csrf) {
-  return `<a class="asst-launch" href="/assistant" data-asst-open aria-controls="asst">${icon('spark')}<span>Ask Grapim</span><kbd>Ctrl J</kbd></a>
+  return `<a class="asst-launch" href="/assistant" data-asst-open aria-controls="asst" aria-label="Ask Grapim" title="Ask Grapim">${icon('spark', { size: 20 })}</a>
 <aside class="asst" id="asst" aria-label="Grapim assistant" data-csrf="${esc(csrf ?? '')}" hidden>
-<header class="asst-head"><span class="asst-who">${mark(22, 'm-asst')}<span><span class="strong">Grapim assistant</span><span class="asst-ctx" data-asst-ctx></span></span></span>
-<button type="button" class="asst-clear" data-asst-clear>New chat</button><button type="button" class="icon-btn" data-asst-close aria-label="Close the assistant">${icon('x')}</button></header>
+<header class="asst-head"><span class="asst-who"><span class="strong">Ask Grapim</span><span class="asst-ctx" data-asst-ctx></span></span>
+<button type="button" class="icon-btn" data-asst-clear aria-label="New chat" title="New chat">${icon('plus')}</button><button type="button" class="icon-btn" data-asst-close aria-label="Close" title="Close">${icon('x')}</button></header>
 <div class="asst-log" data-asst-log aria-live="polite"></div>
-<form class="asst-form" data-asst-form><label class="sr" for="asst-q">Ask the assistant</label><textarea id="asst-q" name="message" rows="1" maxlength="1000" placeholder="Ask about this page, or ask me to do something"></textarea><button class="asst-send" aria-label="Send">${icon('arrow')}</button></form>
-<p class="asst-foot">Grapim proposes. Nothing runs until you click it.</p></aside>`;
+<form class="asst-form" data-asst-form><label class="sr" for="asst-q">Ask the assistant</label><textarea id="asst-q" name="message" rows="1" maxlength="1000" placeholder="Ask anything…"></textarea><button class="asst-send" aria-label="Send">${icon('arrow')}</button></form></aside>`;
 }
 
 // Minimal formatting for assistant replies, the same as the panel script: escaped text, **bold** and "- " lists.
@@ -568,20 +575,20 @@ function richReply(text) {
   return out + (list ? '</ul>' : '');
 }
 const assistantActions = (acts = [], csrf) => (acts.length ? `<div class="asst-acts">${acts.map((a, i) => (a.method === 'POST'
-  ? `<form method="post" action="${esc(a.href)}" style="--i:${i}"><input type="hidden" name="csrf" value="${esc(csrf)}">${Object.entries(a.fields ?? {}).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('')}<button class="asst-act do" data-busy="Starting…"><span>${esc(a.label)}</span><span class="asst-act-k">Runs on click</span></button></form>`
+  ? `<form method="post" action="${esc(a.href)}" style="--i:${i}"><input type="hidden" name="csrf" value="${esc(csrf)}">${Object.entries(a.fields ?? {}).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('')}<button class="asst-act do" data-busy="Starting…"><span>${esc(a.label)}</span><span class="asst-act-k">Run</span></button></form>`
   : `<a class="asst-act" style="--i:${i}" href="${esc(a.href)}"><span>${esc(a.label)}</span><span class="asst-act-k">Open</span></a>`)).join('')}</div>` : '');
 
 // The assistant as a page, for browsers without JavaScript (the launcher links here).
 export function assistantPage({ user, csrf, nav, from, label, suggestions = [], history = [] }) {
   const log = history.length
     ? history.map(m => `<div class="asst-m ${m.role === 'user' ? 'me' : 'bot'}"><div class="asst-b">${m.role === 'user' ? esc(m.text) : richReply(m.text)}</div>${m.role === 'user' ? '' : assistantActions(m.actions, csrf)}</div>`).join('')
-    : `<div class="asst-hello"><p class="asst-hi">Hi. I can see ${esc(label)}.</p><p class="subtle">Ask about the results, what to do next, or ask me to run something. You click before anything runs.</p></div>`;
+    : `<div class="asst-hello"><p class="asst-hi">What can I help with?</p></div>`;
   const form = q => `<form method="post" action="/assistant"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="from" value="${esc(from)}">${q}</form>`;
   const body = `<div class="page-head"><div><h1>Assistant</h1><p class="sub">About ${esc(label)}${from ? ` · <a href="${esc(from)}">back to the page</a>` : ''}</p></div></div>
 <section class="panel asst-page"><div class="asst-log">${log}</div>
 ${history.length ? '' : `<div class="asst-sugs" style="padding:0 16px 12px">${suggestions.map(q => form(`<input type="hidden" name="message" value="${esc(q)}"><button class="asst-sug">${esc(q)}</button>`)).join('')}</div>`}
-${form(`<div class="asst-form"><label class="sr" for="asst-page-q">Ask the assistant</label><textarea id="asst-page-q" name="message" rows="2" maxlength="1000" placeholder="Ask about this page, or ask me to do something" required></textarea><button class="asst-send" aria-label="Send">${icon('arrow')}</button></div>`)}
-<p class="asst-foot">Grapim proposes. Nothing runs until you click it.</p></section>`;
+${form(`<div class="asst-form"><label class="sr" for="asst-page-q">Ask the assistant</label><textarea id="asst-page-q" name="message" rows="2" maxlength="1000" placeholder="Ask anything…" required></textarea><button class="asst-send" aria-label="Send">${icon('arrow')}</button></div>`)}
+</section>`;
   return layout({ title: 'Assistant', user, csrf, nav, crumbs: [['Assistant']], body });
 }
 
@@ -1150,7 +1157,7 @@ export function metricsPage({ user, csrf, nav, org, m }) {
   const pb = m.playbook;
   const compare = pb && pb.withIt.count && pb.without.count
     ? `<p style="margin:8px 0 0"><span class="strong">With your playbook: ${h(pb.withIt.averageHours)} per rollout</span> <span class="subtle">(${pb.withIt.count}) against ${h(pb.without.averageHours)} without (${pb.without.count}), from logged hours.</span></p>`
-    : `<p class="subtle" style="margin:8px 0 0">${pb?.used ? `${pb.used} rollout${pb.used === 1 ? '' : 's'} started from your playbook.` : 'No rollout has started from your playbook yet.'} Log hours on rollouts with and without it to compare.</p>`;
+    : `<p class="subtle" style="margin:8px 0 0">${pb?.used ? `${pb.used} rollout${pb.used === 1 ? '' : 's'} started from your playbook.` : 'No rollout has started from your playbook yet.'}</p>`;
   const body = `<div class="page-head"><div><h1>Deployment metrics</h1><p class="sub">${esc(org.name)} · ${m.deployments.length} deployment${m.deployments.length === 1 ? '' : 's'}, oldest first</p></div><div class="actions"><a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a></div></div>
 <section class="panel"><div class="stats">
 <div><p class="v num">${h(m.totalHours)}</p><p class="k">Engineer hours logged</p></div>
@@ -1158,7 +1165,7 @@ export function metricsPage({ user, csrf, nav, org, m }) {
 <div><p class="v num">${m.medianDaysToLive === null ? '—' : m.medianDaysToLive}</p><p class="k">Median days to first live chat</p></div></div>
 <div class="panel-body"><p style="margin:0"><span class="badge ${cls}">${esc(label)}</span> <span class="strong">Gate: deployment 5 takes under half the hours of deployment 1.</span> <span class="subtle">${esc(m.gate.message)}</span></p>
 ${compare}
-<p class="subtle" style="margin:8px 0 0">Service revenue share needs onboarding fees, which Grapim does not record, so it is not shown. Hours come from what engineers log on each agent’s Rollout page.</p></div></section>
+<p class="subtle" style="margin:8px 0 0">Hours come from each rollout’s log.</p></div></section>
 <section class="panel">${m.deployments.length ? `<div class="scroll"><table><thead><tr><th>#</th><th>AI agent</th><th>Started</th><th>Engineer hours</th><th class="hide-sm">Steps drafted by the agent</th><th class="hide-sm">Days to live</th><th class="hide-sm">Playbook</th></tr></thead><tbody>
 ${rows}
 </tbody></table></div>` : '<div class="emptystate"><span class="strong">No deployments yet</span>Metrics appear once an AI agent is added.</div>'}</section>`;
@@ -1203,14 +1210,14 @@ ${can.write ? `<div class="row-inline" style="margin-top:12px">${button('refresh
   } else if (consent) {
     state = `<p style="margin:0">Agreed by ${esc(consent.by)} on ${esc(consent.at)}, not added yet.</p>${can.write ? `<div class="row-inline" style="margin-top:12px">${button('refresh', `${icon('plus')}Add to playbook`, ' primary')}${button('withdraw', 'Withdraw agreement', ' ghost')}</div>` : ''}`;
   } else {
-    state = `<p style="margin:0" class="subtle">Not in your playbook. The client can agree on the sign-off page, or record an agreement made elsewhere.</p>
+    state = `<p style="margin:0" class="subtle">Not in your playbook yet. The client can agree when signing off.</p>
 ${can.write ? `<form method="post" action="${esc(base)}/playbook" style="margin-top:12px" novalidate>${hidden}<input type="hidden" name="action" value="consent">
 <div class="row-inline"><label class="field" style="flex:1;margin:0"><span>Who agreed, and how</span><input type="text" name="by" maxlength="160" placeholder="Dana Lee, Head of Support, contract §4"></label></div>
-<label class="check" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0"><input type="checkbox" name="confirm" value="yes"><span>The client agreed in writing that de-identified test messages and the integration shape from this rollout may be reused for our other clients.</span></label>
+<label class="check" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0"><input type="checkbox" name="confirm" value="yes"><span>The client agreed in writing to reuse, de-identified.</span></label>
 <button class="btn" data-busy="Adding…">${icon('plus')}Record agreement and add</button></form>` : ''}`;
   }
   return `<section class="panel"><div class="panel-head"><h2>Playbook</h2><span class="aside subtle">${esc(holds)}</span></div><div class="panel-body">
-<p class="subtle" style="margin:0 0 12px">Each new rollout starts from earlier clients’ test messages and integration shapes, with names, contacts, keys and order data removed.</p>${state}</div></section>`;
+<p class="subtle" style="margin:0 0 12px">New rollouts start from earlier clients’ work, de-identified.</p>${state}</div></section>`;
 }
 
 // Step 6 on the Rollout page: regression monitoring on or off, how often, the model version to watch, and the
@@ -1234,9 +1241,9 @@ function monitorPanel({ base, csrf, can, monitor }) {
 <label class="field"><span>Re-run at least every</span><select name="intervalHours">${intervals.map(h => `<option value="${h}"${m.intervalHours === h ? ' selected' : ''}>${h} hours</option>`).join('')}</select></label></div>
 <div class="row-inline"><label class="field" style="flex:2"><span>Model version URL <span class="subtle" style="font-weight:400">(optional)</span></span><input type="url" name="versionUrl" value="${esc(m.versionUrl)}" placeholder="https://api.client.example/version"></label>
 <label class="field" style="flex:1"><span>Version field</span><input type="text" name="versionPath" value="${esc(m.versionPath)}" placeholder="model.version"></label></div>
-<p class="hint" style="margin:-6px 0 12px">When the version it reports changes, the tests run again right away. Alerts go to the webhook set on the Live page.</p>
+<p class="hint" style="margin:-6px 0 12px">A new version re-runs the tests at once.</p>
 <button class="btn" data-busy="Saving…">Save</button></form>${m.enabled && hasTests ? `<form method="post" action="${esc(base)}/monitor" style="margin-top:8px">${hidden}<input type="hidden" name="action" value="check"><button class="btn ghost" data-busy="Checking…">${icon('play')}Check now</button></form>` : ''}` : '';
-  return `<section class="panel"><div class="panel-head"><h2>Monitoring</h2>${state}<span class="aside subtle">Step 6: re-runs the saved tests when anything changes</span></div><div class="panel-body">
+  return `<section class="panel"><div class="panel-head"><h2>Monitoring</h2>${state}</div><div class="panel-body">
 ${hasTests ? '' : '<p class="subtle" style="margin:0">Approve a test set first: monitoring re-runs the saved test set.</p>'}${last}${form}</div></section>`;
 }
 
@@ -1245,7 +1252,7 @@ ${hasTests ? '' : '<p class="subtle" style="margin:0">Approve a test set first: 
 function revenuePanel({ base, csrf, revenue }) {
   if (!revenue) return '';
   const v = n => (n ? String(n) : '');
-  return `<form method="post" action="${esc(base)}/revenue" class="panel" novalidate><div class="panel-head"><h2>Revenue from this client</h2><span class="aside subtle">Your numbers, for Productization health</span></div><div class="panel-body">
+  return `<form method="post" action="${esc(base)}/revenue" class="panel" novalidate><div class="panel-head"><h2>Revenue from this client</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
 <label class="field"><span>Onboarding fee, one time (USD)</span><input type="number" name="onboardingUsd" min="0" step="1" value="${v(revenue.onboardingUsd)}" style="max-width:180px"></label>
 <label class="field"><span>Monthly fee (USD)</span><input type="number" name="monthlyUsd" min="0" step="1" value="${v(revenue.monthlyUsd)}" style="max-width:180px"></label>
@@ -1259,8 +1266,8 @@ function connectorPanel({ base, csrf, can, connector: c }) {
   const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
   const draft = can.write ? `<form method="post" action="${esc(base)}/agent">${hidden}<input type="hidden" name="task" value="connector"><button class="btn${c ? '' : ' primary'}" data-busy="Drafting…">${icon('spark')}${c ? 'Draft again from the API docs' : 'Draft from the client’s API docs'}</button></form>` : '';
   if (!c) {
-    return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2><span class="aside subtle">The tools your agent calls in this client’s systems</span></div><div class="panel-body">
-<p class="subtle" style="margin:0 0 12px">Add the client’s API docs on the Policies tab. The agent drafts one tool per endpoint; once you approve it, Grapim generates the code and tool definitions, with the guard in front of every action.</p>${draft}</div></section>`;
+    return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2></div><div class="panel-body">
+<p class="subtle" style="margin:0 0 12px">Add the client’s API docs, then draft. You approve; Grapim writes the code.</p>${draft}</div></section>`;
   }
   const acts = c.tools.filter(t => t.kind === 'action').length;
   return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2><span class="badge good">Approved</span><span class="aside subtle">${c.tools.length} tools · ${acts} that act, each checked by the guard first</span></div>
@@ -1282,17 +1289,17 @@ export function rolloutPage(args) {
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
   const body = `<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
-<p class="panel-body subtle" style="margin:0">Drafts the mapping, the integration, the connector to the client’s systems and the test set, adds matching test messages from your playbook, then runs the check. You approve every draft.</p>
+<p class="panel-body subtle" style="margin:0">Drafts every step, then runs the check. You approve each draft.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
 <p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>
 ${connectorPanel({ base, csrf, can, connector: args.connector })}${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
-${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2><span class="aside subtle">They feed Deployment metrics: is each rollout cheaper than the last?</span></div><div class="panel-body">
+${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
 <label class="field"><span>Step</span><select name="step">${HOUR_STEPS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></label>
 <label class="field"><span>Hours</span><input type="number" name="hours" min="0.25" max="200" step="0.25" required style="max-width:110px"></label>
 <label class="field" style="flex:1"><span>Note <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="note" maxlength="200"></label></div>
-<label class="field"><span>What needed a person <span class="subtle" style="font-weight:400">(a short tag; the same tag three times puts it on the feature list)</span></span><input type="text" name="tag" maxlength="60" list="intervention-tags" placeholder="client API has no docs"><datalist id="intervention-tags">${(args.tags ?? []).map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
+<label class="field"><span>What needed a person <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="tag" maxlength="60" list="intervention-tags" placeholder="client API has no docs"><datalist id="intervention-tags">${(args.tags ?? []).map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
 <button class="btn" data-busy="Saving…">${icon('clock')}Log hours</button></div></form>
 ${revenuePanel({ base, csrf, revenue: args.revenue })}` : ''}`;
   return deploymentShell({ ...args, tab: 'rollout', title: 'Rollout' }, body);
@@ -1317,7 +1324,7 @@ ${h.reasons.length ? `<ul class="prod-reasons">${h.reasons.map(r => `<li>${esc(r
 <td class="num">${t.count}</td><td class="num hide-sm">${t.clients.length}</td><td class="num hide-sm">${t.hours ? `${Math.round(t.hours * 10) / 10} h` : '—'}</td><td class="hide-sm subtle">${esc(t.steps.join(', '))}</td></tr>`;
   const table = rows => `<div class="scroll"><table><thead><tr><th>Manual work</th><th>Times</th><th class="hide-sm">Clients</th><th class="hide-sm">Hours</th><th class="hide-sm">Steps</th></tr></thead><tbody>${rows.map(tagRow).join('')}</tbody></table></div>`;
   const backlog = `<section class="panel"><div class="panel-head"><h2>Make it a feature</h2><span class="aside subtle">Manual work that came back 3 times or more</span></div>
-${h.backlog.length ? table(h.backlog) : '<div class="emptystate"><span class="strong">Nothing has come back three times yet</span>Tag manual steps when you log hours; drafts a person rewrote or rejected are counted on their own.</div>'}</section>`;
+${h.backlog.length ? table(h.backlog) : '<div class="emptystate"><span class="strong">Nothing has come back three times yet</span>Tag manual work when you log hours.</div>'}</section>`;
   const rest = h.tags.filter(t => t.count < 3);
   const others = rest.length ? `<section class="panel"><div class="panel-head"><h2>Other manual work</h2><span class="aside subtle">${h.interventions} recorded in all</span></div>${table(rest.slice(0, 20))}</section>` : '';
   const off = `<section class="panel"><div class="panel-head"><h2>Outside your focus</h2><span class="aside subtle">Clients that make each rollout less alike</span></div>
@@ -1360,7 +1367,7 @@ export function draftsPage(args) {
   const base = depPath(org, name);
   const pending = ov.drafts.filter(d => d.status === 'pending');
   const done = ov.drafts.filter(d => d.status !== 'pending').sort((a, b) => String(b.reviewedAt).localeCompare(String(a.reviewedAt)));
-  const body = `<p class="muted" style="margin-bottom:16px">The agent proposes; a person approves, edits or rejects. Nothing changes until a draft is approved, and every decision goes into the audit log.</p>
+  const body = `<p class="muted" style="margin-bottom:16px">The agent proposes. You approve, edit or reject.</p>
 ${pending.length ? `<div class="stack">${pending.map(d => draftCard(d, { action: `${base}/drafts/${encodeURIComponent(d.id)}/review`, csrf, canReview: can.review, when })).join('')}</div>`
     : `<section class="panel"><div class="emptystate"><span class="strong">Nothing waiting for review</span>${can.write ? 'Ask the agent to draft one from the More menu.' : 'New drafts from the agent appear here.'}</div></section>`}
 ${done.length ? `<h2 style="margin:32px 0 12px">Decided</h2><section class="panel">${done.map(d => reviewedRow(d, { when })).join('')}</section>` : ''}`;
@@ -1385,10 +1392,10 @@ function importPanel({ base, csrf, imports = {} }) {
 <div class="imp-body">${again}<form method="post" action="${esc(base)}/import" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}">
 <div class="row-inline">${s.fields.map(([n, l, ph]) => `<label class="field"><span>${esc(l)}</span><input type="text" name="${n}" value="${esc(st[n] ?? '')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}
 <label class="field" style="flex:1;min-width:220px"><span>${st.saved ? 'New token (optional)' : 'Token'}</span><input type="password" name="token" autocomplete="off" placeholder="${st.saved ? 'Saved encrypted' : ''}"></label></div>
-<p class="hint" style="margin:-8px 0 12px">${esc(s.token)}. Grapim only reads, removes emails, phone and card numbers from tickets, and stores the token encrypted.</p>
+<p class="hint" style="margin:-8px 0 12px">${esc(s.token)}</p>
 <button class="btn primary" data-busy="Importing…">${icon('upload')}Import from ${esc(s.label)}</button></form></div></details>`;
   };
-  return `<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Import from the client’s systems</h2><span class="aside subtle">Read-only. No exporting or uploading by hand.</span></div>
+  return `<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Import from the client’s systems</h2><span class="aside subtle">Read-only · personal data removed · token encrypted</span></div>
 ${IMPORTS.map(card).join('')}</section>`;
 }
 
@@ -1401,7 +1408,7 @@ ${ov.inputs.map(f => `<tr><td><span style="display:inline-flex;gap:8px;align-ite
   const upload = can.write ? `<form method="post" action="${esc(base)}/inputs" enctype="multipart/form-data" class="panel" style="margin-top:16px" novalidate><div class="panel-head"><h2>Add files</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="picker"><span class="sr">Files</span><input type="file" id="files" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"><span class="btn" aria-hidden="true">${icon('file')}Choose files</span><span class="names" data-files-for="files" aria-live="polite">No file chosen</span></label>
-<p class="hint" style="margin:-8px 0 14px">Markdown, text, CSV, JSON, YAML or HTML, up to 1 MB each. A file with the same name is replaced.</p>
+<p class="hint" style="margin:-8px 0 14px">Markdown, text, CSV, JSON, YAML or HTML, up to 1 MB.</p>
 <button class="btn primary" data-busy="Uploading…">${icon('upload')}Upload</button></div></form>` : '';
   return deploymentShell({ ...args, tab: 'inputs', title: 'Policies' }, `<section class="panel">${files}</section>${args.can.write ? importPanel({ base, csrf: args.csrf, imports: args.imports }) : ''}${upload}`);
 }
@@ -1425,7 +1432,7 @@ export function settingsPage(args) {
 <label class="field" style="flex:1"><span>New value</span><input type="password" name="value" autocomplete="off" required></label></div>
 <button class="btn" data-busy="Saving…">Save new key</button></div></form>` : '';
   const publicPanel = `<section class="panel"><div class="panel-head"><h2>Public page</h2><span class="badge ${v.on ? 'good' : 'plain'}">${v.on ? 'On' : 'Off'}</span></div><div class="panel-body">
-<p class="subtle" style="margin:0">A page anyone with the link can open: the date and result of the latest check, live monitoring in the last 7 days, and whether the audit log is intact. No score and no certification.</p>
+<p class="subtle" style="margin:0">A public page with your latest check result. No score or certification.</p>
 ${v.link ? `<label class="field" style="margin-top:12px"><span>Public link</span><input type="text" readonly class="mono" value="${esc(v.link)}"><p class="hint">Shown only once. Turning the page off and on again makes a new link.</p></label>` : ''}
 ${v.canManage ? `<form method="post" action="${esc(depPath(args.org, args.name))}/verified" style="margin-top:12px">${hidden(v.on ? 'off' : 'on')}<button class="btn" data-busy="Saving…">${v.on ? 'Turn off' : 'Turn on and get a link'}</button></form>` : '<p class="subtle" style="margin:8px 0 0">An owner or admin can turn it on.</p>'}</div></section>`;
   return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${keysPanel}${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
@@ -1586,7 +1593,7 @@ export function livePage(args) {
   const shell = body => deploymentShell({ ...args, tab: 'live', title: 'Live', refresh: job ? 2 : undefined }, body);
   if (!scan) {
     return shell(`<section class="panel"><div class="emptystate" style="padding:40px 16px"><span class="strong" style="font-size:15px">Watch every real conversation after launch</span>
-<p style="max-width:60ch;margin:6px auto 18px">Live monitoring checks each answer your AI gives real customers against the rules the check found, and alerts you when a high-risk rule breaks.</p>
+<p style="max-width:60ch;margin:6px auto 18px">Checks real answers against your rules and alerts you on high-risk breaks.</p>
 <a class="btn primary" href="${esc(base)}/scan">${icon('shield')}Run the check first</a></div></section>`);
   }
   if (job) {
@@ -1653,6 +1660,8 @@ export function billingPage({ user, csrf, nav, org, billing: b, salesContact, fl
     : account?.status === 'past_due' ? `<span class="badge bad">${esc(plan.name)} · payment failed</span>`
       : `<span class="badge good">${esc(plan.name)}</span>`;
   const sub = [org.name, b.configured ? (b.live ? '' : 'Stripe test mode') : 'Billing not configured'].filter(Boolean).join(' · ');
+  const rename = `<form method="post" action="${esc(orgPath(org))}/name" class="panel rename" novalidate><div class="panel-body row-inline"><input type="hidden" name="csrf" value="${esc(csrf)}">
+<label class="field" style="flex:1;margin:0"><span>Organization name</span><input type="text" name="name" maxlength="100" required value="${esc(org.name)}"></label><button class="btn" data-busy="Saving…">Save</button></div></form>`;
 
   const warnings = [];
   if (account?.status === 'past_due') warnings.push(notice('The last payment failed. Team stays on while Stripe retries; update the card in Manage billing.'));
@@ -1710,5 +1719,5 @@ ${rows.map(([label, cell]) => `<tr><th scope="row" class="muted">${esc(label)}</
 <div class="page-head"><div><div class="title"><h1>Billing</h1>${statusBadge}</div><p class="sub">${esc(sub)}</p></div>
 ${actions ? `<div class="actions">${actions}</div>` : ''}</div>
 ${notice(error)}${notice(flash, 'good')}${warnings.join('')}
-<div class="stack">${notConfigured}${usage}${pricing}</div>` });
+<div class="stack">${notConfigured}${usage}${pricing}${rename}</div>` });
 }

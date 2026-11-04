@@ -82,7 +82,7 @@ test('without JavaScript the assistant is a page with the same answers and butto
   const { cookie, dep } = await sample();
   answer = { reply: '- First, run the check\n- Then **review** the drafts', actions: [{ type: 'run_check', deployment: 'this' }] };
   const pageText = await (await get(`/assistant?from=${encodeURIComponent(dep)}`, cookie)).text();
-  assert.match(pageText, /Hi\. I can see/);
+  assert.match(pageText, /What can I help with\?/);
   const sent = await post('/assistant', cookie, { csrf: csrfOf(pageText), message: 'Help', from: dep });
   assert.equal(sent.status, 303);
   const after = await (await get(sent.headers.get('location'), cookie)).text();

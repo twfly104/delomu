@@ -39,6 +39,13 @@ const orgObject = row => row && {
   object: 'org', id: row.id, name: row.name, slug: row.slug, kind: row.kind, partner_org_id: row.partner_org_id ?? null, created_at: row.created_at,
 };
 
+// Renames an org; its slug (and so its links) stays the same.
+export function renameOrg(db, orgId, name) {
+  const clean = cleanName(name);
+  db.prepare('UPDATE orgs SET name = ? WHERE id = ?').run(clean, orgId);
+  return getOrg(db, orgId);
+}
+
 export function createOrg(db, { name, kind = 'customer', partnerOrgId = null }, now = new Date()) {
   name = cleanName(name);
   if (!['customer', 'partner'].includes(kind)) throw invalid('kind must be customer or partner.', 'kind');

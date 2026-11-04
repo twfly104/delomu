@@ -26,7 +26,7 @@ import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
 import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
-import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug } from './accounts.mjs';
+import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg } from './accounts.mjs';
 import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
 import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
@@ -93,6 +93,7 @@ const NOTICES = {
   alerts: 'Alert settings saved.',
   hours: 'Hours logged. They count toward Deployment metrics.',
   playbook: 'Playbook updated.',
+  renamed: 'Organization renamed.',
   imported: 'Imported from the client’s system. The files are listed below.',
   revenue: 'Revenue saved. It counts toward Productization health.',
   focus: 'Focus and team saved.',
@@ -174,7 +175,11 @@ function routes(ctx) {
   const navFor = (principal, extra = {}) => {
     const orgs = orgsOf(principal);
     const pending = orgs.flatMap(deploymentsOf).reduce((n, d) => n + d.ov.pending.length, 0);
-    return { orgs, pending, billingOrgs: billingOrgsOf(principal, orgs), ...extra };
+    const billingOrgs = billingOrgsOf(principal, orgs);
+    // The org to offer an upgrade for: the home org, when it is on Free, paid plans are on and this person can buy.
+    const home = orgs.find(o => o.id === principal.homeOrgId);
+    const upgrade = ctx.billing?.configured && home && billingOrgs.has(home.id) && ctx.billing.planOf(home.id)?.id === 'free' ? home : null;
+    return { orgs, pending, billingOrgs, upgrade, ...extra };
   };
   const base = principal => ({ user: principal, csrf: principal.csrf, now: ctx.now() });
 
@@ -1297,7 +1302,7 @@ function routes(ctx) {
     if (!LOCAL_HOST.test(host)) throw new ApiError('api_error', 'Billing needs DELOMU_PUBLIC_URL set on the server, so Stripe knows where to send people back.');
     return `http://${host}`;
   };
-  const BILLING_NOTICES = { success: 'Thanks. Your plan changes as soon as Stripe confirms the payment, usually within a few seconds.', cancelled: '' };
+  const BILLING_NOTICES = { success: 'Thanks. Your plan changes as soon as Stripe confirms the payment, usually within a few seconds.', cancelled: '', renamed: 'Organization renamed.' };
 
   const showBilling = (principal, params, url, error, status = 200) => {
     const { org } = access(ctx, principal, params.org, 'org:manage');
@@ -1308,6 +1313,16 @@ function routes(ctx) {
       flash: BILLING_NOTICES[url?.searchParams.get('checkout')] ?? '', error,
     }), status);
   };
+
+  // Rename an organization (owners and admins). Its links keep working: the slug does not change.
+  r.add('POST', '/orgs/:org/name', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'org:manage');
+    const renamed = renameOrg(db, org.id, form.name);
+    event(ctx, principal, org.id, 'org.rename', org.id, { name: renamed.name });
+    return new Redirect(`${orgPath(org)}/billing?checkout=renamed`);
+  });
 
   r.add('GET', '/orgs/:org/billing', async ({ principal, params, url }) => {
     const { org } = access(ctx, principal, params.org, 'org:manage');

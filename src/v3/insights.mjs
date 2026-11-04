@@ -80,7 +80,7 @@ export function currentStep(steps) {
 export function nextAction(steps, { pending, runs, inputs, scans = 1 }) {
   if (pending) return { text: `${pending} draft${pending > 1 ? 's' : ''} from the agent ${pending > 1 ? 'are' : 'is'} waiting for your decision.`, action: 'review' };
   const step = currentStep(steps);
-  if (inputs && !scans) return { text: 'Run the check: Grapim reads your policies, writes the messages most likely to make your AI break them, and checks every answer.', action: 'scan' };
+  if (inputs && !scans) return { text: 'Run the check.', action: 'scan' };
   if (step.key === 'mapping' && !inputs) return { text: 'Add your policies, and a ticket export if you have one, so Grapim can start.', action: 'inputs' };
   if (['mapping', 'integration', 'cases'].includes(step.key) && step.state === 'todo') return { text: `Ask the agent to draft the ${step.label.toLowerCase()}.`, action: 'agent', task: step.key };
   if (step.key === 'fixes' && !runs) return { text: 'Run the saved test set against your AI.', action: 'run' };
