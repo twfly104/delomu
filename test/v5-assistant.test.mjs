@@ -56,7 +56,7 @@ test('every app page has the assistant; asking from a deployment page answers ab
   assert.match(text, /<script data-ui="assistant">/);
   const csp = page.headers.get('content-security-policy');
   assert.match(csp, /connect-src 'self'/);
-  assert.equal((csp.match(/'sha256-/g) ?? []).length, 2, 'both page scripts are allowed by hash, nothing else');
+  assert.equal((csp.match(/'sha256-/g) ?? []).length, 3, 'the page scripts (busy, assistant, landing) are allowed by hash, nothing else');
 
   const state = JSON.parse(await (await get(`/assistant/state?from=${encodeURIComponent(dep)}`, cookie)).text());
   assert.match(state.label, /sample-tallyfox/);

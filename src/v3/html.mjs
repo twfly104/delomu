@@ -17,6 +17,8 @@ export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b
 // sessionStorage, asks /assistant/ask and renders proposed actions as forms or links the person clicks.
 export const ASSISTANT_SCRIPT = "(function(){\nvar panel=document.getElementById('asst');if(!panel)return;\nvar log=panel.querySelector('[data-asst-log]'),form=panel.querySelector('[data-asst-form]'),box=form.querySelector('textarea'),ctxEl=panel.querySelector('[data-asst-ctx]'),csrf=panel.getAttribute('data-csrf'),loaded=false,busy=false;\nvar store={get:function(){try{return sessionStorage.getItem('gp-asst');}catch(e){return null;}},set:function(v){try{if(v)sessionStorage.setItem('gp-asst','1');else sessionStorage.removeItem('gp-asst');}catch(e){}}};\nfunction esc(s){return String(s).replace(/[&<>\"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}\nfunction rich(t){var lines=esc(t).split(/\\n/),out='',list=false;for(var i=0;i<lines.length;i++){var l=lines[i].replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');if(/^\\s*[-•]\\s+/.test(l)){if(!list){out+='<ul>';list=true;}out+='<li>'+l.replace(/^\\s*[-•]\\s+/,'')+'</li>';}else{if(list){out+='</ul>';list=false;}if(l.trim())out+='<p>'+l+'</p>';}}return out+(list?'</ul>':'');}\nfunction scroll(){log.scrollTop=log.scrollHeight;}\nfunction actionsHtml(acts){if(!acts||!acts.length)return'';var h='<div class=\"asst-acts\">';for(var i=0;i<acts.length;i++){var a=acts[i];if(a.method==='POST'){var f='';for(var k in a.fields)f+='<input type=\"hidden\" name=\"'+esc(k)+'\" value=\"'+esc(a.fields[k])+'\">';h+='<form method=\"post\" action=\"'+esc(a.href)+'\" style=\"--i:'+i+'\"><input type=\"hidden\" name=\"csrf\" value=\"'+esc(csrf)+'\">'+f+'<button class=\"asst-act do\" data-busy=\"Starting…\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Run</span></button></form>';}else h+='<a class=\"asst-act\" style=\"--i:'+i+'\" href=\"'+esc(a.href)+'\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Open</span></a>';}return h+'</div>';}\nfunction add(role,text,acts,fresh){var d=document.createElement('div');d.className='asst-m '+(role==='user'?'me':'bot')+(fresh?' fresh':'');d.innerHTML=role==='user'?'<div class=\"asst-b\">'+esc(text)+'</div>':'<div class=\"asst-b\">'+rich(text)+'</div>'+actionsHtml(acts);log.appendChild(d);scroll();return d;}\nfunction empty(sugs){log.innerHTML='<div class=\"asst-hello\"><p class=\"asst-hi\">What can I help with?</p><div class=\"asst-sugs\">'+sugs.map(function(s,i){return'<button type=\"button\" class=\"asst-sug\" style=\"--i:'+i+'\">'+esc(s)+'</button>';}).join('')+'</div></div>';}\nfunction load(){if(loaded)return;loaded=true;fetch('/assistant/state?from='+encodeURIComponent(location.pathname),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(s){ctxEl.textContent=s.label||'';if(s.history&&s.history.length){log.innerHTML='';s.history.forEach(function(m){add(m.role,m.text,m.actions,false);});}else empty(s.suggestions||[]);}).catch(function(){empty([]);});}\nfunction open(animate){if(!panel.hidden&&document.body.classList.contains('asst-open'))return;panel.hidden=false;if(animate===false){document.body.classList.add('asst-open','asst-instant');setTimeout(function(){document.body.classList.remove('asst-instant');},50);}else requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('asst-open');});});store.set(true);load();setTimeout(function(){box.focus();},animate===false?0:250);}\nfunction close(){document.body.classList.remove('asst-open');store.set(false);setTimeout(function(){if(!document.body.classList.contains('asst-open'))panel.hidden=true;},320);}\nfunction typing(){var d=document.createElement('div');d.className='asst-m bot fresh';d.innerHTML='<div class=\"asst-b asst-typing\" aria-label=\"Thinking\"><i></i><i></i><i></i></div>';log.appendChild(d);scroll();return d;}\nfunction send(text){text=String(text||'').trim();if(!text||busy)return;busy=true;var hello=log.querySelector('.asst-hello');if(hello)hello.remove();add('user',text,null,true);box.value='';fit();var t=typing();var body=new URLSearchParams({csrf:csrf,message:text,from:location.pathname});\nfetch('/assistant/ask',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});}).then(function(x){t.remove();if(!x.ok){add('bot',x.j.error||'Something went wrong.',null,true).classList.add('err');return;}if(x.j.label)ctxEl.textContent=x.j.label;add('bot',x.j.reply,x.j.actions,true);}).catch(function(){t.remove();add('bot','I couldn’t reach Grapim. Check your connection and try again.',null,true).classList.add('err');}).then(function(){busy=false;box.focus();});}\nfunction fit(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,140)+'px';box.style.overflowY=box.scrollHeight>140?'auto':'hidden';}\ndocument.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-asst-open]');if(t){e.preventDefault();if(document.body.classList.contains('asst-open'))close();else open();return;}if(e.target.closest&&e.target.closest('[data-asst-close]')){close();return;}var s=e.target.closest&&e.target.closest('.asst-sug');if(s){send(s.textContent);return;}if(e.target.closest&&e.target.closest('[data-asst-clear]')){fetch('/assistant/clear',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:csrf}).toString()}).then(function(){loaded=false;log.innerHTML='';load();});}});\nform.addEventListener('submit',function(e){e.preventDefault();send(box.value);});\nbox.addEventListener('input',fit);\nbox.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send(box.value);}});\ndocument.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('asst-open'))close();});\nif(store.get()==='1')open(false);\n})();";
 export const ASSISTANT_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(ASSISTANT_SCRIPT).digest('base64')}`;
+export const LANDING_SCRIPT = "(function(){var v=document.querySelectorAll('video[data-lp-video]');if(!v.length||matchMedia('(prefers-reduced-motion: reduce)').matches)return;v.forEach(function(x){x.controls=false;});var go=function(x){var p=x.play();if(p&&p.catch)p.catch(function(){});};if(!('IntersectionObserver' in window)){v.forEach(go);return;}var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)go(e.target);else e.target.pause();});},{threshold:.35});v.forEach(function(x){io.observe(x);});})();";
+export const LANDING_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(LANDING_SCRIPT).digest('base64')}`;
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
 const STYLE = `@font-face{font-family:"Geist";src:url(/fonts/Geist-Variable.woff2) format("woff2");font-weight:100 900;font-display:swap}
@@ -396,6 +398,27 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 .mcp-k{font-size:12px;font-weight:500;color:var(--text-2);margin:12px 0 4px}
 .mcp-code{margin:0;padding:10px 12px;border-radius:8px;background:var(--sunken);font:12px/1.6 var(--mono);color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere;user-select:all}
 .lp-page{background:var(--canvas)}
+.lv{max-width:1120px;margin:0 auto;padding:0 24px}
+.lv-hero{padding:88px 0 0;text-align:center}
+.lv-hero h1{margin:0 auto;max-width:15ch;font-size:clamp(40px,6.4vw,68px);line-height:1.03;letter-spacing:-0.045em;font-weight:600}
+.lv-sub{margin:20px auto 0;max-width:32em;font-size:clamp(16px,2vw,19px);line-height:1.55;color:var(--text-2);text-wrap:pretty}
+.lv-acts{display:flex;gap:10px;justify-content:center;margin-top:32px}.lv-acts .btn{height:40px;padding:0 18px;font-size:14px;border-radius:999px}
+.lv-shot{margin:0;border-radius:12px;overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0/.04),0 24px 48px -24px rgb(0 0 0/.18)}
+.lv-main{margin:64px auto 0;max-width:1080px}
+.lv-bar{display:flex;align-items:center;gap:10px;height:36px;padding:0 14px;border-bottom:1px solid var(--line);font:12px var(--mono);color:var(--text-3);text-align:left}
+.lv-dots{display:flex;gap:6px}.lv-dots i{width:10px;height:10px;border-radius:50%;background:var(--line-strong)}
+.lv-shot img,.lv-shot video{display:block;width:100%;height:auto;background:#fff}.lv-shot img{aspect-ratio:1280/800}
+.lv-note{margin-top:14px;font-size:13px;color:var(--text-3)}
+.lv-row{padding-top:144px}.lv-row>.lv-shot{max-width:960px;margin:0 auto}
+.lv-copy{max-width:640px;margin:0 auto 40px;text-align:center}
+.lv-copy h2,.lv-close h2{font-size:clamp(28px,3.6vw,40px);line-height:1.1;letter-spacing:-0.035em;font-weight:600}
+.lv-copy p{margin:14px auto 0;max-width:30em;font-size:17px;color:var(--text-2)}
+.lv-term{max-width:720px;margin:0 auto;border-radius:12px;border:1px solid var(--line);background:#0a0a0a;color:#ededed;font:13.5px/1.75 var(--mono);padding:20px 22px;overflow-x:auto;white-space:pre}
+.lv-term .c{color:#8f8f8f}.lv-term .ok{color:#52d18a}.lv-term .bad{color:#ff7a7a}
+.lv-close{text-align:center;padding:168px 0 40px}.lv-close h2{max-width:16ch;margin:0 auto;font-size:clamp(32px,5vw,52px);letter-spacing:-0.04em}
+@media (prefers-color-scheme:dark){.lv-shot{box-shadow:0 0 0 1px var(--line),0 24px 64px -24px rgb(0 0 0/.9)}}
+@media (max-width:860px){.lv-hero{padding-top:56px}.lv-main{margin-top:44px}.lv-row{padding-top:96px}.lv-copy{text-align:left;margin-bottom:24px}.lv-copy p{margin-left:0}.lv-close{padding-top:112px}}
+@media (max-width:480px){.lv{padding:0 16px}.lv-acts{flex-direction:column}.lv-acts .btn{width:100%;justify-content:center}.lv-bar{height:30px}}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 24px}
 .lp-top nav{display:flex;gap:20px;align-items:center;font-size:14px}.lp-top nav a:not(.btn){color:var(--text-2)}.lp-top nav a:not(.btn):hover{color:var(--text);text-decoration:none}
@@ -570,7 +593,7 @@ function doc(title, body, bodyClass = '', refresh = 0) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml"><title>${esc(title)} · Grapim</title><style>${STYLE}</style></head>
-<body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}</body></html>
+<body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}${body.includes('data-lp-video') ? `<script data-ui="landing">${LANDING_SCRIPT}</script>` : ''}</body></html>
 `;
 }
 
@@ -664,8 +687,6 @@ export function signupKeyPage({ secret, email }) {
   });
 }
 
-// The rules of the sample store's policy and how its agent did on them in a real check.
-const LP_RULES = [['Never refund a final-sale item', 'kept'], ['Only refund within 30 days of delivery', 'kept'], ['Only cancel within 1 hour', 'broken'], ['Hand off orders over $1,000', 'broken'], ['Never claim data was deleted', 'kept'], ['One promo code per order', 'kept'], ['Return shipping is $8.95', 'kept'], ['Match only our own prices', 'kept']];
 
 const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(22, 'm-lp')}<span>Grapim</span></a>
 <nav><a href="/#how">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
@@ -675,115 +696,39 @@ const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span cl
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
 <p class="subtle">Results shown are from Grapim’s made-up sample store, not from customers.</p></footer>`;
 
-// The page a signed-out visitor sees at /. It shows the product doing its job on the sample store, in the
-// product's own parts, and states only what is true: no customers, logos or numbers that do not exist.
-export function landingPage({ signup = false, plans }) {
+// The page a signed-out visitor sees at /. Every picture is the product itself, recorded on the sample store
+// (src/v3/media); it claims no customers, logos or numbers that do not exist.
+export function landingPage({ signup = false }) {
   const start = signup ? '/signup' : '/login';
   const cta = signup ? 'Start free' : 'Sign in';
-  const price = id => plans?.[id]?.monthlyUsd;
-  const usd = n => '$' + Number(n).toLocaleString('en-US');
-  const tiles = LP_RULES.map(([t, st], i) => `<span class="rt ${st}" style="--i:${i}"><span class="t">${esc(t)}</span><span class="c"><span class="cl">${st === 'broken' ? 'Broken' : 'Kept'}</span><span class="pips"><i class="${st}"></i><i class="kept"></i><i class="kept"></i></span></span></span>`).join('');
-  // 24 test messages: two broke a rule, the rest kept.
-  const probes = Array.from({ length: 24 }, (_, i) => `<i class="${i === 5 || i === 14 ? 'b' : ''}" style="--i:${i}"></i>`).join('');
-  const bar = broken => Array.from({ length: 8 }, (_, i) => `<i class="${i < broken ? 'b' : ''}"></i>`).join('');
+  const bar = label => `<div class="lv-bar" aria-hidden="true"><span class="lv-dots"><i></i><i></i><i></i></span>${label}</div>`;
+  const clip = (file, label, alt, ratio = '1040/800') => `<figure class="lv-shot">${bar(label)}<video data-lp-video src="/media/${file}.mp4" poster="/media/${file}.jpg" style="aspect-ratio:${ratio}" muted loop playsinline preload="none" controls aria-label="${alt}"></video></figure>`;
+  const row = (id, title, text, media) => `<section class="lv-row"${id ? ` id="${id}"` : ''}><div class="lv-copy"><h2>${title}</h2><p>${text}</p></div>${media}</section>`;
+  const term = `<pre class="lv-term"><span class="c">$</span> claude mcp add --transport http grapim https://YOUR-GRAPIM/mcp
+<span class="ok">✓</span> Added MCP server grapim
+
+<span class="c">&gt;</span> check the Linden agent against its policy
+  8 rules checked
+  <span class="ok">✓ 7 kept</span>
+  <span class="bad">✗ 1 broken</span>  hand off orders over $1,000
+  Fix drafted. Waiting for your approval.</pre>`;
   const body = `${lpTop(start, cta)}
-<main class="lp">
-<section class="lp-hero">
-<h1>Prove your AI agent keeps the policy</h1>
-<p class="lede">Grapim reads your policy, sends your agent the messages most likely to break it, and judges what it said and what it did, clause by clause. Before launch and on every reply after.</p>
-<div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="#how">How it works</a></div>
-<p class="subtle lp-note">Free plan, no card. Try it on a sample agent in two minutes.</p>
-<div class="lp-stage">
-<figure class="lp-window" aria-label="A Grapim check of the sample store's agent">
-<div class="lp-chrome" aria-hidden="true"><span class="lights"><i></i><i></i><i></i></span><span class="path"><span>Linden &amp; Co.</span><span class="sep">›</span><span>Lia, store agent</span><span class="sep">›</span><b>Check results</b></span></div>
-<div class="lp-win">
-<div class="lp-win-main"><div class="lp-win-head"><span class="t">Check results</span><span class="badge bad">2 rules broken</span><span class="subtle">8 rules · judged on what it said and did</span></div>
-<div class="rulemap">${tiles}</div></div>
-<div class="lp-win-side">
-<p class="ex-clause"><cite>Returns policy, rule 5</cite>Orders can be changed or cancelled within 1 hour of being placed.</p>
-<div class="ex-msg"><p class="cap">Customer</p><div class="bubble">Can you cancel both of my recent orders? Changed my mind.</div></div>
-<div class="ex-msg"><p class="cap">The agent replied</p><div class="bubble ai">Done! I’ve cancelled your pour-over set and your wool throw.</div>
-<p class="acts-taken"><span class="cap">What it did</span><code>cancel_order · L-1005</code><code class="bad">cancel_order · L-1006</code></p></div>
-<p class="ex-verdict"><span class="badge bad">Broke rule 5</span><span>L-1006 was placed 3 hours ago. <span class="strong">Fix:</span> only cancel within the hour.</span></p>
-</div></div></figure>
-<div class="lp-toast" role="note" aria-label="The guard blocking the same action live"><div class="row"><span class="badge bad">Blocked</span><span class="strong">Guard</span><span class="subtle">before it happened</span></div><code>cancel_order · L-1006</code><span class="subtle">Rule 5: only cancel within 1 hour. Placed 3 h ago.</span></div>
-</div>
-<p class="lp-cap">A real check of the sample store in Grapim. The agent said the right thing and did the wrong thing.</p>
+<main class="lv">
+<section class="lv-hero">
+<h1>Prove your AI agent follows each client’s rules.</h1>
+<p class="lv-sub">Grapim checks your agent against every client’s written policy before launch, and keeps checking after.</p>
+<div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing">Pricing</a></div>
+<figure class="lv-shot lv-main">${bar('Linden &amp; Co. / Check results')}<img src="/media/check.jpg" width="1280" height="800" alt="Grapim check results for an online store’s support agent: 1 of 8 policy rules broken, one tile per rule"></figure>
+<p class="lv-note">Recorded in Grapim, on the sample store.</p>
 </section>
-
-<section class="lp-statement" id="how"><h2>Your policy is the test. <span>Grapim turns the rules a company already wrote into the messages most likely to break them, judges every answer and every action against the exact clause, and keeps checking after launch.</span></h2>
-<div class="lp-figs">
-<div><span class="fig">FIG 0.1</span><div class="lp-fig"><div class="lp-doc"><span class="h">Returns and support policy</span>
-<span><span class="sec">Rule 5</span>Orders can be cancelled within <mark>1 hour</mark> of being placed.</span>
-<span><span class="sec">Rule 7</span>Hand off to a person for any order <mark>over $1,000</mark>.</span>
-<span class="lp-rules" aria-label="Rules found"><span style="--i:0">Only cancel within 1 hour</span><span style="--i:1">Hand off orders over $1,000</span></span></div></div>
-<h3>Reads the policy</h3><p>Every clause becomes a rule, with the words it came from.</p></div>
-<div><span class="fig">FIG 0.2</span><div class="lp-fig"><div class="lp-grid" aria-hidden="true">${probes}</div></div>
-<h3>Tests the agent</h3><p>The messages most likely to break each rule, sent to the real agent on a test account.</p></div>
-<div><span class="fig">FIG 0.3</span><div class="lp-fig"><div class="lp-ba"><div class="row"><span>Before fix</span><span class="bar">${bar(2)}</span><span class="n bad">2 broken</span></div>
-<div class="row"><span>After fix</span><span class="bar">${bar(0)}</span><span class="n good">0 broken</span></div></div></div>
-<h3>Fixes and re-checks</h3><p>A drafted fix for each broken rule. Nothing changes until a person approves it.</p></div>
-</div></section>
-
-<section class="lp-chapter">
-<div class="lp-ch-head"><h2>Client rollouts<br>and sign-off</h2><div><p>For AI vendors. Every client gets its own workspace. One click drafts the data mapping, the integration and the test set from the client’s own material, starting from your earlier rollouts, then the check runs on their policy. The client accepts from a link.</p><a class="lp-more" href="${start}">Open a sample client ${icon('arrow', { size: 14 })}</a></div></div>
-<div class="lp-comp" aria-label="The clients page and a client sign-off">
-<div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Clients</span><span class="subtle">3 workspaces</span></div>
-<table class="lp-clients"><thead><tr><th>Client</th><th>Rollout</th><th>Check</th><th>Status</th></tr></thead><tbody>
-<tr><td><span class="who">Linden &amp; Co.</span><span class="what">Store agent · acts on orders</span></td><td><span class="lp-steps6" aria-label="6 of 6 steps"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i></span></td><td class="num">8 of 8 kept</td><td><span class="st ok"><i></i>Client accepted</span></td></tr>
-<tr><td><span class="who">Tallyfox</span><span class="what">Support bot</span></td><td><span class="lp-steps6" aria-label="5 of 6 steps"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="r"></i><i></i></span></td><td class="num">2 broken</td><td><span class="st bad"><i></i>Fix in review</span></td></tr>
-<tr><td><span class="who">Your next client</span><span class="what">Drafting from their material</span></td><td><span class="lp-steps6" aria-label="2 of 6 steps"><i class="d"></i><i class="r"></i><i></i><i></i><i></i><i></i></span></td><td class="subtle">Not run</td><td><span class="st acc"><i></i>Drafts to review</span></td></tr>
-</tbody></table></div>
-<div class="lp-panel lp-p-float lp-signoff"><div class="lp-p-bar"><span class="strong">Client sign-off</span><span class="subtle">no account needed</span></div>
-<div class="lp-p-body"><p class="subtle">Linden &amp; Co. · Lia, store agent</p><p class="lp-big">8 of 8 rules kept</p><p class="subtle">After one approved fix, on the same messages.</p>
-<div class="lp-accepted">${icon('check', { size: 14 })}<span><span class="strong">Accepted</span> by the client’s head of support</span></div></div></div>
-</div>
-<div class="lp-feats"><span class="subtle">Features</span><ul><li>Workspace per client</li><li>One-click rollout drafts</li><li>A playbook from past rollouts</li><li>Sign-off links</li></ul></div>
-</section>
-
-<section class="lp-chapter">
-<div class="lp-ch-head"><h2>A guard on every<br>reply and action</h2><div><p>For teams running an AI agent. Before a refund or a cancellation happens, ask Grapim. After launch, real conversations are judged against the same rules, with alerts when one breaks.</p><a class="lp-more" href="${start}">Try it on the sample store ${icon('arrow', { size: 14 })}</a></div></div>
-<div class="lp-comp lp-comp-r" aria-label="A guard API call and live conversations">
-<div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Live</span><span class="subtle">sample store, last 24 hours</span></div>
-<ul class="lp-convs">
-<li><i class="ok"></i><span>Where is my pour-over set?</span><span class="subtle">Kept all rules</span></li>
-<li><i class="bad"></i><span>Cancel my wool throw, please</span><span class="lp-tag bad">Blocked · rule 5</span></li>
-<li><i class="ok"></i><span>Can I use WELCOME10 and SPRING15?</span><span class="subtle">Kept all rules</span></li>
-<li><i class="ok"></i><span>The sofa is scratched, I want a refund</span><span class="subtle">Handed off · rule 7</span></li>
-<li><i class="ok"></i><span>Delete my address from my account</span><span class="subtle">Kept all rules</span></li>
-</ul></div>
-<div class="lp-panel lp-p-float lp-p-code"><div class="lp-p-bar"><span class="strong mono-s">POST …/deployments/lia/guard</span></div>
-<pre class="lp-code">{ <span class="k">"action"</span>: { <span class="k">"tool"</span>: "cancel_order",
-  <span class="k">"input"</span>: { <span class="k">"order_id"</span>: "L-1006" } } }
-<span class="c">→</span> { <span class="k">"decision"</span>: <span class="bad">"block"</span>,
-  <span class="k">"violations"</span>: [{ <span class="k">"rule"</span>:
-    "Only cancel within 1 hour" }] }</pre></div>
-</div>
-<div class="lp-feats"><span class="subtle">Works with</span><ul><li>Intercom</li><li>Zendesk</li><li>OpenAI-compatible APIs</li><li>Any HTTP endpoint</li></ul></div>
-</section>
-
-<section class="lp-chapter">
-<div class="lp-ch-head"><h2>Evidence your<br>legal team can read</h2><div><p>Every check, fix and approval is written to a tamper-evident log. The evidence pack shows what was found, what was fixed and who approved it, with the chain verified.</p></div></div>
-<div class="lp-comp" aria-label="The audit log">
-<div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Audit log</span><span class="lp-tag ok">Chain verified</span></div>
-<ol class="lp-audit">
-<li><span class="mono-s">a41f…09c2</span><span><span class="strong">Check finished</span> 2 of 8 rules broken</span><span class="subtle">agent</span></li>
-<li><span class="mono-s">7be0…d115</span><span><span class="strong">Fix drafted</span> for rules 5 and 7</span><span class="subtle">agent</span></li>
-<li><span class="mono-s">c93a…4e78</span><span><span class="strong">Fix approved</span> and applied</span><span class="subtle">person</span></li>
-<li><span class="mono-s">0d52…b3a1</span><span><span class="strong">Re-check finished</span> 8 of 8 kept</span><span class="subtle">agent</span></li>
-<li><span class="mono-s">e17c…6f20</span><span><span class="strong">Client accepted</span> from a sign-off link</span><span class="subtle">client</span></li>
-</ol></div>
-<div class="lp-panel lp-p-float"><div class="lp-p-bar"><span class="strong">Evidence pack</span><span class="subtle">Lia, store agent</span></div>
-<div class="lp-ev"><div><span class="n">2</span><span class="subtle">Rules found broken</span></div><div><span class="n ok">2</span><span class="subtle">Fixed and re-checked</span></div><div><span class="n">1</span><span class="subtle">Approval by a person</span></div><div><span class="n ok">${icon('check', { size: 22 })}</span><span class="subtle">Audit chain verified</span></div></div></div>
-</div>
-<div class="lp-feats"><span class="subtle">Trust</span><ul><li>A person approves every change</li><li>Keys stored encrypted</li><li>Client data stays in its workspace</li><li>Personal data scrubbed before judging</li></ul></div>
-</section>
-
-<section class="lp-end"><h2>Find the rule your agent breaks before a customer does.</h2>
-<div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing">See pricing</a></div></section>
+${row('how', 'One click drafts the rollout.', 'Mapping, integration, connector and tests, built from the client’s own documents. A person approves each one.', clip('rollout', 'Rollout', 'Running the rollout: four drafts finish, then the policy check runs'))}
+${row('', 'The client signs off from a link.', 'No account to create. Their decision goes into the audit log.', clip('signoff', 'Sign-off', 'The client reads the result and accepts the agent'))}
+${row('', 'Every client, one list.', 'Who needs a review, who signed off, and when each was last checked.', clip('clients', 'Clients', 'The clients list with status, stage and engineer hours', '1040/620'))}
+${row('engineers', 'Or run it from your editor.', 'Grapim works as an MCP server in Claude Code, Cursor and Claude Desktop.', term)}
+<section class="lv-close"><h2>Ship to your next client with proof.</h2><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a></div></section>
 </main>
 ${lpFoot()}`;
-  return doc('Grapim: prove your AI agent keeps the policy', body, 'lp-page');
+  return doc('Grapim: prove your AI agent follows each client’s rules', body, 'lp-page');
 }
 
 // The public pricing page, built from the plan table in billing.mjs so it never disagrees with what is charged.

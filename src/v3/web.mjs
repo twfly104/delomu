@@ -39,7 +39,7 @@ import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, clientsPage, landingPage, pricingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -65,8 +65,11 @@ function scanError(e, dir, name) {
 }
 
 const FONTS = Object.fromEntries(['Geist-Variable.woff2', 'GeistMono-Variable.woff2'].map(f => [f, fs.readFileSync(new URL(`./fonts/${f}`, import.meta.url))]));
+// Product clips and stills on the public page (src/v3/media), recorded in Grapim on the sample store.
+const MEDIA_TYPES = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg' };
+const MEDIA = Object.fromEntries(fs.readdirSync(new URL('./media/', import.meta.url)).filter(f => MEDIA_TYPES[f.slice(f.lastIndexOf('.'))]).map(f => [f, fs.readFileSync(new URL(`./media/${f}`, import.meta.url))]));
 const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.f{fill:#0a0a0a}.s{stroke:#0a0a0a}@media (prefers-color-scheme:dark){.f{fill:#fff}.s{stroke:#fff}}</style><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" class="s" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" class="f"/></svg>';
-const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; script-src '${BUSY_SCRIPT_HASH}' '${ASSISTANT_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
+const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'; font-src 'self'; connect-src 'self'; script-src '${BUSY_SCRIPT_HASH}' '${ASSISTANT_SCRIPT_HASH}' '${LANDING_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.html']);
@@ -200,6 +203,23 @@ function routes(ctx) {
   }
 
   r.add('GET', '/favicon.svg', () => ({ status: 200, body: FAVICON, type: 'image/svg+xml', headers: { 'cache-control': 'public, max-age=86400' } }), { public: true });
+
+  // Videos are sent whole or as one byte range, which Safari needs before it plays an mp4.
+  r.add('GET', '/media/:file', ({ req, params }) => {
+    const body = MEDIA[params.file];
+    if (!body) throw notFound('file');
+    const type = MEDIA_TYPES[params.file.slice(params.file.lastIndexOf('.'))];
+    const headers = { 'cache-control': 'public, max-age=86400', 'accept-ranges': 'bytes' };
+    const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '');
+    if (m && (m[1] || m[2])) {
+      const size = body.length;
+      let start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
+      let end = m[1] && m[2] ? Math.min(Number(m[2]), size - 1) : size - 1;
+      if (start >= size || start > end) return { status: 416, body: '', type, headers: { ...headers, 'content-range': `bytes */${size}` } };
+      return { status: 206, body: body.subarray(start, end + 1), type, headers: { ...headers, 'content-range': `bytes ${start}-${end}/${size}` } };
+    }
+    return { status: 200, body, type, headers };
+  }, { public: true });
 
   r.add('GET', '/fonts/:file', ({ params }) => {
     const body = FONTS[params.file];

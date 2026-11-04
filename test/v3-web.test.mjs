@@ -59,7 +59,16 @@ test('signed-out visitors see the public page at / and are sent to sign in elsew
   const res = await get('/', '');
   assert.equal(res.status, 200);
   const landing = await res.text();
-  assert.match(landing, /Prove your AI agent keeps the policy/);
+  assert.match(landing, /Prove your AI agent follows each client’s rules/);
+  // Every picture on the page is a recording of the product, served from this server with byte ranges.
+  for (const src of landing.matchAll(/(?:src|poster)="(\/media\/[^"]+)"/g)) assert.equal((await get(src[1], '')).status, 200, src[1]);
+  assert.match(res.headers.get('content-security-policy'), /media-src 'self'/);
+  const range = await fetch(`${srv.base}/media/rollout.mp4`, { headers: { range: 'bytes=0-99' } });
+  assert.equal(range.status, 206);
+  assert.match(range.headers.get('content-range'), /^bytes 0-99\/\d+$/);
+  assert.equal((await range.arrayBuffer()).byteLength, 100);
+  assert.equal((await fetch(`${srv.base}/media/rollout.mp4`, { headers: { range: 'bytes=99999999-' } })).status, 416);
+  assert.equal((await get('/media/nope.mp4', '')).status, 404);
   const pricing = await (await get('/pricing', '')).text();
   assert.match(pricing, /\$499<span>\/month/);
   assert.match(pricing, /\$1,500<span>\/month/);
@@ -155,7 +164,7 @@ test('sessions: other orgs are invisible, logout needs CSRF and ends the session
   const out = await post('/logout', owner.cookie, { csrf: owner.csrf });
   assert.equal(out.status, 303);
   assert.match(out.headers.getSetCookie()[0], /Max-Age=0/);
-  assert.match(await (await get('/', owner.cookie)).text(), /Prove your AI agent keeps the policy/, 'after logout / is the public page');
+  assert.match(await (await get('/', owner.cookie)).text(), /Prove your AI agent follows each client’s rules/, 'after logout / is the public page');
   assert.ok(!fs.readdirSync(srv.deploymentsRoot).includes(other.org.id));
 });
 
