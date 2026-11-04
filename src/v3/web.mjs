@@ -522,9 +522,16 @@ function routes(ctx) {
       if (field('actions')) target.actions = field('actions');
     }
     const agentKind = Object.hasOwn(AGENT_KINDS, String(form.agentKind ?? '')) ? String(form.agentKind) : 'support';
-    const config = { customer: String(form.customer ?? '').trim() || undefined, name: String(form.name ?? ''), agentKind, target, acceptance: { minPassRate: pass / 100 }, decisions: [] };
+    const given = String(form.name ?? '').trim();
+    const slug = x => String(x ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/, '');
+    const host = u => { try { return new URL(u).hostname.replace(/^www\./, '').split('.').slice(0, -1).join('-') || new URL(u).hostname; } catch { return ''; } };
+    const base = given || slug(form.customer) || slug(host(field('url') || field('openai_url'))) || slug(form.type === 'zendesk' ? `zendesk-${field('zendesk_subdomain')}` : form.type) || 'agent';
+    const taken = new Set(db.prepare('SELECT name FROM deployments WHERE org_id = ?').all(org.id).map(r => r.name));
+    let name = base;
+    for (let i = 2; !given && taken.has(name); i++) name = `${base}-${i}`;
+    const config = { customer: String(form.customer ?? '').trim() || undefined, name, agentKind, target, acceptance: { minPassRate: pass / 100 }, decisions: [] };
     try {
-      const d = registerDeployment(db, ctx.deploymentsRoot, org.id, { name: String(form.name ?? ''), config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
+      const d = registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
       const { dir } = deploymentFor(ctx, org.id, d.name);
       for (const [name, value] of Object.entries(saved)) saveSecret(dir, name, value, ctx.pepper, ctx.now());
       if (Object.keys(saved).length) appendAudit(dir, { actor: principal.actor, action: 'secret.save', target: Object.keys(saved).join(','), detail: {} }, ctx.now());

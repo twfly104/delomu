@@ -78,6 +78,11 @@ test('an engineer creates a deployment, adds material, asks the agent, approves,
   const created = await post(`${org}/new-deployment`, eng.cookie, { csrf: eng.csrf, name: 'bot', customer: 'Acme Inc.', type: 'http', url: target.url, output: 'reply', pass: '50' });
   assert.equal(created.status, 303);
   assert.equal(created.headers.get('location'), `${org}/deployments/bot?notice=created`);
+  // Only the connection is required: a missing name comes from the client, then the URL, and never collides.
+  const named = async fields => (await post(`${org}/new-deployment`, eng.cookie, { csrf: eng.csrf, type: 'http', url: target.url, pass: '90', ...fields })).headers.get('location');
+  assert.equal(await named({ customer: 'Linden & Co.' }), `${org}/deployments/linden-co?notice=created`);
+  assert.equal(await named({ customer: 'Linden & Co.' }), `${org}/deployments/linden-co-2?notice=created`);
+  assert.match(await named({}), new RegExp(`^${org}/deployments/[a-z0-9-]+\\?notice=created$`));
   const dir = path.join(srv.deploymentsRoot, o.org.id, 'bot');
   const config = JSON.parse(fs.readFileSync(path.join(dir, 'delomu.json'), 'utf8'));
   assert.deepEqual(config.target, { type: 'http', url: target.url, body: { message: '{{input}}' }, output: 'reply' });

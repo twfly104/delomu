@@ -94,7 +94,7 @@ input[type=file]{font:13px var(--font);color:var(--text-2)}
 .picker{position:relative;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer}.picker input{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0}.picker:focus-within .btn{box-shadow:var(--focus)}.picker .names{font-size:13px;color:var(--text-3);min-width:0;overflow-wrap:anywhere}
 input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 12px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 13px var(--font);cursor:pointer}
 .choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}.choice label{flex:1;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--line-strong);border-radius:var(--r-sm);cursor:pointer}
-.choice label:has(input:checked){border-color:var(--accent);background:var(--accent-weak)}
+.choice label:has(input:checked){border-color:var(--text);box-shadow:inset 0 0 0 1px var(--text)}.choice input{accent-color:var(--ink)}
 .choice input{margin-top:3px;accent-color:var(--accent)}
 .check{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--text-2)}.check input{accent-color:var(--accent);margin:0}
 .notice{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;margin-bottom:16px;border-radius:var(--r-sm);background:var(--bad-weak);color:var(--bad);font-weight:500}
@@ -260,6 +260,8 @@ details.menu[open]>summary{background:var(--hover)}
 .menu-pop form{margin:0}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
 .agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:flex-end}.row-inline select{flex:1;min-width:0}
 .conn{display:none}
+.more-opts{margin:4px -16px 0;padding:0 16px}.more-opts>summary{color:var(--text-2)}
+.row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:560px){.row-2{grid-template-columns:1fr}}
 form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=type][value=openai]:checked) .conn-openai,form:has(input[name=type][value=command]:checked) .conn-command,form:has(input[name=type][value=intercom]:checked) .conn-intercom,form:has(input[name=type][value=zendesk]:checked) .conn-zendesk{display:block;animation:rise .24s cubic-bezier(.2,.75,.25,1) both}
 @media (prefers-reduced-motion:no-preference){
   .content>*{animation:rise .34s cubic-bezier(.2,.75,.25,1) both}
@@ -954,51 +956,50 @@ ${own.length ? `<section class="panel"><div class="panel-head"><h2>Your own AI a
 }
 
 const CONNECTIONS = [
-  { type: 'intercom', label: 'Intercom', hint: 'Fin or a bot in your Intercom workspace.' },
-  { type: 'zendesk', label: 'Zendesk', hint: 'An AI agent in Zendesk messaging.' },
-  { type: 'http', label: 'HTTP endpoint', hint: 'Your own bot answers a POST request.' },
-  { type: 'openai', label: 'OpenAI-compatible API', hint: 'A chat completions endpoint: OpenAI, Azure OpenAI, OpenRouter, vLLM and the like.' },
-  { type: 'command', label: 'Command', hint: 'A program on this server; off unless the operator allows it.' },
+  { type: 'intercom', label: 'Intercom', hint: 'Fin or a bot in Intercom.' },
+  { type: 'zendesk', label: 'Zendesk', hint: 'An AI agent in Zendesk.' },
+  { type: 'http', label: 'HTTP endpoint', hint: 'Your bot answers a POST.' },
+  { type: 'openai', label: 'OpenAI-compatible API', hint: 'OpenAI, Azure, OpenRouter, vLLM.' },
+  { type: 'command', label: 'Command', hint: 'A program on this server.' },
 ];
 
 export function newDeploymentPage({ user, csrf, nav, org, error, values = {} }) {
   const v = k => esc(values[k] ?? '');
   const type = CONNECTIONS.some(c => c.type === values.type) ? values.type : 'http';
-  const section = (title, hint = '') => `<h3 class="form-section">${esc(title)}${hint ? `<span class="hint">${esc(hint)}</span>` : ''}</h3>`;
   return layout({ title: 'Add an AI agent', user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [['AI agents', orgPath(org)], ['Add']], body: `
-<div class="page-head"><div><h1>Add an AI agent</h1><p class="sub">Connect the AI agent you want to check. You add your policies next.</p></div></div>
+<div class="page-head"><div><h1>Add an AI agent</h1><p class="sub">Connect it, then add its policies.</p></div></div>
 ${notice(error)}
 <form method="post" action="${esc(orgPath(org))}/new-deployment" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
-<label class="field"><span>Name</span><input type="text" name="name" required maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="support-bot"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
-<label class="field"><span>Client or brand <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="The client’s company name"><p class="hint">If you deploy this AI for a client, their name goes on the customer report.</p></label>
-<label class="field"><span>What this AI does</span><select name="agentKind">${Object.entries(AGENT_KINDS).map(([id, k]) => `<option value="${id}"${(values.agentKind ?? 'support') === id ? ' selected' : ''}>${esc(k.label)}</option>`).join('')}</select><p class="hint">The check looks hardest where this kind of AI usually breaks policy, for example discounts for a sales AI.</p></label>
-<div class="field"><span>Where your AI agent runs</span><div class="choice">
+<div class="field"><span>Where does it run?</span><div class="choice">
 ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"${type === c.type ? ' checked' : ''}><span><span class="strong">${esc(c.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(c.hint)}</span></span></label>`).join('\n')}
 </div></div>
 <div class="conn conn-http">
 <label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://bot.example.com/chat"></label>
-<label class="field"><span>API key <span class="subtle" style="font-weight:400">(if your endpoint needs one)</span></span><input type="password" name="api_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Sent as a Bearer token. Saved encrypted for this agent and never shown again.</p></label>
-<label class="field"><span>Field holding the answer</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
-<label class="field"><span>Field holding the actions <span class="subtle" style="font-weight:400">(if your agent takes actions)</span></span><input type="text" name="actions" value="${v('actions')}" placeholder="actions"><p class="hint">Dot path to the list of tool calls it made, such as refunds or cancellations. Grapim judges what it did, not only what it said.</p></label>
-</div><div class="conn conn-openai">${section('OpenAI-compatible API', 'Each test message is sent as the user turn of a chat completion; the answer is the first choice.')}
+<label class="field"><span>API key <span class="subtle" style="font-weight:400">(optional)</span></span><input type="password" name="api_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Saved encrypted, never shown again.</p></label>
+</div><div class="conn conn-openai">
 <label class="field"><span>Chat completions URL</span><input type="url" name="openai_url" value="${v('openai_url')}" placeholder="https://api.openai.com/v1/chat/completions"></label>
 <label class="field"><span>Model</span><input type="text" name="openai_model" maxlength="120" value="${v('openai_model')}" placeholder="the model your agent uses"></label>
-<label class="field"><span>API key</span><input type="password" name="openai_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Saved encrypted for this agent and never shown again.</p></label>
-<label class="field"><span>System prompt <span class="subtle" style="font-weight:400">(optional)</span></span><textarea name="openai_system" maxlength="20000" rows="4" style="min-height:96px">${v('openai_system')}</textarea><p class="hint">The agent’s own instructions, so the test sees what customers see.</p></label>
+<label class="field"><span>API key</span><input type="password" name="openai_key" autocomplete="off" placeholder="Paste the key"><p class="hint">Saved encrypted, never shown again.</p></label>
 </div><div class="conn conn-command">
 <label class="field"><span>Command</span><input type="text" name="command" value="${v('command')}" placeholder="node bot.mjs"></label>
-</div><div class="conn conn-intercom">${section('Intercom', 'Each test starts a new conversation from a test contact and waits for Fin or a teammate to reply.')}
-<label class="field"><span>Access token</span><input type="password" name="intercom_token" autocomplete="off" placeholder="Paste the token"><p class="hint">From an app in your Intercom Developer Hub. Saved encrypted for this agent and never shown again.</p></label>
-<label class="field"><span>Test contact external ID</span><input type="text" name="intercom_contact" maxlength="120" value="${v('intercom_contact')}" placeholder="delomu-test"><p class="hint">Optional. Created on the first test if it does not exist.</p></label>
-</div><div class="conn conn-zendesk">${section('Zendesk', 'Uses Sunshine Conversations: each test creates a test user and conversation, then waits for the AI agent to reply.')}
+</div><div class="conn conn-intercom">
+<label class="field"><span>Access token</span><input type="password" name="intercom_token" autocomplete="off" placeholder="Paste the token"><p class="hint">From an app in your Intercom Developer Hub. Saved encrypted, never shown again.</p></label>
+</div><div class="conn conn-zendesk">
 <label class="field"><span>Zendesk subdomain</span><input type="text" name="zendesk_subdomain" maxlength="63" value="${v('zendesk_subdomain')}" placeholder="acme"><p class="hint">The part before <code>.zendesk.com</code>.</p></label>
 <label class="field"><span>App ID</span><input type="text" name="zendesk_app_id" maxlength="64" value="${v('zendesk_app_id')}" placeholder="5f8a3c…"></label>
-<label class="field"><span>API key ID</span><input type="password" name="zendesk_key_id" autocomplete="off" placeholder="Paste the key ID"></label>
-<label class="field"><span>API key secret</span><input type="password" name="zendesk_secret" autocomplete="off" placeholder="Paste the secret"><p class="hint">Both are saved encrypted for this agent and never shown again.</p></label>
-</div><details class="edit" style="margin:8px -16px 0;padding:0 16px"><summary>Advanced</summary>
-<label class="field"><span>Required pass rate for test runs (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label></details>
-</div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Adding…">Add AI agent</button></div></form>` });
+<div class="row-2"><label class="field"><span>API key ID</span><input type="password" name="zendesk_key_id" autocomplete="off" placeholder="Paste the key ID"></label>
+<label class="field"><span>API key secret</span><input type="password" name="zendesk_secret" autocomplete="off" placeholder="Paste the secret"></label></div>
+</div><details class="edit more-opts"${['name', 'customer', 'output', 'actions', 'openai_system', 'intercom_contact'].some(k => values[k]) || (values.agentKind && values.agentKind !== 'support') ? ' open' : ''}><summary>More options</summary>
+<label class="field"><span>Name</span><input type="text" name="name" maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="Made from the URL if empty"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
+<label class="field"><span>Client</span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="The client’s company name"><p class="hint">Shown on the customer report.</p></label>
+<label class="field"><span>What it does</span><select name="agentKind">${Object.entries(AGENT_KINDS).map(([id, k]) => `<option value="${id}"${(values.agentKind ?? 'support') === id ? ' selected' : ''}>${esc(k.label)}</option>`).join('')}</select></label>
+<div class="conn conn-http"><label class="field"><span>Answer field</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
+<label class="field"><span>Actions field</span><input type="text" name="actions" value="${v('actions')}" placeholder="actions"><p class="hint">If your agent takes actions: the dot path to its tool calls, so Grapim judges what it did.</p></label></div>
+<div class="conn conn-openai"><label class="field"><span>System prompt</span><textarea name="openai_system" maxlength="20000" rows="4" style="min-height:96px">${v('openai_system')}</textarea></label></div>
+<div class="conn conn-intercom"><label class="field"><span>Test contact external ID</span><input type="text" name="intercom_contact" maxlength="120" value="${v('intercom_contact')}" placeholder="delomu-test"></label></div>
+<label class="field"><span>Required pass rate (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label></details>
+</div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Connecting…">Connect</button></div></form>` });
 }
 
 // The three stages a support team moves through, each linking to its tab: policies in, a pre-launch check, live monitoring.
