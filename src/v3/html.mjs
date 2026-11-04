@@ -246,6 +246,8 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 .probe .vf,.probe .vf-pair,.probe .vo{grid-column:1/-1;justify-self:start}
 .linkbtn{border:0;background:none;padding:0;font:500 12.5px var(--font);color:var(--text-3);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}.linkbtn:hover{color:var(--text);text-decoration-color:currentColor}
 .vo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2)}.vo .i{color:var(--good)}
+.imp-or{display:flex;align-items:center;gap:10px;margin:20px 0 12px;font-size:12.5px;font-weight:500;color:var(--text-3)}.imp-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.steps-mini{margin:0 0 12px;padding-left:18px;font-size:12.5px;color:var(--text-2);display:grid;gap:3px}.steps-mini code{font-size:11.5px}
 .content.soft-in{animation:soft-in .35s ease-out both}@keyframes soft-in{from{opacity:.55}}@media (prefers-reduced-motion:reduce){.content.soft-in{animation:none}}
 .meter[data-ease] i{background-image:linear-gradient(90deg,transparent 0,rgb(255 255 255/.45) 50%,transparent 100%);background-size:60% 100%;background-repeat:no-repeat;animation:sheen 1.6s ease-in-out infinite}
 @keyframes sheen{from{background-position:-60% 0}to{background-position:160% 0}}
@@ -1363,6 +1365,15 @@ const IMPORTS = [
   { id: 'shopify', label: 'Shopify', what: 'Refund, shipping, privacy and terms policies', fields: [['shop', 'Store domain', 'acme.myshopify.com', '']], token: 'Admin API access token (custom app with read_legal_policies)' },
 ];
 function importPanel({ base, csrf, imports = {} }) {
+  // New Zendesk accounts cannot make API tokens, so Zendesk also connects through the client's own OAuth client.
+  const zendeskOauth = st => `<div class="imp-or"><span>New Zendesk account? Connect with OAuth</span></div>
+${st.auth === 'oauth' ? `<p class="vo" style="margin:0 0 12px">${icon('check', { size: 14 })}<span>Connected to <b>${esc(st.subdomain ?? '')}.zendesk.com</b> with OAuth. Use Import again above.</span></p>` : ''}
+<ol class="steps-mini"><li>In Zendesk: Admin Center › Apps and integrations › OAuth clients › Add OAuth client.</li><li>Client kind <b>Confidential</b>; redirect URL <code>${esc(imports.zendeskRedirect ?? '/oauth/zendesk/callback')}</code>.</li><li>Paste its identifier and secret here, then click Allow in Zendesk.</li></ol>
+<form method="post" action="${esc(base)}/import/zendesk/connect" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
+<div class="row-inline"><label class="field"><span>Subdomain</span><input type="text" name="subdomain" value="${esc(st.subdomain ?? '')}" placeholder="acme" autocomplete="off"></label>
+<label class="field"><span>Unique identifier</span><input type="text" name="client_id" value="${esc(st.clientId ?? '')}" placeholder="grapim" autocomplete="off"></label>
+<label class="field" style="flex:1;min-width:200px"><span>Secret</span><input type="password" name="client_secret" autocomplete="off" placeholder="${st.clientId ? 'Saved encrypted' : ''}"></label></div>
+<button class="btn" data-busy="Opening Zendesk…">Connect Zendesk</button></form>`;
   const card = s => {
     const st = imports[s.id] ?? {};
     const last = st.at ? `<span class="subtle" style="font-size:12.5px">Last import ${esc(fmtDate(st.at))}: ${[st.tickets && `${st.tickets} tickets`, st.articles && `${st.articles} articles`, st.policies && `${st.policies} policies`].filter(Boolean).join(', ') || 'nothing new'}</span>` : '';
@@ -1372,7 +1383,7 @@ function importPanel({ base, csrf, imports = {} }) {
 <div class="row-inline">${s.fields.map(([n, l, ph]) => `<label class="field"><span>${esc(l)}</span><input type="text" name="${n}" value="${esc(st[n] ?? '')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}
 <label class="field" style="flex:1;min-width:220px"><span>${st.saved ? 'New token (optional)' : 'Token'}</span><input type="password" name="token" autocomplete="off" placeholder="${st.saved ? 'Saved encrypted' : ''}"></label></div>
 <p class="hint" style="margin:-8px 0 12px">${esc(s.token)}</p>
-<button class="btn primary" data-busy="Importing…">${icon('upload')}Import from ${esc(s.label)}</button></form></div></details>`;
+<button class="btn primary" data-busy="Importing…">${icon('upload')}Import from ${esc(s.label)}</button></form>${s.id === 'zendesk' ? zendeskOauth(st) : ''}</div></details>`;
   };
   return `<section class="panel" style="margin-top:16px"><div class="panel-head"><h2>Import from the client’s systems</h2><span class="aside subtle">Read-only · personal data removed · token encrypted</span></div>
 ${IMPORTS.map(card).join('')}</section>`;

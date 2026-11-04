@@ -3,6 +3,7 @@
 // the audit page. Cookie sessions; every state-changing form POST checks a CSRF token. Authorization goes
 // through the same operations.mjs checks as the JSON API.
 
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
@@ -17,7 +18,7 @@ import { getScan, listScans, recheck, setOverride } from '../v1/risk.mjs';
 import { PLANS as PLAN_LIST } from './billing.mjs';
 import { INTERVALS as MONITOR_INTERVALS, monitorSettings, monitorStatus, monitorTick, setMonitor } from './monitoring.mjs';
 import { getOrgSettings, getRevenue, logIntervention, normTag, productizationHealth, readInterventions, setOrgSettings, setRevenue } from './productization.mjs';
-import { importFrom, SOURCES as IMPORT_SOURCES } from './importers.mjs';
+import { importFrom, SOURCES as IMPORT_SOURCES, zendeskAuthorizeUrl, zendeskToken } from './importers.mjs';
 import { readConnector, generateConnectorCode, toolSchemas } from '../v1/connector.mjs';
 import { ask as askAssistant, deploymentContext, MAX_HISTORY, MAX_MESSAGE, orgContext, resolveActions, suggestions as assistantSuggestions } from './assistant.mjs';
 import { addToPlaybook, consentOf, contributed, integrationExamples, playbookStats, removeFromPlaybook, setConsent, suggestFromPlaybook } from './playbook.mjs';
@@ -84,6 +85,8 @@ const NOTICES = {
   ran: 'Test run finished.',
   scanned: 'Check finished.',
   rechecked: 'Re-check finished: the same messages were sent again.',
+  'zendesk-connected': 'Zendesk connected. Import whenever you like; nothing is copied until you do.',
+  'zendesk-denied': 'Zendesk was not connected: the request was declined in Zendesk.',
   verdict: 'Verdict changed. The counts and the fix use it from now on, and the change is in the audit log.',
   fixdrafted: 'The agent drafted a fix. Review the instructions below, edit them if you like, then approve.',
   client: 'Client workspace ready. Connect the AI you deploy for this client, or try the sample bot first.',
@@ -1270,10 +1273,11 @@ function routes(ctx) {
     const saved = raw.imports?.[source] ?? {};
     const fields = Object.fromEntries(IMPORT_SOURCES[source].fields.map(f => [f, String(form[f] ?? saved[f] ?? '').trim()]));
     let token = String(form.token ?? '').trim();
+    const oauth = !token && source === 'zendesk' && saved.auth === 'oauth';
     if (!token) { try { token = readSecret(dir, importSecret(source), ctx.pepper) ?? ''; } catch { token = ''; } }
     let result;
     try {
-      result = await importFrom(source, { ...fields, token }, { limit: 50, ...(ctx.importJson && { fetchJson: ctx.importJson }) });
+      result = await runImport(dir, source, { ...fields, token, oauth });
     } catch (e) {
       return fail(String(e.message ?? e).split(token || '\u0000').join('[token]'));
     }
@@ -1289,10 +1293,84 @@ function routes(ctx) {
       appendAudit(dir, { actor: principal.actor, action: 'input.import', target: name, detail: { source, bytes: Buffer.byteLength(f.text) } }, ctx.now());
     }
     if (form.token) saveSecret(dir, importSecret(source), token, ctx.pepper, ctx.now());
-    raw.imports = { ...(raw.imports ?? {}), [source]: { ...fields, at: ctx.now().toISOString(), ...result.summary } };
+    raw.imports = { ...(raw.imports ?? {}), [source]: { ...saved, ...fields, ...(form.token && { auth: 'token' }), at: ctx.now().toISOString(), ...result.summary } };
     fs.writeFileSync(path.join(dir, 'delomu.json'), JSON.stringify(raw, null, 2) + '\n');
     event(ctx, principal, org.id, 'input.import', params.name, { source, ...result.summary });
     return afterInputs(principal, org, params.name, dir, checked, before, 'imported');
+  });
+
+  // Runs an import; a Zendesk OAuth token that expired is refreshed once with the saved refresh token.
+  async function runImport(dir, source, creds) {
+    const opts = { limit: 50, ...(ctx.importJson && { fetchJson: ctx.importJson }) };
+    try {
+      return await importFrom(source, creds, opts);
+    } catch (e) {
+      if (!creds.oauth || e.status !== 401) throw e;
+      const s = n => { try { return readSecret(dir, n, ctx.pepper) ?? ''; } catch { return ''; } };
+      const refreshToken = s('IMPORT_ZENDESK_REFRESH');
+      if (!refreshToken) throw e;
+      const zd = readRawJson(dir).imports?.zendesk ?? {};
+      const t = await zendeskToken({ subdomain: zd.subdomain, clientId: zd.clientId, clientSecret: s('IMPORT_ZENDESK_CLIENT_SECRET'), refreshToken }, { ...(ctx.oauthJson && { fetchJson: ctx.oauthJson }) });
+      saveSecret(dir, importSecret('zendesk'), t.accessToken, ctx.pepper, ctx.now());
+      if (t.refreshToken) saveSecret(dir, 'IMPORT_ZENDESK_REFRESH', t.refreshToken, ctx.pepper, ctx.now());
+      return importFrom(source, { ...creds, token: t.accessToken }, opts);
+    }
+  }
+
+  // Connect Zendesk with OAuth: the person creates an OAuth client in their Zendesk, gives Grapim its ID and
+  // secret, and clicks Allow in Zendesk. Pending connections live in memory for 10 minutes, bound to the person.
+  const zendeskStates = new Map();
+  const zendeskRedirect = req => `${ctx.publicUrl ?? `http://${req.headers.host}`}/oauth/zendesk/callback`;
+  r.add('POST', '/orgs/:org/deployments/:name/import/zendesk/connect', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const fail = message => html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message, imports: importState(dir) }), 400);
+    const raw = readRawJson(dir);
+    const zd = raw.imports?.zendesk ?? {};
+    const subdomain = String(form.subdomain ?? zd.subdomain ?? '').trim().toLowerCase().replace(/\.zendesk\.com$/, '');
+    const clientId = String(form.client_id ?? zd.clientId ?? '').trim();
+    const secret = String(form.client_secret ?? '').trim();
+    if (!clientId) return fail('Enter the OAuth client’s unique identifier from Zendesk.');
+    if (!secret && !savedSecrets(dir).some(k => k.name === 'IMPORT_ZENDESK_CLIENT_SECRET')) return fail('Paste the OAuth client’s secret from Zendesk.');
+    const verifier = crypto.randomBytes(32).toString('base64url');
+    const state = crypto.randomBytes(24).toString('base64url');
+    let url;
+    try {
+      url = zendeskAuthorizeUrl({ subdomain, clientId, redirectUri: zendeskRedirect(req), state, challenge: crypto.createHash('sha256').update(verifier).digest('base64url') });
+    } catch (e) { return fail(e.message); }
+    if (secret) saveSecret(dir, 'IMPORT_ZENDESK_CLIENT_SECRET', secret, ctx.pepper, ctx.now());
+    raw.imports = { ...(raw.imports ?? {}), zendesk: { ...zd, subdomain, clientId } };
+    fs.writeFileSync(path.join(dir, 'delomu.json'), JSON.stringify(raw, null, 2) + '\n');
+    for (const [k, v] of zendeskStates) if (v.exp < Date.now()) zendeskStates.delete(k);
+    zendeskStates.set(state, { actor: principal.actor, orgId: org.id, name: params.name, verifier, redirectUri: zendeskRedirect(req), exp: Date.now() + 10 * 60_000 });
+    return new Redirect(url);
+  });
+
+  r.add('GET', '/oauth/zendesk/callback', async ({ principal, url }) => {
+    const pending = zendeskStates.get(url.searchParams.get('state') ?? '');
+    zendeskStates.delete(url.searchParams.get('state') ?? '');
+    if (!pending || pending.exp < Date.now() || pending.actor !== principal.actor) throw new ApiError('invalid_request_error', 'This Zendesk connection link expired. Start it again from the Policies page.');
+    const { org } = access(ctx, principal, pending.orgId, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, pending.name);
+    const back = notice => new Redirect(`${depPath(org, pending.name)}/inputs?notice=${notice}`);
+    if (url.searchParams.get('error') || !url.searchParams.get('code')) return back('zendesk-denied');
+    const raw = readRawJson(dir);
+    const zd = raw.imports?.zendesk ?? {};
+    let t;
+    try {
+      t = await zendeskToken({ subdomain: zd.subdomain, clientId: zd.clientId, clientSecret: readSecret(dir, 'IMPORT_ZENDESK_CLIENT_SECRET', ctx.pepper), code: url.searchParams.get('code'), verifier: pending.verifier, redirectUri: pending.redirectUri }, { ...(ctx.oauthJson && { fetchJson: ctx.oauthJson }) });
+    } catch (e) {
+      return html(inputsPage({ ...workspace(principal, { org: org.id, name: pending.name }, 'deployments:read'), error: e.message, imports: importState(dir) }), 400);
+    }
+    saveSecret(dir, importSecret('zendesk'), t.accessToken, ctx.pepper, ctx.now());
+    if (t.refreshToken) saveSecret(dir, 'IMPORT_ZENDESK_REFRESH', t.refreshToken, ctx.pepper, ctx.now());
+    raw.imports = { ...(raw.imports ?? {}), zendesk: { ...zd, auth: 'oauth', connectedAt: ctx.now().toISOString() } };
+    fs.writeFileSync(path.join(dir, 'delomu.json'), JSON.stringify(raw, null, 2) + '\n');
+    appendAudit(dir, { actor: principal.actor, action: 'import.connect', target: 'zendesk', detail: { subdomain: zd.subdomain } }, ctx.now());
+    event(ctx, principal, org.id, 'import.connect', pending.name, { source: 'zendesk' });
+    return back('zendesk-connected');
   });
 
   const readRawJson = dir => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'delomu.json'), 'utf8')); } catch { return {}; } };
@@ -1300,7 +1378,7 @@ function routes(ctx) {
   const importState = dir => {
     const raw = readRawJson(dir);
     const keys = new Set(savedSecrets(dir).map(k => k.name));
-    return Object.fromEntries(Object.keys(IMPORT_SOURCES).map(s => [s, { ...(raw.imports?.[s] ?? {}), saved: keys.has(importSecret(s)) }]));
+    return { ...Object.fromEntries(Object.keys(IMPORT_SOURCES).map(s => [s, { ...(raw.imports?.[s] ?? {}), saved: keys.has(importSecret(s)) }])), zendeskRedirect: `${ctx.publicUrl ?? ''}/oauth/zendesk/callback` };
   };
 
   // The connector's generated code and tool definitions, for the vendor to drop into its agent.

@@ -71,13 +71,15 @@ function capCsv(rows) {
   return kept;
 }
 
-async function fromZendesk({ subdomain, email, token }, { limit, fetchJson }) {
+async function fromZendesk({ subdomain, email, token, oauth }, { limit, fetchJson }) {
   if (!ZENDESK_SUBDOMAIN.test(String(subdomain ?? ''))) throw new Error('Enter the Zendesk subdomain, the part before .zendesk.com.');
-  if (!String(email ?? '').includes('@')) throw new Error('Enter the email of the Zendesk user the API token belongs to.');
+  if (!oauth && !String(email ?? '').includes('@')) throw new Error('Enter the email of the Zendesk user the API token belongs to.');
   const base = `https://${subdomain}.zendesk.com`;
-  const options = { label: 'Zendesk', headers: { authorization: `Basic ${Buffer.from(`${email}/token:${token}`).toString('base64')}` } };
+  // New Zendesk accounts cannot make API tokens (and old ones stop working on 30 April 2027), so a Zendesk
+  // connected through OAuth signs in with its access token instead.
+  const options = { label: 'Zendesk', headers: { authorization: oauth ? `Bearer ${token}` : `Basic ${Buffer.from(`${email}/token:${token}`).toString('base64')}` } };
   const query = encodeURIComponent('type:ticket status:solved');
-  const found = await first(fetchJson, `${base}/api/v2/search.json?query=${query}&sort_by=updated_at&sort_order=desc&per_page=${limit}`, options, 'Zendesk refused the credentials. Check the email and API token');
+  const found = await first(fetchJson, `${base}/api/v2/search.json?query=${query}&sort_by=updated_at&sort_order=desc&per_page=${limit}`, options, oauth ? 'Zendesk refused the connection. Connect Zendesk again' : 'Zendesk refused the credentials. Check the email and API token');
   const rows = [];
   for (const t of (found.results ?? []).slice(0, limit)) {
     const { comments = [] } = await fetchJson(`${base}/api/v2/tickets/${encodeURIComponent(t.id)}/comments.json`, options);
@@ -147,4 +149,27 @@ export async function importFrom(source, creds = {}, { limit = 50, fetchJson = r
   if (!token) throw new Error(`Paste the ${SOURCES[source].label} API token.`);
   const n = Math.max(1, Math.min(100, Math.floor(Number(limit) || 50)));
   return run({ ...creds, token }, { limit: n, fetchJson });
+}
+
+// Zendesk OAuth (authorization code with PKCE, read scope) for the client's own OAuth client. The client
+// secret and the tokens never leave the server; errors never include them.
+export function zendeskAuthorizeUrl({ subdomain, clientId, redirectUri, state, challenge }) {
+  if (!ZENDESK_SUBDOMAIN.test(String(subdomain ?? ''))) throw new Error('Enter the Zendesk subdomain, the part before .zendesk.com.');
+  const q = new URLSearchParams({ response_type: 'code', client_id: clientId, redirect_uri: redirectUri, scope: 'read', state, code_challenge: challenge, code_challenge_method: 'S256' });
+  return `https://${subdomain}.zendesk.com/oauth/authorizations/new?${q}`;
+}
+
+export async function zendeskToken({ subdomain, clientId, clientSecret, code, verifier, redirectUri, refreshToken }, { fetchJson = requestJson } = {}) {
+  if (!ZENDESK_SUBDOMAIN.test(String(subdomain ?? ''))) throw new Error('Enter the Zendesk subdomain, the part before .zendesk.com.');
+  const body = refreshToken
+    ? { grant_type: 'refresh_token', refresh_token: refreshToken, client_id: clientId, client_secret: clientSecret }
+    : { grant_type: 'authorization_code', code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, code_verifier: verifier, scope: 'read' };
+  let res;
+  try {
+    res = await fetchJson(`https://${subdomain}.zendesk.com/oauth/tokens`, { label: 'Zendesk', method: 'POST', body });
+  } catch (e) {
+    throw Object.assign(new Error(`Zendesk did not accept the connection (HTTP ${e.status ?? '?'}). Check the client ID, the secret and the redirect URL in Zendesk.`), { status: e.status });
+  }
+  if (!res?.access_token) throw new Error('Zendesk answered without an access token.');
+  return { accessToken: String(res.access_token), refreshToken: res.refresh_token ? String(res.refresh_token) : '' };
 }
