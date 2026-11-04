@@ -53,8 +53,9 @@ ${TOKENS}
   html.rail-min .rail-foot{flex-direction:column;padding:12px 0 0;width:100%}
 }
 .rail-grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;z-index:5;touch-action:none;outline:none}
-.rail-grip::after{content:"";position:absolute;top:0;bottom:0;right:0;width:2px;background:transparent;transition:background .15s .1s}
-.rail-grip:hover::after,.rail-grip:focus-visible::after,html.rail-drag .rail-grip::after{background:var(--accent)}
+.rail-grip::after{content:"";position:absolute;top:0;bottom:0;right:0;width:1px;background:transparent;transition:background .15s}
+.rail-grip:hover::after{background:var(--line-strong);transition-delay:.25s}
+.rail-grip:focus-visible::after,html.rail-drag .rail-grip::after{background:var(--text-3);transition-delay:0s}
 html.rail-drag,html.rail-drag *{cursor:col-resize!important;user-select:none}
 @media (max-width:860px){.rail .rail-toggle,.rail .rail-grip{display:none}}
 .rail-foot{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px 0;display:flex;align-items:center;gap:8px}
