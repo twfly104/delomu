@@ -1,6 +1,6 @@
 # v5: the Grapim assistant
 
-Every signed-in page has an **Ask Grapim** button in the bottom-right corner; **Ctrl J** also opens it. It opens a
+Every signed-in page has a round **Ask Grapim** button in the bottom-right corner. It opens a
 side panel (full screen on a phone). The assistant answers questions about the page you are on and proposes the
 next step as a button. Nothing runs until you click that button. The code is in `src/v3/assistant.mjs`, the
 routes in `src/v3/web.mjs`, and the panel in `src/v3/html.mjs` (`ASSISTANT_SCRIPT`).

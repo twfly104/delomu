@@ -378,6 +378,8 @@ details.kept summary:hover{background:var(--hover)}details.kept[open] summary{bo
 @keyframes asst-dot{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-4px);opacity:1}}
 @media (max-width:640px){.asst{width:100vw;border-left:0}.asst-launch{right:14px;bottom:14px}}
 @media print{.asst,.asst-launch{display:none!important}}
+.mcp-k{font-size:12px;font-weight:500;color:var(--text-2);margin:12px 0 4px}
+.mcp-code{margin:0;padding:10px 12px;border-radius:8px;background:var(--sunken);font:12px/1.6 var(--mono);color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere;user-select:all}
 .lp-page{background:var(--canvas)}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 24px}
@@ -1435,7 +1437,12 @@ export function settingsPage(args) {
 <p class="subtle" style="margin:0">A public page with your latest check result. No score or certification.</p>
 ${v.link ? `<label class="field" style="margin-top:12px"><span>Public link</span><input type="text" readonly class="mono" value="${esc(v.link)}"><p class="hint">Shown only once. Turning the page off and on again makes a new link.</p></label>` : ''}
 ${v.canManage ? `<form method="post" action="${esc(depPath(args.org, args.name))}/verified" style="margin-top:12px">${hidden(v.on ? 'off' : 'on')}<button class="btn" data-busy="Saving…">${v.on ? 'Turn off' : 'Turn on and get a link'}</button></form>` : '<p class="subtle" style="margin:8px 0 0">An owner or admin can turn it on.</p>'}</div></section>`;
-  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${keysPanel}${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
+  const mcpUrl = args.mcpUrl ?? '/mcp';
+  const mcpPanel = `<section class="panel"><div class="panel-head"><h2>Use from Claude Code or Cursor</h2><span class="aside subtle">MCP</span></div><div class="panel-body mcp">
+<p class="subtle" style="margin:0 0 10px">Check agents, read results and approve drafts from your AI tool. Use your sign-in key.</p>
+<p class="mcp-k">Claude Code</p><pre class="mcp-code">claude mcp add --transport http grapim ${esc(mcpUrl)} --header "Authorization: Bearer YOUR_KEY"</pre>
+<p class="mcp-k">Cursor or Claude Desktop</p><pre class="mcp-code">{ "mcpServers": { "grapim": { "url": "${esc(mcpUrl)}", "headers": { "Authorization": "Bearer YOUR_KEY" } } } }</pre></div></section>`;
+  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${keysPanel}${mcpPanel}${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
 <div class="draft-body"><table class="kv"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}
 ${headers.map(([k, v]) => `<tr><th scope="row">Header <code>${esc(k)}</code></th><td><code>${esc(v)}</code></td></tr>`).join('')}</tbody></table></div></section>
 <section class="panel"><div class="panel-head"><h2>Decisions</h2><span class="aside subtle">Shown in every acceptance report</span></div>

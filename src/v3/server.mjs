@@ -15,6 +15,8 @@ import { checkPepper } from './keys.mjs';
 import { createOidcClient } from './oidc.mjs';
 import { createRateLimiter } from './ratelimit.mjs';
 import { createWebHandler } from './web.mjs';
+import { createMcpHandler } from './mcp.mjs';
+import { authenticate } from './api.mjs';
 import { monitorTick } from './monitoring.mjs';
 import { deploymentDir } from './workspace.mjs';
 import { recordEvent } from './events.mjs';
@@ -95,6 +97,7 @@ export function createServer({
   };
   const api = createApiHandler(ctx);
   const web = createWebHandler(ctx);
+  const mcp = createMcpHandler(ctx, authenticate);
 
   const server = http.createServer(async (req, res) => {
     let url;
@@ -114,6 +117,7 @@ export function createServer({
       return;
     }
     if (url.pathname === '/webhooks/stripe') await billing.handleWebhook(req, res, { maxBodyBytes });
+    else if (url.pathname === '/mcp') await mcp(req, res);
     else if (url.pathname === '/v1' || url.pathname.startsWith('/v1/')) await api(req, res, url);
     else await web(req, res, url);
   });

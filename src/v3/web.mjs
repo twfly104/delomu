@@ -543,6 +543,8 @@ function routes(ctx) {
     }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, name) })).finally(() => release());
     return job;
   }
+  ctx.startScan = (principal, org, name, dir) => { checkTarget(loadConfig(dir), ctx.policy); return startScan(principal, org, name, dir); };
+
   r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => {
     const ws = workspace(principal, params, 'runs:read', url);
     const job = scans.get(ws.dir);
@@ -1047,7 +1049,7 @@ function routes(ctx) {
   const showSettings = (principal, params, url, link) => {
     const ws = workspace(principal, params, 'deployments:read', url);
     const verified = activeShares(db, ws.org.id, params.name, 'verified', ctx.now()).length > 0;
-    return html(settingsPage({ ...ws, keys: savedSecrets(ws.dir), verified: { on: verified, link, canManage: ws.can.manage } }));
+    return html(settingsPage({ ...ws, keys: savedSecrets(ws.dir), mcpUrl: `${ctx.publicUrl ?? ''}/mcp`, verified: { on: verified, link, canManage: ws.can.manage } }));
   };
   r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => showSettings(principal, params, url));
 

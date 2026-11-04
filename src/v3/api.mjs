@@ -224,7 +224,7 @@ function routes(ctx) {
   return r;
 }
 
-function authenticate(ctx, req) {
+export function authenticate(ctx, req) {
   const header = String(req.headers.authorization ?? '');
   const m = /^Bearer (\S+)$/.exec(header);
   if (!m) throw new ApiError('authentication_error', 'Send your API key as "Authorization: Bearer dk_...".');
