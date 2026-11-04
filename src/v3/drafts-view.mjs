@@ -102,7 +102,7 @@ export const draftTitle = d => KIND_LABEL[d.kind] ?? d.kind;
 function reasoningBlock(text) {
   const first = String(text).match(/^.*?[.!?](\s|$)/s)?.[0].trim() ?? String(text);
   const rest = String(text).slice(first.length).trim();
-  const head = `${icon('spark')}<div><p class="label">Why the agent proposes this</p><p class="prose">${esc(first)}</p></div>`;
+  const head = `<div><p class="label">Why the agent proposes this</p><p class="prose">${esc(first)}</p></div>`;
   if (!rest) return `<aside class="reasoning">${head}</aside>`;
   return `<details class="reasoning"><summary>${head}<span class="more">Show all</span></summary><p class="prose rest">${esc(rest)}</p></details>`;
 }

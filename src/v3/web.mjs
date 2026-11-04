@@ -819,7 +819,7 @@ function routes(ctx) {
     try {
       if (action === 'consent') {
         const by = String(form.by ?? '').trim();
-        if (!by) return showRollout(principal, params, null, { error: 'Enter who at the client agreed, and how (for example “Dana Lee, contract §4”).' }, 400);
+        if (!by) return showRollout(principal, params, null, { error: 'Enter who at the client agreed, and how (for example “Dana Lee, contract clause 4”).' }, 400);
         if (form.confirm !== 'yes') return showRollout(principal, params, null, { error: 'Confirm that the client agreed before adding their rollout to your playbook.' }, 400);
         setConsent(dir, { consent: true, by, names: [org.name, loadConfig(dir).customer].filter(Boolean), actor: principal.actor }, ctx.now());
         const res = addToPlaybook({ ...play, by: principal.email });
@@ -1049,7 +1049,7 @@ function routes(ctx) {
   const showSettings = (principal, params, url, link) => {
     const ws = workspace(principal, params, 'deployments:read', url);
     const verified = activeShares(db, ws.org.id, params.name, 'verified', ctx.now()).length > 0;
-    return html(settingsPage({ ...ws, keys: savedSecrets(ws.dir), mcpUrl: `${ctx.publicUrl ?? ''}/mcp`, verified: { on: verified, link, canManage: ws.can.manage } }));
+    return html(settingsPage({ ...ws, keys: savedSecrets(ws.dir), mcpUrl: `${ctx.publicUrl ?? 'https://YOUR-GRAPIM'}/mcp`, verified: { on: verified, link, canManage: ws.can.manage } }));
   };
   r.add('GET', '/orgs/:org/deployments/:name/settings', ({ principal, params, url }) => showSettings(principal, params, url));
 

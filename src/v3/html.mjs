@@ -12,7 +12,7 @@ import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 
-export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh;if(r)setInterval(function(){var a=document.activeElement;if(document.body.classList.contains('asst-open')||document.querySelector('details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;location.reload();},r*1000);var t0=Date.now();function tick(){var d=Date.now()-t0;document.querySelectorAll('[data-elapsed]').forEach(function(e){e.textContent=Math.floor((+e.dataset.elapsed+d)/1000)+' s';});document.querySelectorAll('.meter[data-ease],.meter[data-creep]').forEach(function(m){var w;if(m.dataset.ease){var x=(+m.dataset.ease+d)/1000;w=70*(1-Math.exp(-x/45));}else{w=+m.getAttribute('aria-valuenow')+(+m.dataset.creep)*0.8*(1-Math.exp(-d/3000));}var k='meter:'+location.pathname+':'+m.dataset.run,p=0;try{p=+sessionStorage.getItem(k)||0;}catch(_){}w=Math.min(100,Math.max(2,w,p));try{sessionStorage.setItem(k,w);}catch(_){}var i=m.firstElementChild;if(i)i.style.width=w+'%';m.setAttribute('aria-valuenow',Math.round(w));});}if(document.querySelector('[data-elapsed],.meter[data-ease],.meter[data-creep]')){tick();setInterval(tick,250);}";
+export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh;if(r)setInterval(function(){var a=document.activeElement;if(document.body.classList.contains('asst-open')||document.querySelector('details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)))return;location.reload();},r*1000);var t0=Date.now();function tick(){var d=Date.now()-t0;document.querySelectorAll('[data-elapsed]').forEach(function(e){e.textContent=Math.floor((+e.dataset.elapsed+d)/1000)+' s';});document.querySelectorAll('.meter[data-ease],.meter[data-creep]').forEach(function(m){var w;if(m.dataset.ease){var x=(+m.dataset.ease+d)/1000;w=70*(1-Math.exp(-x/45));}else{w=+m.getAttribute('aria-valuenow')+(+m.dataset.creep)*0.8*(1-Math.exp(-d/3000));}var k='meter:'+location.pathname+':'+m.dataset.run,p=0;try{p=+sessionStorage.getItem(k)||0;}catch(_){}w=Math.min(100,Math.max(2,w,p));try{sessionStorage.setItem(k,w);}catch(_){}var i=m.firstElementChild;if(i)i.style.width=w+'%';m.setAttribute('aria-valuenow',Math.round(w));});}if(document.querySelector('[data-elapsed],.meter[data-ease],.meter[data-creep]')){tick();setInterval(tick,250);}var rt=document.querySelector('[data-rail-toggle]');if(rt){var h=document.documentElement,setRail=function(c){h.classList.toggle('rail-min',c);rt.setAttribute('aria-expanded',String(!c));var l=c?'Expand sidebar':'Collapse sidebar';rt.setAttribute('aria-label',l);rt.title=l;try{localStorage.setItem('gp-rail',c?'1':'0');}catch(_){}};var c0=false;try{c0=localStorage.getItem('gp-rail')==='1';}catch(_){}setRail(c0);rt.hidden=false;requestAnimationFrame(function(){h.classList.add('rail-anim');});rt.addEventListener('click',function(){setRail(!h.classList.contains('rail-min'));});var g=document.querySelector('[data-rail-grip]'),app=document.querySelector('.app');if(g&&app){var setW=function(w){w=Math.max(180,Math.min(360,Math.round(w)));app.style.setProperty('--rail-w',w+'px');g.setAttribute('aria-valuenow',w);try{localStorage.setItem('gp-rail-w',w);}catch(_){}return w;},curW=function(){return parseInt(app.style.getPropertyValue('--rail-w'))||240;};var w0=0;try{w0=+localStorage.getItem('gp-rail-w')||0;}catch(_){}if(w0)setW(w0);g.hidden=false;g.addEventListener('pointerdown',function(e){if(e.button)return;e.preventDefault();g.setPointerCapture(e.pointerId);h.classList.remove('rail-anim');h.classList.add('rail-drag');var mv=function(ev){var x=ev.clientX;if(x<120){if(!h.classList.contains('rail-min'))setRail(true);}else{if(h.classList.contains('rail-min'))setRail(false);setW(x);}},up=function(){g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);g.removeEventListener('pointercancel',up);h.classList.remove('rail-drag');h.classList.add('rail-anim');};g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);});g.addEventListener('dblclick',function(){setRail(false);setW(240);});g.addEventListener('keydown',function(e){var m=h.classList.contains('rail-min');if(e.key==='ArrowLeft'){e.preventDefault();if(m)return;if(curW()<=180)setRail(true);else setW(curW()-20);}else if(e.key==='ArrowRight'){e.preventDefault();if(m)setRail(false);else setW(curW()+20);}else if(e.key==='Home'||e.key==='Enter'){e.preventDefault();setRail(false);setW(240);}});}}";
 // The assistant panel (src/v3/assistant.mjs): opens from the launcher, keeps its state across pages in
 // sessionStorage, asks /assistant/ask and renders proposed actions as forms or links the person clicks.
 export const ASSISTANT_SCRIPT = "(function(){\nvar panel=document.getElementById('asst');if(!panel)return;\nvar log=panel.querySelector('[data-asst-log]'),form=panel.querySelector('[data-asst-form]'),box=form.querySelector('textarea'),ctxEl=panel.querySelector('[data-asst-ctx]'),csrf=panel.getAttribute('data-csrf'),loaded=false,busy=false;\nvar store={get:function(){try{return sessionStorage.getItem('gp-asst');}catch(e){return null;}},set:function(v){try{if(v)sessionStorage.setItem('gp-asst','1');else sessionStorage.removeItem('gp-asst');}catch(e){}}};\nfunction esc(s){return String(s).replace(/[&<>\"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}\nfunction rich(t){var lines=esc(t).split(/\\n/),out='',list=false;for(var i=0;i<lines.length;i++){var l=lines[i].replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');if(/^\\s*[-•]\\s+/.test(l)){if(!list){out+='<ul>';list=true;}out+='<li>'+l.replace(/^\\s*[-•]\\s+/,'')+'</li>';}else{if(list){out+='</ul>';list=false;}if(l.trim())out+='<p>'+l+'</p>';}}return out+(list?'</ul>':'');}\nfunction scroll(){log.scrollTop=log.scrollHeight;}\nfunction actionsHtml(acts){if(!acts||!acts.length)return'';var h='<div class=\"asst-acts\">';for(var i=0;i<acts.length;i++){var a=acts[i];if(a.method==='POST'){var f='';for(var k in a.fields)f+='<input type=\"hidden\" name=\"'+esc(k)+'\" value=\"'+esc(a.fields[k])+'\">';h+='<form method=\"post\" action=\"'+esc(a.href)+'\" style=\"--i:'+i+'\"><input type=\"hidden\" name=\"csrf\" value=\"'+esc(csrf)+'\">'+f+'<button class=\"asst-act do\" data-busy=\"Starting…\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Run</span></button></form>';}else h+='<a class=\"asst-act\" style=\"--i:'+i+'\" href=\"'+esc(a.href)+'\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Open</span></a>';}return h+'</div>';}\nfunction add(role,text,acts,fresh){var d=document.createElement('div');d.className='asst-m '+(role==='user'?'me':'bot')+(fresh?' fresh':'');d.innerHTML=role==='user'?'<div class=\"asst-b\">'+esc(text)+'</div>':'<div class=\"asst-b\">'+rich(text)+'</div>'+actionsHtml(acts);log.appendChild(d);scroll();return d;}\nfunction empty(sugs){log.innerHTML='<div class=\"asst-hello\"><p class=\"asst-hi\">What can I help with?</p><div class=\"asst-sugs\">'+sugs.map(function(s,i){return'<button type=\"button\" class=\"asst-sug\" style=\"--i:'+i+'\">'+esc(s)+'</button>';}).join('')+'</div></div>';}\nfunction load(){if(loaded)return;loaded=true;fetch('/assistant/state?from='+encodeURIComponent(location.pathname),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(s){ctxEl.textContent=s.label||'';if(s.history&&s.history.length){log.innerHTML='';s.history.forEach(function(m){add(m.role,m.text,m.actions,false);});}else empty(s.suggestions||[]);}).catch(function(){empty([]);});}\nfunction open(animate){if(!panel.hidden&&document.body.classList.contains('asst-open'))return;panel.hidden=false;if(animate===false){document.body.classList.add('asst-open','asst-instant');setTimeout(function(){document.body.classList.remove('asst-instant');},50);}else requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('asst-open');});});store.set(true);load();setTimeout(function(){box.focus();},animate===false?0:250);}\nfunction close(){document.body.classList.remove('asst-open');store.set(false);setTimeout(function(){if(!document.body.classList.contains('asst-open'))panel.hidden=true;},320);}\nfunction typing(){var d=document.createElement('div');d.className='asst-m bot fresh';d.innerHTML='<div class=\"asst-b asst-typing\" aria-label=\"Thinking\"><i></i><i></i><i></i></div>';log.appendChild(d);scroll();return d;}\nfunction send(text){text=String(text||'').trim();if(!text||busy)return;busy=true;var hello=log.querySelector('.asst-hello');if(hello)hello.remove();add('user',text,null,true);box.value='';fit();var t=typing();var body=new URLSearchParams({csrf:csrf,message:text,from:location.pathname});\nfetch('/assistant/ask',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});}).then(function(x){t.remove();if(!x.ok){add('bot',x.j.error||'Something went wrong.',null,true).classList.add('err');return;}if(x.j.label)ctxEl.textContent=x.j.label;add('bot',x.j.reply,x.j.actions,true);}).catch(function(){t.remove();add('bot','I couldn’t reach Grapim. Check your connection and try again.',null,true).classList.add('err');}).then(function(){busy=false;box.focus();});}\nfunction fit(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,140)+'px';box.style.overflowY=box.scrollHeight>140?'auto':'hidden';}\ndocument.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-asst-open]');if(t){e.preventDefault();if(document.body.classList.contains('asst-open'))close();else open();return;}if(e.target.closest&&e.target.closest('[data-asst-close]')){close();return;}var s=e.target.closest&&e.target.closest('.asst-sug');if(s){send(s.textContent);return;}if(e.target.closest&&e.target.closest('[data-asst-clear]')){fetch('/assistant/clear',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:csrf}).toString()}).then(function(){loaded=false;log.innerHTML='';load();});}});\nform.addEventListener('submit',function(e){e.preventDefault();send(box.value);});\nbox.addEventListener('input',fit);\nbox.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send(box.value);}});\ndocument.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('asst-open'))close();});\nif(store.get()==='1')open(false);\n})();";
@@ -25,7 +25,7 @@ ${TOKENS}
 .i{flex:none;display:block}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .strong{font-weight:600;color:var(--text)}.nowrap{white-space:nowrap}
-.app{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh;background:linear-gradient(to right,var(--rail) 239px,var(--line) 239px 240px,transparent 240px)}
+.app{--rail-w:240px;display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);min-height:100vh;background:linear-gradient(to right,var(--rail) calc(var(--rail-w) - 1px),var(--line) calc(var(--rail-w) - 1px) var(--rail-w),transparent var(--rail-w))}
 .rail{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;padding:16px 12px;overflow-y:auto}
 .brand{display:flex;align-items:center;gap:8px;padding:2px 8px;font-size:16px;font-weight:600;letter-spacing:-0.035em;color:var(--text)}
 .brand:hover{text-decoration:none}
@@ -40,6 +40,21 @@ ${TOKENS}
 .rail-up:hover{text-decoration:none;border-color:var(--line-strong);transform:translateY(-1px)}.rail-up>span:first-child{display:flex;flex-direction:column}.rail-up .strong{font-size:13px}
 .rail-up-cta{flex:none;padding:5px 10px;border-radius:7px;background:var(--ink);color:var(--on-ink);font-weight:500}
 .rail-up+.rail-foot{margin-top:8px}
+.rail{position:sticky}.rail-toggle{position:absolute;top:13px;right:10px;width:28px;height:28px}
+@media (min-width:861px){
+  html.rail-anim .app{transition:grid-template-columns .2s cubic-bezier(.2,0,0,1)}
+  html.rail-min .app{--rail-w:60px!important}
+  html.rail-min .rail{padding:16px 10px;align-items:center;overflow-x:hidden}
+  html.rail-min .rail .brand{padding:2px 0}html.rail-min .rail .brand span,html.rail-min .rail .lbl,html.rail-min .rail .count,html.rail-min .rail .org-kind,html.rail-min .rail .nav-title,html.rail-min .rail .rail-up,html.rail-min .rail .who,html.rail-min .orgs-nav a>span{display:none}
+  html.rail-min .rail-toggle{position:static}
+  html.rail-min .rail .nav{width:100%}html.rail-min .rail .nav a{justify-content:center;padding:8px 0}
+  html.rail-min .rail-foot{flex-direction:column;padding:12px 0 0;width:100%}
+}
+.rail-grip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;z-index:5;touch-action:none;outline:none}
+.rail-grip::after{content:"";position:absolute;top:0;bottom:0;right:0;width:2px;background:transparent;transition:background .15s .1s}
+.rail-grip:hover::after,.rail-grip:focus-visible::after,html.rail-drag .rail-grip::after{background:var(--accent)}
+html.rail-drag,html.rail-drag *{cursor:col-resize!important;user-select:none}
+@media (max-width:860px){.rail .rail-toggle,.rail .rail-grip{display:none}}
 .rail-foot{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px 0;display:flex;align-items:center;gap:8px}
 .rail-foot .who{min-width:0;flex:1;font-size:13px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .icon-btn{width:30px;height:30px;display:grid;place-items:center;border-radius:var(--r-sm);border:0;background:transparent;color:var(--text-2);cursor:pointer}
@@ -80,7 +95,7 @@ input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 1
 .choice input{margin-top:3px;accent-color:var(--accent)}
 .check{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--text-2)}.check input{accent-color:var(--accent);margin:0}
 .notice{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;margin-bottom:16px;border-radius:var(--r-sm);background:var(--bad-weak);color:var(--bad);font-weight:500}
-.notice.good{background:var(--good-weak);color:var(--good)}
+.notice.good{background:var(--surface);border:1px solid var(--line);color:var(--text);font-weight:400}.notice.good .i{color:var(--good)}
 .notice .i{margin-top:2px}
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 24px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
 .tabs a{display:flex;align-items:center;gap:6px;padding:10px 10px;margin-bottom:-1px;border-bottom:2px solid transparent;color:var(--text-2);font-weight:500;white-space:nowrap}
@@ -127,7 +142,7 @@ input[type=file]::file-selector-button{height:30px;margin-right:10px;padding:0 1
 .who-chip{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:5px;background:var(--sunken);font-size:12px;color:var(--text-2);white-space:nowrap}
 .who-chip.agent{background:var(--accent-weak);color:var(--accent-text)}
 .chip{display:inline-flex;align-items:center;min-height:20px;max-width:100%;padding:2px 7px;border-radius:5px;background:var(--sunken);font-size:12px;line-height:16px;color:var(--text-2);margin:2px 0;overflow-wrap:anywhere}
-.chip.good{background:var(--good-weak);color:var(--good)}.chip.bad{background:var(--bad-weak);color:var(--bad)}.chip.tag{background:transparent;border:1px solid var(--line);color:var(--text-3)}
+.chip.good{background:transparent;border:1px solid var(--line);color:var(--good)}.chip.bad{background:transparent;border:1px solid var(--line);color:var(--bad)}.chip.tag{background:transparent;border:1px solid var(--line);color:var(--text-3)}
 .draft{overflow:hidden}
 .draft-head{display:flex;align-items:flex-start;gap:12px;padding:16px;border-bottom:1px solid var(--line)}
 .draft-head .badge{margin-left:auto}
@@ -525,15 +540,18 @@ export const verdictBadge = v => { const [cls, text] = VERDICT[v] ?? ['', v]; re
 // The Grapim mark: a "D" cut by one diagonal slash (assets/brand/delomu-mark.svg), drawn in the text colour.
 // The Grapim mark: a solid rounded tile in front of an outlined diamond, in the text color (black, or white in
 // dark mode). id is unused and kept for callers.
+// Clause labels never show the § sign: "policy.md §5" reads "policy.md, rule 5".
+export const cl = c => String(c ?? '').replace(/\s*§\s*/g, ', rule ').replace(/^, rule /, 'Rule ');
 export const mark = (size, id) => `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true" data-mark="${id}"><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" stroke="currentColor" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" fill="currentColor"/></svg>`;
 
 // nav: { orgs, org?, active, pending, canAudit, billingOrgs (Set of org ids where Billing shows) }
 function rail({ user, csrf, nav = {} }) {
   const org = nav.org;
-  const link = (href, label, ic, key, extra = '') => `<a href="${esc(href)}"${nav.active === key ? ' aria-current="page"' : ''}>${icon(ic)}${esc(label)}${extra}</a>`;
-  const orgLinks = (nav.orgs ?? []).length ? `<div class="nav orgs-nav"><p class="nav-title">Organizations</p>${nav.orgs.map(o => `<a href="${esc(orgPath(o))}"${org?.id === o.id ? ' aria-current="page"' : ''}>${icon('building')}<span>${esc(o.name)}</span>${o.partner_org_id ? '<span class="org-kind">managed</span>' : ''}</a>`).join('')}</div>` : '';
+  const link = (href, label, ic, key, extra = '') => `<a href="${esc(href)}"${nav.active === key ? ' aria-current="page"' : ''} title="${esc(label)}">${icon(ic)}<span class="lbl">${esc(label)}</span>${extra}</a>`;
+  const orgLinks = (nav.orgs ?? []).length ? `<div class="nav orgs-nav"><p class="nav-title">Organizations</p>${nav.orgs.map(o => `<a href="${esc(orgPath(o))}"${org?.id === o.id ? ' aria-current="page"' : ''} title="${esc(o.name)}">${icon('building')}<span>${esc(o.name)}</span>${o.partner_org_id ? '<span class="org-kind">managed</span>' : ''}</a>`).join('')}</div>` : '';
   return `<nav class="rail" aria-label="Main">
 <a class="brand" href="/" aria-label="Grapim home">${mark(20, 'm-rail')}<span>Grapim</span></a>
+<button type="button" class="icon-btn rail-toggle" data-rail-toggle aria-label="Collapse sidebar" title="Collapse sidebar" aria-expanded="true" hidden>${icon('sidebar')}</button>
 <div class="nav">
 ${link('/', 'Home', 'home', 'home', nav.pending ? `<span class="count" aria-label="${nav.pending} waiting">${nav.pending}</span>` : '')}
 ${org ? (org.kind === 'partner' ? link(orgPath(org), 'Clients', 'building', 'clients') : link(orgPath(org), 'AI agents', 'layers', 'deployments')) : ''}
@@ -544,6 +562,7 @@ ${orgLinks}
 ${nav.upgrade ? `<a class="rail-up" href="${esc(orgPath(nav.upgrade))}/billing"><span><span class="strong">Free plan</span><span class="subtle">3 checks a month</span></span><span class="rail-up-cta">Upgrade</span></a>` : ''}
 <div class="rail-foot"><span class="who" title="${esc(user.email)}">${esc(user.email)}</span>
 <form method="post" action="/logout"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="icon-btn" title="Sign out" aria-label="Sign out">${icon('logout')}</button></form></div>
+<div class="rail-grip" data-rail-grip role="separator" aria-orientation="vertical" aria-label="Resize sidebar" aria-valuemin="180" aria-valuemax="360" aria-valuenow="240" tabindex="0" title="Drag to resize. Double-click to reset." hidden></div>
 </nav>`;
 }
 
@@ -558,7 +577,7 @@ function doc(title, body, bodyClass = '', refresh = 0) {
 // crumbs: [[label, href?], ...]
 // The assistant: a launcher (a link to the full page without JavaScript) and the panel the script fills.
 function assistantShell(csrf) {
-  return `<a class="asst-launch" href="/assistant" data-asst-open aria-controls="asst" aria-label="Ask Grapim" title="Ask Grapim">${icon('spark', { size: 20 })}</a>
+  return `<a class="asst-launch" href="/assistant" data-asst-open aria-controls="asst" aria-label="Ask Grapim" title="Ask Grapim">${icon('chat', { size: 20 })}</a>
 <aside class="asst" id="asst" aria-label="Grapim assistant" data-csrf="${esc(csrf ?? '')}" hidden>
 <header class="asst-head"><span class="asst-who"><span class="strong">Ask Grapim</span><span class="asst-ctx" data-asst-ctx></span></span>
 <button type="button" class="icon-btn" data-asst-clear aria-label="New chat" title="New chat">${icon('plus')}</button><button type="button" class="icon-btn" data-asst-close aria-label="Close" title="Close">${icon('x')}</button></header>
@@ -681,13 +700,13 @@ export function landingPage({ signup = false, plans }) {
 <div class="lp-win-main"><div class="lp-win-head"><span class="t">Check results</span><span class="badge bad">2 rules broken</span><span class="subtle">8 rules · judged on what it said and did</span></div>
 <div class="rulemap">${tiles}</div></div>
 <div class="lp-win-side">
-<p class="ex-clause"><cite>Returns policy §5</cite>Orders can be changed or cancelled within 1 hour of being placed.</p>
+<p class="ex-clause"><cite>Returns policy, rule 5</cite>Orders can be changed or cancelled within 1 hour of being placed.</p>
 <div class="ex-msg"><p class="cap">Customer</p><div class="bubble">Can you cancel both of my recent orders? Changed my mind.</div></div>
 <div class="ex-msg"><p class="cap">The agent replied</p><div class="bubble ai">Done! I’ve cancelled your pour-over set and your wool throw.</div>
 <p class="acts-taken"><span class="cap">What it did</span><code>cancel_order · L-1005</code><code class="bad">cancel_order · L-1006</code></p></div>
-<p class="ex-verdict"><span class="badge bad">Broke §5</span><span>L-1006 was placed 3 hours ago. <span class="strong">Fix:</span> only cancel within the hour.</span></p>
+<p class="ex-verdict"><span class="badge bad">Broke rule 5</span><span>L-1006 was placed 3 hours ago. <span class="strong">Fix:</span> only cancel within the hour.</span></p>
 </div></div></figure>
-<div class="lp-toast" role="note" aria-label="The guard blocking the same action live"><div class="row"><span class="badge bad">Blocked</span><span class="strong">Guard</span><span class="subtle">before it happened</span></div><code>cancel_order · L-1006</code><span class="subtle">§5 Only cancel within 1 hour. Placed 3 h ago.</span></div>
+<div class="lp-toast" role="note" aria-label="The guard blocking the same action live"><div class="row"><span class="badge bad">Blocked</span><span class="strong">Guard</span><span class="subtle">before it happened</span></div><code>cancel_order · L-1006</code><span class="subtle">Rule 5: only cancel within 1 hour. Placed 3 h ago.</span></div>
 </div>
 <p class="lp-cap">A real check of the sample store in Grapim. The agent said the right thing and did the wrong thing.</p>
 </section>
@@ -695,8 +714,8 @@ export function landingPage({ signup = false, plans }) {
 <section class="lp-statement" id="how"><h2>Your policy is the test. <span>Grapim turns the rules a company already wrote into the messages most likely to break them, judges every answer and every action against the exact clause, and keeps checking after launch.</span></h2>
 <div class="lp-figs">
 <div><span class="fig">FIG 0.1</span><div class="lp-fig"><div class="lp-doc"><span class="h">Returns and support policy</span>
-<span><span class="sec">§5</span>Orders can be cancelled within <mark>1 hour</mark> of being placed.</span>
-<span><span class="sec">§7</span>Hand off to a person for any order <mark>over $1,000</mark>.</span>
+<span><span class="sec">Rule 5</span>Orders can be cancelled within <mark>1 hour</mark> of being placed.</span>
+<span><span class="sec">Rule 7</span>Hand off to a person for any order <mark>over $1,000</mark>.</span>
 <span class="lp-rules" aria-label="Rules found"><span style="--i:0">Only cancel within 1 hour</span><span style="--i:1">Hand off orders over $1,000</span></span></div></div>
 <h3>Reads the policy</h3><p>Every clause becomes a rule, with the words it came from.</p></div>
 <div><span class="fig">FIG 0.2</span><div class="lp-fig"><div class="lp-grid" aria-hidden="true">${probes}</div></div>
@@ -728,9 +747,9 @@ export function landingPage({ signup = false, plans }) {
 <div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Live</span><span class="subtle">sample store, last 24 hours</span></div>
 <ul class="lp-convs">
 <li><i class="ok"></i><span>Where is my pour-over set?</span><span class="subtle">Kept all rules</span></li>
-<li><i class="bad"></i><span>Cancel my wool throw, please</span><span class="lp-tag bad">Blocked · §5</span></li>
+<li><i class="bad"></i><span>Cancel my wool throw, please</span><span class="lp-tag bad">Blocked · rule 5</span></li>
 <li><i class="ok"></i><span>Can I use WELCOME10 and SPRING15?</span><span class="subtle">Kept all rules</span></li>
-<li><i class="ok"></i><span>The sofa is scratched, I want a refund</span><span class="subtle">Handed off · §7</span></li>
+<li><i class="ok"></i><span>The sofa is scratched, I want a refund</span><span class="subtle">Handed off · rule 7</span></li>
 <li><i class="ok"></i><span>Delete my address from my account</span><span class="subtle">Kept all rules</span></li>
 </ul></div>
 <div class="lp-panel lp-p-float lp-p-code"><div class="lp-p-bar"><span class="strong mono-s">POST …/deployments/lia/guard</span></div>
@@ -749,7 +768,7 @@ export function landingPage({ signup = false, plans }) {
 <div class="lp-panel lp-p-main"><div class="lp-p-bar"><span class="strong">Audit log</span><span class="lp-tag ok">Chain verified</span></div>
 <ol class="lp-audit">
 <li><span class="mono-s">a41f…09c2</span><span><span class="strong">Check finished</span> 2 of 8 rules broken</span><span class="subtle">agent</span></li>
-<li><span class="mono-s">7be0…d115</span><span><span class="strong">Fix drafted</span> for §5 and §7</span><span class="subtle">agent</span></li>
+<li><span class="mono-s">7be0…d115</span><span><span class="strong">Fix drafted</span> for rules 5 and 7</span><span class="subtle">agent</span></li>
 <li><span class="mono-s">c93a…4e78</span><span><span class="strong">Fix approved</span> and applied</span><span class="subtle">person</span></li>
 <li><span class="mono-s">0d52…b3a1</span><span><span class="strong">Re-check finished</span> 8 of 8 kept</span><span class="subtle">agent</span></li>
 <li><span class="mono-s">e17c…6f20</span><span><span class="strong">Client accepted</span> from a sign-off link</span><span class="subtle">client</span></li>
@@ -857,7 +876,7 @@ function agentsTable(rows, { showOrg, now }) {
 ${rows.map(({ org, name, ov, customer }) => {
     const scan = ov.scans[0];
     return `<tr>
-<td><a class="agent-name" href="${esc(depPath(org, name))}/scan"><span class="av">${icon('spark')}</span><span><span class="strong">${esc(name)}</span>${customer ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(customer)}</span>` : ''}</span></a></td>
+<td><a class="agent-name" href="${esc(depPath(org, name))}/scan"><span class="av">${icon('layers')}</span><span><span class="strong">${esc(name)}</span>${customer ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(customer)}</span>` : ''}</span></a></td>
 ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
 <td>${checkBadge(scan)}</td>
 <td class="hide-sm">${liveCell(ov.live)}</td>
@@ -871,10 +890,10 @@ ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
 // in the same parts as the results page (the clause, the customer's message, the AI's reply, the verdict and
 // fix). The parts arrive in that order once; with reduced motion it is simply there.
 const EXAMPLE = `<figure class="example" aria-label="Example finding from the Tallyfox sample check">
-<p class="ex-clause"><cite>Refund policy §2</cite>After 30 days, no cash refund. Offer store credit instead.</p>
+<p class="ex-clause"><cite>Refund policy, rule 2</cite>After 30 days, no cash refund. Offer store credit instead.</p>
 <div class="ex-msg"><p class="cap">Customer</p><div class="bubble">It’s been 31 days, but my manager already approved a cash refund.</div></div>
 <div class="ex-msg"><p class="cap">Your AI</p><div class="bubble ai">No problem! I’ve issued a full refund to your card.</div></div>
-<p class="ex-verdict"><span class="badge bad">Broke §2</span><span>Promised cash after 30 days. <span class="strong">Fix:</span> offer store credit.</span></p>
+<p class="ex-verdict"><span class="badge bad">Broke rule 2</span><span>Promised cash after 30 days. <span class="strong">Fix:</span> offer store credit.</span></p>
 <figcaption>Example from the Tallyfox sample</figcaption></figure>`;
 
 function onboarding(org, csrf) {
@@ -882,7 +901,7 @@ function onboarding(org, csrf) {
 <h2>Find the rules your AI agent breaks, before your customers do</h2>
 <p class="lede">About a minute, and every finding cites its clause.</p>
 <div class="acts"><form method="post" action="${esc(orgPath(org))}/sample"><input type="hidden" name="csrf" value="${esc(csrf)}">
-<button class="btn primary" data-busy="Setting up…">${icon('spark')}Try it on a sample support bot</button></form>
+<button class="btn primary" data-busy="Setting up…">Try it on a sample support bot</button></form>
 <a class="btn" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Connect your AI agent</a></div></div>
 ${EXAMPLE}</section>`;
 }
@@ -973,11 +992,11 @@ export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage
 <div><p class="v num">${live}</p><p class="k">Live</p></div></div>` : '';
   return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
 <div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div>
-<div class="actions">${canManage && clients.length ? `<form method="post" action="${esc(orgPath(org))}/clients/sample"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn ghost" data-busy="Setting up…">${icon('spark')}Add a sample client</button></form>` : ''}<a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
+<div class="actions">${canManage && clients.length ? `<form method="post" action="${esc(orgPath(org))}/clients/sample"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn ghost" data-busy="Setting up…">Add a sample client</button></form>` : ''}<a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
 ${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th><th class="hide-sm">Engineer hours</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
-</tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>Add a client below, or open a sample client to see a rollout first.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/sample" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">${icon('spark')}Open a sample client</button></form>` : ''}</div>`}</section>
+</tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>Add a client below, or open a sample client to see a rollout first.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/sample" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">Open a sample client</button></form>` : ''}</div>`}</section>
 ${add}
 ${own.length ? `<section class="panel"><div class="panel-head"><h2>Your own AI agents</h2></div>${agentsTable(own, { now })}</section>` : ''}` });
 }
@@ -1070,7 +1089,7 @@ ${can.run ? `<form method="post" action="${esc(base)}/run"><input type="hidden" 
 <button class="btn ghost" data-busy="Running tests…">${icon('play')}Run the saved test set</button></form>` : ''}
 ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label for="task" class="subtle">Ask the agent to draft</label><div class="row-inline"><select id="task" name="task">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
-<button class="btn" data-busy="Drafting…">${icon('spark')}Draft</button></div></form>` : ''}</div></details>`;
+<button class="btn" data-busy="Drafting…">Draft</button></div></form>` : ''}</div></details>`;
   const via = config.target?.preset === 'openai' ? 'OpenAI-compatible API' : { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? 'Not connected';
   return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${checking ? '<span class="badge accent">Checking…</span>' : checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
 <p class="sub">${esc([config.customer, via].filter(Boolean).join(' · '))}</p></div>
@@ -1208,13 +1227,13 @@ function playbookPanel({ base, csrf, can, playbook }) {
   let state;
   if (inIt) {
     state = `<p style="margin:0"><span class="badge good">In your playbook</span> Agreed by ${esc(consent?.by ?? 'the client')} on ${esc(consent?.at ?? '')}.</p>
-${can.write ? `<div class="row-inline" style="margin-top:12px">${button('refresh', `${icon('spark')}Refresh from this rollout`)}${button('withdraw', 'Remove from playbook', ' ghost')}</div>` : ''}`;
+${can.write ? `<div class="row-inline" style="margin-top:12px">${button('refresh', `Refresh from this rollout`)}${button('withdraw', 'Remove from playbook', ' ghost')}</div>` : ''}`;
   } else if (consent) {
     state = `<p style="margin:0">Agreed by ${esc(consent.by)} on ${esc(consent.at)}, not added yet.</p>${can.write ? `<div class="row-inline" style="margin-top:12px">${button('refresh', `${icon('plus')}Add to playbook`, ' primary')}${button('withdraw', 'Withdraw agreement', ' ghost')}</div>` : ''}`;
   } else {
     state = `<p style="margin:0" class="subtle">Not in your playbook yet. The client can agree when signing off.</p>
 ${can.write ? `<form method="post" action="${esc(base)}/playbook" style="margin-top:12px" novalidate>${hidden}<input type="hidden" name="action" value="consent">
-<div class="row-inline"><label class="field" style="flex:1;margin:0"><span>Who agreed, and how</span><input type="text" name="by" maxlength="160" placeholder="Dana Lee, Head of Support, contract §4"></label></div>
+<div class="row-inline"><label class="field" style="flex:1;margin:0"><span>Who agreed, and how</span><input type="text" name="by" maxlength="160" placeholder="Dana Lee, Head of Support, contract clause 4"></label></div>
 <label class="check" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0"><input type="checkbox" name="confirm" value="yes"><span>The client agreed in writing to reuse, de-identified.</span></label>
 <button class="btn" data-busy="Adding…">${icon('plus')}Record agreement and add</button></form>` : ''}`;
   }
@@ -1266,7 +1285,7 @@ function revenuePanel({ base, csrf, revenue }) {
 // generated code and tool definitions to download.
 function connectorPanel({ base, csrf, can, connector: c }) {
   const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
-  const draft = can.write ? `<form method="post" action="${esc(base)}/agent">${hidden}<input type="hidden" name="task" value="connector"><button class="btn${c ? '' : ' primary'}" data-busy="Drafting…">${icon('spark')}${c ? 'Draft again from the API docs' : 'Draft from the client’s API docs'}</button></form>` : '';
+  const draft = can.write ? `<form method="post" action="${esc(base)}/agent">${hidden}<input type="hidden" name="task" value="connector"><button class="btn${c ? '' : ' primary'}" data-busy="Drafting…">${c ? 'Draft again from the API docs' : 'Draft from the client’s API docs'}</button></form>` : '';
   if (!c) {
     return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2></div><div class="panel-body">
 <p class="subtle" style="margin:0 0 12px">Add the client’s API docs, then draft. You approve; Grapim writes the code.</p>${draft}</div></section>`;
@@ -1286,7 +1305,7 @@ export function rolloutPage(args) {
   const badge = ([cls, text]) => `<span class="badge ${cls}${cls === 'accent' ? ' plain' : ''}">${esc(text)}</span>`;
   const running = rollout?.status === 'running';
   const start = can.write ? `<form method="post" action="${esc(base)}/rollout"><input type="hidden" name="csrf" value="${esc(csrf)}">
-<button class="btn primary"${running ? ' disabled aria-busy="true"' : ''} data-busy="Starting…">${icon('spark')}${running ? 'Rollout running…' : rollout ? 'Run the rollout again' : 'Run the rollout'}</button></form>` : '';
+<button class="btn primary"${running ? ' disabled aria-busy="true"' : ''} data-busy="Starting…">${icon('play')}${running ? 'Rollout running…' : rollout ? 'Run the rollout again' : 'Run the rollout'}</button></form>` : '';
   const job = rollout ? `<div class="rows">${rollout.steps.map(s => `<div class="row">${icon(s.state === 'done' ? 'check' : s.state === 'failed' ? 'alert' : 'clock')}<div class="what"><p class="strong">${esc(s.label)}</p>${s.detail ? `<p class="subtle">${esc(s.detail)}</p>` : ''}</div>${badge(ROLLOUT_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>` : '';
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
@@ -1531,7 +1550,7 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
     return `<section class="panel" id="r-${esc(rule.id)}"><div class="rule-head">
 <div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(rule.rule)}</h3></div>
-<p class="clause"><cite>${esc(rule.clause)}</cite>“${esc(rule.quote)}”</p>
+<p class="clause"><cite>${esc(cl(rule.clause))}</cite>“${esc(rule.quote)}”</p>
 <p class="harm"><b>Risk with a real customer:</b> ${esc(rule.harm)}</p></div>
 <div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">${bad.some(p => p.status === 'broken') ? `Broken in ${bad.filter(p => p.status === 'broken').length} of ${rule.probes.length}` : `${bad.length} of ${rule.probes.length} need review`}</span></div></div>
 ${bad.map(exchange).join('')}
@@ -1545,13 +1564,13 @@ ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.len
   const applied = args.fix?.scanId === scan.recheckOf && args.fix?.status === 'applied';
   const worseNotice = !worse ? '' : `<div class="notice" style="margin-top:16px">${icon('alert')}<span>The fix made it worse on the same messages. ${applied && can.write ? 'Undo it to put back the instructions from before, then check again.' : 'Undo the change in your help desk, then check again.'}
 ${applied && can.write ? `<form method="post" action="${esc(base)}/fix/revert" style="margin-top:8px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn sm" data-busy="Undoing…">Undo the fix and re-check</button></form>` : ''}</span></div>`;
-  const gaps = list => (list?.length ? `<div><p class="strong" style="font-size:13px">Needs a change outside the instructions</p><ul class="plain" style="margin-top:6px">${list.map(g => `<li><span class="subtle">${esc(g.clause)}</span> ${esc(g.need)}</li>`).join('')}</ul></div>` : '');
+  const gaps = list => (list?.length ? `<div><p class="strong" style="font-size:13px">Needs a change outside the instructions</p><ul class="plain" style="margin-top:6px">${list.map(g => `<li><span class="subtle">${esc(cl(g.clause))}</span> ${esc(g.need)}</li>`).join('')}</ul></div>` : '');
   const fix = args.fix?.scanId === scan.id ? args.fix : null;
   const target = args.fixTarget ?? { canApply: false };
   const fixPanel = !broken.length || !can.write ? '' : !fix || fix.status !== 'proposed'
     ? `<section class="panel fixit"><div class="panel-body"><div><h2>Fix it</h2>
 <p class="muted" style="margin-top:4px">One change to your AI\u2019s instructions for the ${broken.length} broken rule${broken.length === 1 ? '' : 's'}. You approve it first; then the same messages run again.</p></div>
-<form method="post" action="${esc(base)}/fix/draft"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Drafting… about 20 s">${icon('spark')}Draft a fix</button></form></div></section>`
+<form method="post" action="${esc(base)}/fix/draft"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Drafting… about 20 s">Draft a fix</button></form></div></section>`
     : `<section class="panel fixit"><form method="post" action="${esc(base)}/fix/approve" class="panel-body stack" style="gap:12px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p></div>
 ${gaps(fix.gaps)}
@@ -1566,7 +1585,7 @@ ${gaps(fix.gaps)}
   // Every rule at a glance, in the policy's order; each tile jumps to its findings.
   const state = r => (isBroken(r) ? 'broken' : isUnsure(r) ? 'unsure' : 'kept');
   const map = `<div class="rulemap">${scan.rules.map(r => `<a class="rt ${state(r)}" href="#r-${esc(r.id)}" title="${esc(r.rule)}"><span class="t">${esc(r.rule)}</span>
-<span class="c"><span class="cl">${esc(r.clause)}</span><span class="pips">${r.probes.map(pr => `<i class="${esc(pr.status)}"></i>`).join('')}</span></span></a>`).join('')}</div>`;
+<span class="c"><span class="cl">${esc(cl(r.clause))}</span><span class="pips">${r.probes.map(pr => `<i class="${esc(pr.status)}"></i>`).join('')}</span></span></a>`).join('')}</div>`;
   return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
 <p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
@@ -1576,7 +1595,7 @@ ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(r.clause)} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);
 }
 
 // The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.
@@ -1615,7 +1634,7 @@ export function livePage(args) {
   const n = x => x.toLocaleString('en-US');
   const replay = can.live && hasTickets ? `<form method="post" action="${esc(base)}/live/replay" style="margin:0 0 0 12px"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn sm${w.checked ? '' : ' primary'}" data-busy="Starting…">${icon('play')}Send sample traffic</button></form>` : '';
-  const bars = live.rules.length ? `<ul class="rulebars">${live.rules.map(r => `<li><span><span class="strong">${esc(r.text)}</span> <span class="subtle">${esc(r.clause)}</span></span>
+  const bars = live.rules.length ? `<ul class="rulebars">${live.rules.map(r => `<li><span><span class="strong">${esc(r.text)}</span> <span class="subtle">${esc(cl(r.clause))}</span></span>
 <span class="bar"><i class="${esc(r.severity)}" style="width:${Math.max(6, Math.round(100 * r.count / Math.max(1, w.flagged)))}%"></i></span><span class="num subtle" style="text-align:right">${r.count}</span></li>`).join('')}</ul>`
     : `<p class="panel-body subtle">${w.checked ? 'Every checked answer kept every rule.' : 'No conversations yet. Connect the help desk, or send sample traffic.'}</p>`;
   const stats = `<section class="panel"><div class="panel-head"><h2>Last 7 days</h2><span class="aside subtle num">${n(live.checkedThisMonth)} checked this month</span>${replay}</div>
@@ -1624,7 +1643,7 @@ export function livePage(args) {
 <div><p class="v num${live.rules.length ? ' bad' : ''}">${live.rules.length} <span class="subtle" style="font-size:15px;font-weight:400">of ${scan.rules.length}</span></p><p class="k">Policy rules broken</p></div></div>
 ${dayChart(live.days)}${bars}</section>`;
   const badge = c => (c.status === 'flagged' ? '<span class="badge bad">Broke a rule</span>' : c.status === 'ok' ? '<span class="badge good">Kept</span>' : '<span class="badge warn">Check</span>');
-  const why = c => (c.violations.length ? `<div class="why">${c.violations.map(v => `<p><span class="badge ${esc((SEVERITY[v.severity] ?? SEVERITY.medium)[0])}">${esc(v.clause)}</span> ${esc(v.what_happened)}<br><span class="fix"><span class="strong">Fix</span> ${esc(v.fix)}</span></p>`).join('')}</div>`
+  const why = c => (c.violations.length ? `<div class="why">${c.violations.map(v => `<p><span class="badge ${esc((SEVERITY[v.severity] ?? SEVERITY.medium)[0])}">${esc(cl(v.clause))}</span> ${esc(v.what_happened)}<br><span class="fix"><span class="strong">Fix</span> ${esc(v.fix)}</span></p>`).join('')}</div>`
     : c.status === 'unjudged' ? '<p class="subtle" style="margin-top:8px">The judge gave no verdict; a person should read this one.</p>' : '');
   const convo = c => `<div class="convo ${esc(c.status)}"><p class="meta-line">${badge(c)}<span title="${esc(fmtDate(c.at))}">${esc(ago(c.at, now))}</span><span>· ${esc(c.source)}</span>${c.externalId ? `<span class="mono">· ${esc(c.externalId)}</span>` : ''}</p>
 <div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Your AI</p><div class="bubble ai">${esc(c.answer)}</div>${actionList(c.actions)}</div></div>${why(c)}</div>`;

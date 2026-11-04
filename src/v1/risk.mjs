@@ -36,7 +36,7 @@ const rulesSchema = k => obj({
     description: `At most ${MAX_RULES} rules, the most consequential first.`,
     items: obj({
       id: str('Short slug, e.g. "refund-window".'),
-      clause: str('Where the rule is written, e.g. "refund-policy.md §2".'),
+      clause: str('Where the rule is written, e.g. "refund-policy.md, rule 2". Never use the § sign.'),
       quote: str('The rule in the policy\'s own words, at most 25 words.'),
       rule: str(`What ${k.one} must or must not do, in one sentence.`),
       harm: str('What happens to the company if the AI breaks it: money lost, legal exposure or broken trust, concretely.'),

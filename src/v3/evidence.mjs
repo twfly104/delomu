@@ -1,3 +1,4 @@
+import { cl } from './html.mjs';
 // The evidence pack: one AI agent's record over a date range, for legal, risk and compliance. It gathers what
 // Grapim already wrote down (checks and re-checks in scans/, the fix in fix.json, live/<month>.jsonl and the
 // audit log) and estimates nothing: every number names the records it was counted from. buildEvidence returns
@@ -218,7 +219,7 @@ ul.rules{margin:4px 0 0;padding-left:18px;font-size:13px}
 
 const EMPTY = '<p class="empty">No records in this period.</p>';
 const src = text => `<p class="src">Source: ${text}</p>`;
-const ruleList = list => (list.length ? `<ul class="rules">${list.map(r => `<li>${esc(r.text)}${r.clause ? ` <span class="subtle">(${esc(r.clause)})</span>` : ''}</li>`).join('')}</ul>` : '');
+const ruleList = list => (list.length ? `<ul class="rules">${list.map(r => `<li>${esc(r.text)}${r.clause ? ` <span class="subtle">(${esc(cl(r.clause))})</span>` : ''}</li>`).join('')}</ul>` : '');
 
 // data: from buildEvidence; name: the AI agent; customer: whose AI (optional); org: the org name.
 export function renderEvidence(data, { name, customer, org } = {}) {
@@ -259,7 +260,7 @@ ${live.months.map(m => `<tr><td>${esc(monthName(m.month))}</td><td class="num">$
 <tr><td><b>Total</b></td><td class="num"><b>${live.checked}</b></td><td class="num"><b>${live.flagged}</b></td><td class="num"><b>${live.unjudged}</b></td></tr>
 </tbody></table>
 ${live.topRules.length ? `<h3 style="font-size:14px;margin:16px 0 6px">Most-broken rules</h3><table><thead><tr><th>Rule</th><th>Source</th><th>Times broken</th></tr></thead><tbody>
-${live.topRules.map(r => `<tr><td>${esc(r.text)}</td><td class="subtle">${esc(r.clause)}</td><td class="num">${r.count}</td></tr>`).join('\n')}
+${live.topRules.map(r => `<tr><td>${esc(r.text)}</td><td class="subtle">${esc(cl(r.clause))}</td><td class="num">${r.count}</td></tr>`).join('\n')}
 </tbody></table>` : '<p class="src">No conversation in this period broke a rule.</p>'}
 ${src('real conversations stored in <code>live/&lt;month&gt;.jsonl</code>, counted by the time the conversation happened. A conversation that broke two rules counts once in “Broke a rule” and once for each rule below it.')}` : EMPTY;
 

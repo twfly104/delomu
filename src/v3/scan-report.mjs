@@ -1,3 +1,4 @@
+import { cl } from './html.mjs';
 // The pre-launch check as a standalone document an AI vendor can hand to its customer (or a support lead to
 // legal): the result, every rule with its clause, the exchanges behind each finding, and how the check works.
 // Self-contained HTML with no scripts; "Print, then Save as PDF" turns it into a file. Every value is escaped.
@@ -55,7 +56,7 @@ export function renderScanReport({ scan, name, customer, org }) {
       : ['good', `All ${s.rules} policy rules kept`];
   const badge = st => `<span class="badge ${STATUS[st][0]}">${STATUS[st][1]}</span>`;
   const detail = r => `<section class="rule"><h3>${esc(r.rule)}</h3>
-<div class="meta">${badge(r.st)}<span class="badge plain">${esc(SEVERITY[r.severity] ?? 'Medium risk')}</span><span class="subtle" style="font-size:12.5px">${esc(r.clause)}</span></div>
+<div class="meta">${badge(r.st)}<span class="badge plain">${esc(SEVERITY[r.severity] ?? 'Medium risk')}</span><span class="subtle" style="font-size:12.5px">${esc(cl(r.clause))}</span></div>
 <p class="clause">“${esc(r.quote)}”</p>
 ${r.probes.filter(p => p.status !== 'kept').map(p => `<div class="ex">
 <div><p class="cap">Customer wrote</p><div class="bubble">${esc(p.message)}</div></div>
@@ -74,7 +75,7 @@ ${r.probes.filter(p => p.status !== 'kept').map(p => `<div class="ex">
 <div><b class="num">${s.failed}</b><span>Broke a rule</span></div><div><b class="num">${s.unjudged}</b><span>Need review</span></div></div>
 <h2>All rules</h2>
 <table><thead><tr><th>Rule</th><th>Source</th><th>Result</th></tr></thead><tbody>
-${rules.map(r => `<tr><td>${esc(r.rule)}</td><td class="subtle nowrap">${esc(r.clause)}</td><td>${badge(r.st)}</td></tr>`).join('\n')}
+${rules.map(r => `<tr><td>${esc(r.rule)}</td><td class="subtle nowrap">${esc(cl(r.clause))}</td><td>${badge(r.st)}</td></tr>`).join('\n')}
 </tbody></table>
 ${broken.length ? `<h2>Findings</h2>${broken.map(detail).join('')}` : ''}
 ${review.length ? `<h2>Needs a person to review</h2><p class="method">The AI gave no answer, or no verdict could be reached. These rules are not counted as kept.</p>${review.map(detail).join('')}` : ''}
