@@ -75,3 +75,36 @@ test('Zendesk connects with OAuth (PKCE, read scope), imports with the bearer to
   assert.equal(oauthCalls[0]?.body.grant_type, 'refresh_token');
   assert.equal(oauthCalls[0]?.body.refresh_token, 'refresh-1');
 });
+
+test('with Grapim’s own Zendesk client, a customer connects with only the subdomain', async () => {
+  const calls = [];
+  const one = await startServer({
+    env: { DELOMU_SIGNUP: 'open' },
+    zendeskApp: { clientId: 'grapim-global', clientSecret: 'grapim-secret' },
+    oauthJson: async (url, { body }) => { calls.push({ url, body }); return { access_token: 'a1', refresh_token: 'r1' }; },
+    importJson: async () => ({ results: [], articles: [] }),
+  });
+  try {
+    const page = await fetch(`${one.base}/signup`);
+    const res = await fetch(`${one.base}/signup`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookiesOf(page)[0] }, body: new URLSearchParams({ csrf: csrfOf(await page.text()), email: `o${Math.random()}@zd.test`, company: 'OneCo' }) });
+    const cookie = cookiesOf(res).find(c => c.startsWith('delomu_session='));
+    const home = await (await fetch(`${one.base}/`, { headers: { cookie } })).text();
+    const org = /action="(\/orgs\/[^"/]+)\/sample"/.exec(home)[1];
+    const made = await fetch(`${one.base}${org}/sample`, { method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf: csrfOf(home) }) });
+    const dep = /^(.*)\/scan/.exec(made.headers.get('location'))[1];
+    const inputs = await (await fetch(`${one.base}${dep}/inputs`, { headers: { cookie } })).text();
+    assert.match(inputs, /Zendesk subdomain/);
+    assert.match(inputs, /Use your own OAuth client instead/);
+    const post = fields => fetch(`${one.base}${dep}/import/zendesk/connect`, { method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields) });
+    assert.equal((await post({ csrf: csrfOf(inputs), subdomain: '' })).status, 400, 'the subdomain is required');
+    const go = await post({ csrf: csrfOf(inputs), subdomain: 'acme.zendesk.com' });
+    assert.equal(go.status, 303);
+    const auth = new URL(go.headers.get('location'));
+    assert.equal(auth.host, 'acme.zendesk.com');
+    assert.equal(auth.searchParams.get('client_id'), 'grapim-global');
+    const back = await fetch(`${one.base}/oauth/zendesk/callback?code=c&state=${auth.searchParams.get('state')}`, { redirect: 'manual', headers: { cookie } });
+    assert.match(back.headers.get('location'), /notice=zendesk-connected$/);
+    assert.equal(calls.at(-1).body.client_id, 'grapim-global');
+    assert.equal(calls.at(-1).body.client_secret, 'grapim-secret');
+  } finally { one.close(); }
+});

@@ -244,7 +244,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 .meter i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s linear}
 .vf{display:inline;margin:0}.vf-pair{display:inline-flex;gap:12px}
 .probe .vf,.probe .vf-pair,.probe .vo{grid-column:1/-1;justify-self:start}
-.linkbtn{border:0;background:none;padding:0;font:500 12.5px var(--font);color:var(--text-3);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}.linkbtn:hover{color:var(--text);text-decoration-color:currentColor}
+.tries{font-size:12.5px;color:var(--text-3)}.tries.unstable{color:var(--warn,#a35200)}.linkbtn{border:0;background:none;padding:0;font:500 12.5px var(--font);color:var(--text-3);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}.linkbtn:hover{color:var(--text);text-decoration-color:currentColor}
 .vo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2)}.vo .i{color:var(--good)}
 .imp-body details.alt{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}.imp-body details.alt>summary:hover{background:none;color:var(--text)}.imp-body details.alt>summary::before{content:"+ "}.imp-body details.alt[open]>summary::before{content:"− "}.imp-body details.alt>summary{display:block;padding:0;border:0;background:none;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--text-2);margin-bottom:12px}
 .steps-mini{margin:0 0 12px;padding-left:18px;font-size:12.5px;color:var(--text-2);display:grid;gap:3px}.steps-mini code{font-size:11.5px}
@@ -1373,6 +1373,13 @@ function importPanel({ base, csrf, imports = {} }) {
 <label class="field"><span>Unique identifier</span><input type="text" name="client_id" value="${esc(st.clientId ?? '')}" placeholder="grapim" autocomplete="off"></label>
 <label class="field" style="flex:1;min-width:200px"><span>Secret</span><input type="password" name="client_secret" autocomplete="off" placeholder="${st.clientId ? 'Saved encrypted' : ''}"></label></div>
 <button class="btn${st.auth === 'oauth' ? '' : ' primary'}" data-busy="Opening Zendesk…">${st.auth === 'oauth' ? 'Connect again' : 'Connect Zendesk'}</button></form>`;
+  const zendeskOneClick = st => `<form method="post" action="${esc(base)}/import/zendesk/connect" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
+<div class="row-inline"><label class="field"><span>Zendesk subdomain</span><input type="text" name="subdomain" value="${esc(st.subdomain ?? '')}" placeholder="acme" autocomplete="off"></label></div>
+<p class="hint" style="margin:-8px 0 12px">Zendesk asks you to allow read-only access. Grapim never writes to Zendesk.</p>
+<button class="btn${st.auth === 'oauth' ? '' : ' primary'}" data-busy="Opening Zendesk…">${st.auth === 'oauth' ? 'Connect again' : 'Connect Zendesk'}</button></form>`;
+  const zendeskConnect = st => imports.zendeskOneClick
+    ? `${zendeskOneClick(st)}<details class="alt"><summary>Use your own OAuth client instead</summary>${zendeskOauth(st)}</details>`
+    : zendeskOauth(st);
   const tokenForm = (s, st, primary = true) => `<form method="post" action="${esc(base)}/import" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="source" value="${s.id}">
 <div class="row-inline">${s.fields.map(([n, l, ph]) => `<label class="field"><span>${esc(l)}</span><input type="text" name="${n}" value="${esc(st[n] ?? '')}" placeholder="${esc(ph)}" autocomplete="off"></label>`).join('')}
 <label class="field" style="flex:1;min-width:220px"><span>${st.saved && st.auth !== 'oauth' ? 'New token (optional)' : 'Token'}</span><input type="password" name="token" autocomplete="off" placeholder="${st.saved && st.auth !== 'oauth' ? 'Saved encrypted' : ''}"></label></div>
@@ -1385,8 +1392,8 @@ function importPanel({ base, csrf, imports = {} }) {
     const body = s.id !== 'zendesk'
       ? `${again}${tokenForm(s, st, !st.saved)}`
       : st.auth === 'oauth'
-        ? `<p class="vo" style="margin:0 0 12px">${icon('check', { size: 14 })}<span>Connected to <b>${esc(st.subdomain ?? '')}.zendesk.com</b> with OAuth.</span></p>${again}<details class="alt"><summary>Connect again</summary>${zendeskOauth(st)}</details>`
-        : `${again}${zendeskOauth(st)}<details class="alt"><summary>Use an API token instead (older Zendesk accounts)</summary>${tokenForm(s, st, false)}</details>`;
+        ? `<p class="vo" style="margin:0 0 12px">${icon('check', { size: 14 })}<span>Connected to <b>${esc(st.subdomain ?? '')}.zendesk.com</b> with OAuth.</span></p>${again}<details class="alt"><summary>Connect again</summary>${zendeskConnect(st)}</details>`
+        : `${again}${zendeskConnect(st)}<details class="alt"><summary>Use an API token instead (older Zendesk accounts)</summary>${tokenForm(s, st, false)}</details>`;
     return `<details class="imp"><summary><span class="strong">${esc(s.label)}</span><span class="subtle">${esc(s.what)}</span>${last}</summary>
 <div class="imp-body">${body}</div></details>`;
   };
@@ -1526,10 +1533,10 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
 <div><p class="cap">Customer wrote <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
 <div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
-<span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
+<span><span>${esc(p.what_happened)}</span>${p.tries ? `<br><span class="tries num${p.unstable ? ' unstable' : ''}">${p.unstable ? 'Not consistent: ' : ''}broke the rule in ${p.tries.broke} of ${p.tries.of} tries</span>` : ''}${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
   const ruleCard = rule => {
-    const bad = rule.probes.filter(p => p.status !== 'kept');
-    const ok = rule.probes.filter(p => p.status === 'kept');
+    const bad = rule.probes.filter(p => p.status !== 'kept' || p.unstable);
+    const ok = rule.probes.filter(p => p.status === 'kept' && !p.unstable);
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
     return `<section class="panel" id="r-${esc(rule.id)}"><div class="rule-head">
 <div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(rule.rule)}</h3></div>
@@ -1572,7 +1579,7 @@ ${gaps(fix.gaps)}
 <span class="c"><span class="cl">${esc(cl(r.clause))}</span><span class="pips">${r.probes.map(pr => `<i class="${esc(pr.status)}"></i>`).join('')}</span></span></a>`).join('')}</div>`;
   return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
-<p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
+<p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''}${s.unstable ? ` · ${s.unstable} not consistent across tries` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
 ${compare}<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${worseNotice}

@@ -50,6 +50,9 @@ export function createServer({
   // Replaces the JSON request used by read-only imports (src/v3/importers.mjs); tests inject a fake.
   importJson,
   oauthJson,
+  // Grapim's own Zendesk OAuth client (a global client approved by Zendesk). When both are set, a customer
+  // connects Zendesk with only their subdomain and one click on Allow.
+  zendeskApp = env.GRAPIM_ZENDESK_CLIENT_ID && env.GRAPIM_ZENDESK_CLIENT_SECRET ? { clientId: env.GRAPIM_ZENDESK_CLIENT_ID, clientSecret: env.GRAPIM_ZENDESK_CLIENT_SECRET } : null,
   fetch,
   now = () => new Date(),
   log = message => console.error(message),
@@ -88,6 +91,7 @@ export function createServer({
     demoBotClient,
     importJson,
     oauthJson,
+    zendeskApp,
     now,
     log,
     oidc: createOidcClient({ fetch }),

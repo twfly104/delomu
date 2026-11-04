@@ -65,8 +65,10 @@ test('risk scan: writes probes from the policy, runs them, judges each, and draf
   // The demo bot refunds at 45 days and defers on the day-31 message; it answers the reset question correctly.
   assert.deepEqual(s.rules[0].probes.map(p => p.status), ['broken', 'broken']);
   assert.equal(s.rules[1].probes[0].status, 'kept');
-  assert.deepEqual(s.summary, { rules: 2, broken: 1, probes: 3, kept: 1, failed: 2, unjudged: 0, highRiskBroken: 1 });
+  assert.deepEqual(s.summary, { rules: 2, broken: 1, probes: 3, kept: 1, failed: 2, unjudged: 0, unstable: 0, highRiskBroken: 1 });
   assert.ok(s.rules[0].probes[0].answer.includes('full refund'));
+  assert.deepEqual(s.rules[0].probes[0].tries, { broke: 3, of: 3 }, 'a broken answer is asked again; all three tries broke');
+  assert.equal(s.rules[1].probes[0].tries, undefined, 'a kept answer is not retried');
 
   assert.deepEqual(listScans(dir).map(x => x.id), [s.id]);
   assert.equal(getScan(dir, s.id).draftId, r.draft.id);
@@ -107,4 +109,33 @@ test('risk scan: a keyword match alone does not break a rule; the judge reads th
   assert.equal(r.scan.rules[0].probes[0].status, 'kept');
   assert.equal(r.scan.rules[0].probes[0].what_happened, 'Followed the rule.');
   assert.match(prompts.at(-1), /<keyword_check>[\s\S]*says "acme\.example\/reset"[\s\S]*miss negation/);
+});
+
+// The judge says "broken" on the given tries (1-based) of each probe and "kept" otherwise.
+function flakyLlm(brokenOn) {
+  let n = 0;
+  const create = async req => {
+    const prompt = req.messages[0].content;
+    let a;
+    if (prompt.includes('List the rules')) a = { rationale: 'x', rules: [RULES.rules[1]] };
+    else a = brokenOn.includes(++n) ? { verdict: 'broken', what_happened: 'Wrong.', fix: 'Fix it.' } : { verdict: 'kept', what_happened: 'Fine.', fix: 'none' };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(a) }] };
+  };
+  return createLlm({ client: { beta: { messages: { create } } } });
+}
+
+test('a broken verdict needs most tries to agree; disagreeing tries are marked not consistent', async () => {
+  // Broken once, then kept twice: the majority keeps the rule, and the answer is flagged.
+  let r = await riskScan(acme(), { llm: flakyLlm([1]) });
+  let p = r.scan.rules[0].probes[0];
+  assert.equal(p.status, 'kept');
+  assert.deepEqual(p.tries, { broke: 1, of: 3 });
+  assert.equal(p.unstable, true);
+  assert.deepEqual([r.scan.summary.broken, r.scan.summary.unstable], [0, 1]);
+  // Broken twice out of three: still broken, still flagged.
+  r = await riskScan(acme(), { llm: flakyLlm([1, 3]) });
+  p = r.scan.rules[0].probes[0];
+  assert.equal(p.status, 'broken');
+  assert.deepEqual(p.tries, { broke: 2, of: 3 });
+  assert.deepEqual([r.scan.summary.broken, r.scan.summary.unstable], [1, 1]);
 });

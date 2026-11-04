@@ -24,6 +24,10 @@ import { caseIds, readCases } from './appliers.mjs';
 export const MAX_RULES = 8;
 export const PROBES_PER_RULE = 2;
 const CONCURRENCY = 4;
+// A "broken" verdict is only kept when most tries agree. The AI under test and the judge both vary from run to
+// run, so one bad answer is asked again (TRIES in all) and the majority decides; the record says how many tries
+// broke the rule, and an answer whose tries disagree is marked unstable. Kept answers are not retried.
+export const TRIES = Math.max(1, Math.min(5, Number(process.env.GRAPIM_JUDGE_TRIES ?? 3) || 1));
 
 const str = description => ({ type: 'string', description });
 const strList = description => ({ type: 'array', items: { type: 'string' }, description });
@@ -186,7 +190,7 @@ function buildScan({ now, config, llm, started, documents, rationale, rules, pro
     id: `${now.toISOString().replace(/[:.]/g, '-')}-${crypto.randomBytes(2).toString('hex')}`, createdAt: now.toISOString(), customer: config.customer ?? '',
     model: llm.model ? `${llm.provider ?? ''}${llm.provider ? ':' : ''}${llm.model}` : 'model',
     seconds: Math.round((Date.now() - started) / 1000), documents, rationale, ...extra,
-    summary: { rules: rules.length, broken: brokenRules.length, probes: probes.length, kept: count('kept'), failed: count('broken'), unjudged: count('unjudged') + count('error'), highRiskBroken: brokenRules.filter(r => r.severity === 'high').length },
+    summary: { rules: rules.length, broken: brokenRules.length, probes: probes.length, kept: count('kept'), failed: count('broken'), unjudged: count('unjudged') + count('error'), unstable: probes.filter(p => p.probe.unstable).length, highRiskBroken: brokenRules.filter(r => r.severity === 'high').length },
     rules,
   };
 }
@@ -219,7 +223,7 @@ async function judgeProbes(dir, config, llm, rules, onProgress) {
   const probes = rules.flatMap(rule => rule.probes.map((probe, n) => ({ rule, probe, n })));
   let done = 0;
   onProgress({ phase: 'probes', done, total: probes.length, rules: rules.length });
-  const judge = async ({ rule, probe }) => {
+  const once = async ({ rule, probe }) => {
     let answer;
     let actions;
     try {
@@ -242,6 +246,16 @@ async function judgeProbes(dir, config, llm, rules, onProgress) {
       what_happened: v.data.what_happened,
       fix: broken ? (v.data.fix && v.data.fix !== 'none' ? v.data.fix : 'Make the answer follow the clause above.') : '',
     };
+  };
+  const judge = async item => {
+    const first = await once(item);
+    if (first.status !== 'broken' || TRIES < 2) return first;
+    const tries = [first];
+    for (let i = 1; i < TRIES; i++) tries.push(await once(item));
+    const votes = tries.filter(t => t.status === 'kept' || t.status === 'broken');
+    const broke = votes.filter(t => t.status === 'broken').length;
+    const pick = broke * 2 > votes.length ? first : (votes.find(t => t.status === 'kept') ?? first);
+    return { ...pick, tries: { broke, of: votes.length }, ...(broke < votes.length ? { unstable: true } : {}) };
   };
   const judged = await pool(probes, CONCURRENCY, async item => {
     const out = await judge(item);

@@ -58,3 +58,18 @@ rule 3 of the plan: customize in configuration, never in one-off code.
   actions, and does not act when the guard blocks.
 - **Imports:** Zendesk ran for real on 2026-11-05: a new trial account connected through OAuth from the live site
   and imported a solved ticket. Intercom and Shopify are tested against recorded API shapes only.
+
+## One-click Zendesk (Grapim's own OAuth client)
+
+Set `GRAPIM_ZENDESK_CLIENT_ID` and `GRAPIM_ZENDESK_CLIENT_SECRET` on the server to Grapim's own **global** Zendesk
+OAuth client (redirect URL `https://<grapim>/oauth/zendesk/callback`, read scope). The Zendesk card then asks only for
+the subdomain: the customer clicks Connect and Allow. Creating your own client stays available under "Use your own
+OAuth client instead". Without the two variables the card works as before. A Zendesk OAuth client only works across
+accounts after Zendesk approves it as a global client.
+
+## Results that hold from run to run
+
+The AI under test and the judge both vary between runs. When an answer is judged "broken", Grapim sends the same
+message again and judges it twice more (`GRAPIM_JUDGE_TRIES`, default 3); the majority decides. Each broken or
+borderline answer shows "broke the rule in N of 3 tries", and answers whose tries disagree are marked "Not consistent"
+and stay visible on the results page. Kept answers are not retried.

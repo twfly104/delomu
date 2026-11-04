@@ -1299,6 +1299,14 @@ function routes(ctx) {
     return afterInputs(principal, org, params.name, dir, checked, before, 'imported');
   });
 
+  // The OAuth client for a deployment: Grapim's own (one click) or the one the customer made in their Zendesk.
+  const zendeskClient = (dir, zd) => {
+    if (zd.app && ctx.zendeskApp) return ctx.zendeskApp;
+    let clientSecret = '';
+    try { clientSecret = readSecret(dir, 'IMPORT_ZENDESK_CLIENT_SECRET', ctx.pepper) ?? ''; } catch {}
+    return { clientId: zd.clientId, clientSecret };
+  };
+
   // Runs an import; a Zendesk OAuth token that expired is refreshed once with the saved refresh token.
   async function runImport(dir, source, creds) {
     const opts = { limit: 50, ...(ctx.importJson && { fetchJson: ctx.importJson }) };
@@ -1310,7 +1318,7 @@ function routes(ctx) {
       const refreshToken = s('IMPORT_ZENDESK_REFRESH');
       if (!refreshToken) throw e;
       const zd = readRawJson(dir).imports?.zendesk ?? {};
-      const t = await zendeskToken({ subdomain: zd.subdomain, clientId: zd.clientId, clientSecret: s('IMPORT_ZENDESK_CLIENT_SECRET'), refreshToken }, { ...(ctx.oauthJson && { fetchJson: ctx.oauthJson }) });
+      const t = await zendeskToken({ subdomain: zd.subdomain, ...zendeskClient(dir, zd), refreshToken }, { ...(ctx.oauthJson && { fetchJson: ctx.oauthJson }) });
       saveSecret(dir, importSecret('zendesk'), t.accessToken, ctx.pepper, ctx.now());
       if (t.refreshToken) saveSecret(dir, 'IMPORT_ZENDESK_REFRESH', t.refreshToken, ctx.pepper, ctx.now());
       return importFrom(source, { ...creds, token: t.accessToken }, opts);
@@ -1330,10 +1338,13 @@ function routes(ctx) {
     const raw = readRawJson(dir);
     const zd = raw.imports?.zendesk ?? {};
     const subdomain = String(form.subdomain ?? zd.subdomain ?? '').trim().toLowerCase().replace(/\.zendesk\.com$/, '');
-    const clientId = String(form.client_id ?? zd.clientId ?? '').trim();
-    const secret = String(form.client_secret ?? '').trim();
+    // One click: no client fields sent and Grapim has its own client. Otherwise the customer's own client.
+    const app = Boolean(ctx.zendeskApp) && !String(form.client_id ?? '').trim();
+    const clientId = app ? ctx.zendeskApp.clientId : String(form.client_id ?? zd.clientId ?? '').trim();
+    const secret = app ? '' : String(form.client_secret ?? '').trim();
+    if (!subdomain) return fail('Enter your Zendesk subdomain: the part before .zendesk.com.');
     if (!clientId) return fail('Enter the OAuth client’s unique identifier from Zendesk.');
-    if (!secret && !savedSecrets(dir).some(k => k.name === 'IMPORT_ZENDESK_CLIENT_SECRET')) return fail('Paste the OAuth client’s secret from Zendesk.');
+    if (!app && !secret && !savedSecrets(dir).some(k => k.name === 'IMPORT_ZENDESK_CLIENT_SECRET')) return fail('Paste the OAuth client’s secret from Zendesk.');
     const verifier = crypto.randomBytes(32).toString('base64url');
     const state = crypto.randomBytes(24).toString('base64url');
     let url;
@@ -1341,7 +1352,7 @@ function routes(ctx) {
       url = zendeskAuthorizeUrl({ subdomain, clientId, redirectUri: zendeskRedirect(req), state, challenge: crypto.createHash('sha256').update(verifier).digest('base64url') });
     } catch (e) { return fail(e.message); }
     if (secret) saveSecret(dir, 'IMPORT_ZENDESK_CLIENT_SECRET', secret, ctx.pepper, ctx.now());
-    raw.imports = { ...(raw.imports ?? {}), zendesk: { ...zd, subdomain, clientId } };
+    raw.imports = { ...(raw.imports ?? {}), zendesk: app ? { ...zd, subdomain, app: true, clientId: undefined } : { ...zd, subdomain, clientId, app: undefined } };
     fs.writeFileSync(path.join(dir, 'delomu.json'), JSON.stringify(raw, null, 2) + '\n');
     for (const [k, v] of zendeskStates) if (v.exp < Date.now()) zendeskStates.delete(k);
     zendeskStates.set(state, { actor: principal.actor, orgId: org.id, name: params.name, verifier, redirectUri: zendeskRedirect(req), exp: Date.now() + 10 * 60_000 });
@@ -1360,7 +1371,7 @@ function routes(ctx) {
     const zd = raw.imports?.zendesk ?? {};
     let t;
     try {
-      t = await zendeskToken({ subdomain: zd.subdomain, clientId: zd.clientId, clientSecret: readSecret(dir, 'IMPORT_ZENDESK_CLIENT_SECRET', ctx.pepper), code: url.searchParams.get('code'), verifier: pending.verifier, redirectUri: pending.redirectUri }, { ...(ctx.oauthJson && { fetchJson: ctx.oauthJson }) });
+      t = await zendeskToken({ subdomain: zd.subdomain, ...zendeskClient(dir, zd), code: url.searchParams.get('code'), verifier: pending.verifier, redirectUri: pending.redirectUri }, { ...(ctx.oauthJson && { fetchJson: ctx.oauthJson }) });
     } catch (e) {
       return html(inputsPage({ ...workspace(principal, { org: org.id, name: pending.name }, 'deployments:read'), error: e.message, imports: importState(dir) }), 400);
     }
@@ -1378,7 +1389,7 @@ function routes(ctx) {
   const importState = dir => {
     const raw = readRawJson(dir);
     const keys = new Set(savedSecrets(dir).map(k => k.name));
-    return { ...Object.fromEntries(Object.keys(IMPORT_SOURCES).map(s => [s, { ...(raw.imports?.[s] ?? {}), saved: keys.has(importSecret(s)) }])), zendeskRedirect: `${ctx.publicUrl ?? ''}/oauth/zendesk/callback` };
+    return { ...Object.fromEntries(Object.keys(IMPORT_SOURCES).map(s => [s, { ...(raw.imports?.[s] ?? {}), saved: keys.has(importSecret(s)) }])), zendeskRedirect: `${ctx.publicUrl ?? ''}/oauth/zendesk/callback`, zendeskOneClick: Boolean(ctx.zendeskApp) };
   };
 
   // The connector's generated code and tool definitions, for the vendor to drop into its agent.
