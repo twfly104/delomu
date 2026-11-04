@@ -1,6 +1,8 @@
-# Security at Delomu
+# Security at Grapim
 
-Delomu reads a customer's policies and sends test messages to their AI. This page says what we protect, how,
+For a full review written for client legal and security teams, see [docs/security.md](docs/security.md).
+
+Grapim (formerly Delomu) reads a customer's policies and sends test messages to their AI. This page says what we protect, how,
 and what we have not done yet. It describes the code in this repository; where something depends on how you
 host it, it says so.
 
@@ -9,7 +11,7 @@ host it, it says so.
 Use GitHub's private vulnerability reporting on this repository (Security → Report a vulnerability). Please do
 not open a public issue. We aim to reply within three business days.
 
-## What Delomu stores
+## What Grapim stores
 
 | Data | Where | Notes |
 | --- | --- | --- |
@@ -18,8 +20,9 @@ not open a public issue. We aim to reply within three business days.
 | Customer material (policies, docs, tickets) | `inputs/` in the deployment folder | Only Markdown, text, CSV, JSON, YAML and HTML, up to 1 MB each |
 | Audit log | `audit.jsonl` per deployment | Hash-chained: changing or deleting a past entry breaks the chain, and the UI shows it |
 
-Credentials for the customer's AI are never stored. A target may only reference server environment variables
-with the operator's prefix (default `CUSTOMER_`), for example `${CUSTOMER_INTERCOM_TOKEN}`.
+A key pasted for the customer's AI is saved encrypted (AES-256-GCM) for that agent and never shown again; otherwise a
+target may only reference server environment variables with the operator's prefix (default `CUSTOMER_`), for
+example `${CUSTOMER_INTERCOM_TOKEN}`.
 
 ## Access control
 

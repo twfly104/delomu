@@ -114,3 +114,14 @@ export function revertFix(dir, { actor, now = new Date() }) {
   appendAudit(dir, { actor, action: 'fix.revert', target: fix.scanId, detail: {} }, now);
   return fix;
 }
+
+// After a re-check: if the fix Grapim applied left more rules or answers broken than the check it repeated, put
+// the earlier instructions back at once (actor "grapim") and return true. A fix applied by hand is left alone.
+export function undoIfWorse(dir, after, before, { now = new Date() } = {}) {
+  const fix = getFix(dir);
+  if (fix?.status !== 'applied' || fix.scanId !== after?.recheckOf || !before?.summary) return false;
+  const a = after.summary, b = before.summary;
+  if (!(a.broken > b.broken || a.failed > b.failed)) return false;
+  revertFix(dir, { actor: 'grapim', now });
+  return true;
+}

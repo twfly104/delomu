@@ -13,7 +13,7 @@ import { parseCsv } from '../csv.mjs';
 import { hoursByStep, loadConfig, logHours, STEPS as HOUR_STEPS } from '../deployment.mjs';
 import { deploymentMetrics } from './metrics.mjs';
 import { getLiveSettings, setLiveSettings } from '../v1/live.mjs';
-import { getScan, listScans, recheck } from '../v1/risk.mjs';
+import { getScan, listScans, recheck, setOverride } from '../v1/risk.mjs';
 import { PLANS as PLAN_LIST } from './billing.mjs';
 import { INTERVALS as MONITOR_INTERVALS, monitorSettings, monitorStatus, monitorTick, setMonitor } from './monitoring.mjs';
 import { getOrgSettings, getRevenue, logIntervention, normTag, productizationHealth, readInterventions, setOrgSettings, setRevenue } from './productization.mjs';
@@ -23,7 +23,7 @@ import { ask as askAssistant, deploymentContext, MAX_HISTORY, MAX_MESSAGE, orgCo
 import { addToPlaybook, consentOf, contributed, integrationExamples, playbookStats, removeFromPlaybook, setConsent, suggestFromPlaybook } from './playbook.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
-import { approveFix, draftFix, getFix, instructionsTarget, revertFix } from '../v1/fix.mjs';
+import { approveFix, draftFix, getFix, instructionsTarget, revertFix, undoIfWorse } from '../v1/fix.mjs';
 import { renderScanReport } from './scan-report.mjs';
 import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg } from './accounts.mjs';
@@ -84,6 +84,7 @@ const NOTICES = {
   ran: 'Test run finished.',
   scanned: 'Check finished.',
   rechecked: 'Re-check finished: the same messages were sent again.',
+  verdict: 'Verdict changed. The counts and the fix use it from now on, and the change is in the audit log.',
   fixdrafted: 'The agent drafted a fix. Review the instructions below, edit them if you like, then approve.',
   client: 'Client workspace ready. Connect the AI you deploy for this client, or try the sample bot first.',
   sample: 'Sample ready: Tallyfox’s support assistant and its billing policy. Run the check to see which rules it breaks.',
@@ -975,6 +976,21 @@ function routes(ctx) {
     return new Redirect(page);
   });
 
+  // A person overrules the judge on one answer: marks it kept or broken, or puts the judge's verdict back.
+  r.add('POST', '/orgs/:org/deployments/:name/scans/:scan/verdict', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    try {
+      setOverride(dir, { scanId: params.scan, ruleId: String(form.rule ?? ''), index: Number(form.index), status: String(form.status ?? ''), note: form.note, actor: principal.actor, now: ctx.now() });
+    } catch (e) {
+      return html(riskScanPage({ ...workspace(principal, params, 'runs:read'), fix: getFix(dir), fixTarget: instructionsTarget(loadConfig(dir)), error: e.message }), 400);
+    }
+    event(ctx, principal, org.id, 'verdict.override', `${params.name}/${params.scan}`, { rule: String(form.rule ?? ''), status: String(form.status ?? '') });
+    return new Redirect(`${depPath(org, params.name)}/scan?notice=verdict#r-${encodeURIComponent(String(form.rule ?? ''))}`);
+  });
+
   // When a re-check came out worse: put back the instructions from before the fix, then check again.
   r.add('POST', '/orgs/:org/deployments/:name/fix/revert', async ({ req, principal, params }) => {
     requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
@@ -997,7 +1013,15 @@ function routes(ctx) {
     scans.set(dir, job);
     job.done = recheck(dir, { llm: ctx.llm ?? createLlm(), now: ctx.now(), onProgress: p => { job.progress = p; if (p.status) (job.marks ??= []).push({ status: p.status, at: Date.now() }); } }).then(result => {
       if (!result.ok) Object.assign(job, { status: 'failed', error: `The re-check could not run: ${result.reason}.` });
-      else { event(ctx, principal, org.id, 'scan.recheck', `${name}/${result.scan.id}`, { broken: result.scan.summary.broken }); job.status = 'done'; }
+      else {
+        event(ctx, principal, org.id, 'scan.recheck', `${name}/${result.scan.id}`, { broken: result.scan.summary.broken });
+        // A fix Grapim applied that left more rules or answers broken is undone at once, so a bad fix never stays
+        // live while someone reads the result. The page says so; the person can still draft a new fix.
+        try {
+          if (undoIfWorse(dir, result.scan, getScan(dir, result.scan.recheckOf), { now: ctx.now() })) { job.autoReverted = true; event(ctx, principal, org.id, 'fix.revert', name, { automatic: true }); }
+        } catch (e) { console.error(`could not undo the fix for ${name}: ${e.message}`); }
+        job.status = 'done';
+      }
     }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, name) }));
   }
 

@@ -110,15 +110,64 @@ export function scansDir(dir) { return path.join(dir, 'scans'); }
 export function listScans(dir) {
   const root = scansDir(dir);
   if (!fs.existsSync(root)) return [];
+  const overrides = readOverrides(dir);
   return fs.readdirSync(root).filter(f => /^[\w-]+\.json$/.test(f)).sort().reverse()
     .map(f => { try { return JSON.parse(fs.readFileSync(path.join(root, f), 'utf8')); } catch { return null; } })
-    .filter(Boolean);
+    .filter(Boolean).map(s => applyOverrides(s, overrides));
 }
 
-export function getScan(dir, id) {
+function readScanFile(dir, id) {
   if (!/^[\w-]+$/.test(String(id))) return null;
   const file = path.join(scansDir(dir), `${id}.json`);
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+}
+
+export function getScan(dir, id) {
+  const scan = readScanFile(dir, id);
+  return scan ? applyOverrides(scan, readOverrides(dir)) : null;
+}
+
+// A person can overrule the judge on one answer (overrides.json, keyed by check, rule id and answer index). The
+// check record itself never changes: every read applies the overrides, keeps the judge's verdict as judgeStatus,
+// and recounts the summary, so results, fixes, re-checks and the evidence pack all use the corrected verdict.
+const overridesFile = dir => path.join(dir, 'overrides.json');
+export function readOverrides(dir) {
+  try { return JSON.parse(fs.readFileSync(overridesFile(dir), 'utf8')); } catch { return {}; }
+}
+
+export function setOverride(dir, { scanId, ruleId, index, status, note = '', actor, now = new Date() }) {
+  const scan = readScanFile(dir, scanId);
+  if (!scan) throw new Error('That check no longer exists.');
+  const probe = scan.rules.find(x => x.id === ruleId)?.probes?.[Number(index)];
+  if (!probe || !Number.isInteger(Number(index))) throw new Error('That answer is not in this check.');
+  if (!['kept', 'broken', 'clear'].includes(status)) throw new Error('A verdict is kept or broken.');
+  const all = readOverrides(dir);
+  const key = `${ruleId}/${Number(index)}`;
+  const forScan = all[scanId] ?? {};
+  const restore = status === 'clear' || status === probe.status;
+  if (restore) delete forScan[key];
+  else forScan[key] = { status, was: probe.status, by: actor, at: now.toISOString(), note: String(note).trim().slice(0, 500) };
+  if (Object.keys(forScan).length) all[scanId] = forScan; else delete all[scanId];
+  fs.writeFileSync(overridesFile(dir), JSON.stringify(all, null, 2) + '\n');
+  appendAudit(dir, { actor, action: restore ? 'verdict.restore' : 'verdict.override', target: scanId, detail: { rule: ruleId, index: Number(index), judge: probe.status, now: restore ? probe.status : status } }, now);
+}
+
+function applyOverrides(scan, all) {
+  for (const rule of scan.rules ?? []) (rule.probes ?? []).forEach((p, i) => { p.idx = i; });
+  const forScan = all[scan.id];
+  if (!forScan) return scan;
+  const bucket = st => (st === 'kept' ? 'kept' : st === 'broken' ? 'failed' : 'unjudged');
+  const s = { ...scan.summary };
+  for (const [key, o] of Object.entries(forScan)) {
+    const cut = key.lastIndexOf('/');
+    const p = scan.rules.find(x => x.id === key.slice(0, cut))?.probes?.[Number(key.slice(cut + 1))];
+    if (!p || p.status === o.status) continue;
+    s[bucket(p.status)] -= 1; s[bucket(o.status)] += 1;
+    Object.assign(p, { judgeStatus: p.status, status: o.status, override: { by: o.by, at: o.at, note: o.note } });
+  }
+  const brokenRules = scan.rules.filter(x => x.probes.some(p => p.status === 'broken'));
+  scan.summary = { ...s, broken: brokenRules.length, highRiskBroken: brokenRules.filter(x => x.severity === 'high').length, overridden: Object.keys(forScan).length };
+  return scan;
 }
 
 // The cheap rule checks first: a phrase a correct answer must or must not contain.

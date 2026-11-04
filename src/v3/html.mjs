@@ -242,6 +242,10 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 }
 .meter{height:6px;border-radius:99px;background:var(--sunken);overflow:hidden;margin:14px 0 8px}
 .meter i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s linear}
+.vf{display:inline;margin:0}.vf-pair{display:inline-flex;gap:12px}
+.probe .vf,.probe .vf-pair,.probe .vo{grid-column:1/-1;justify-self:start}
+.linkbtn{border:0;background:none;padding:0;font:500 12.5px var(--font);color:var(--text-3);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}.linkbtn:hover{color:var(--text);text-decoration-color:currentColor}
+.vo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2)}.vo .i{color:var(--good)}
 .content.soft-in{animation:soft-in .35s ease-out both}@keyframes soft-in{from{opacity:.55}}@media (prefers-reduced-motion:reduce){.content.soft-in{animation:none}}
 .meter[data-ease] i{background-image:linear-gradient(90deg,transparent 0,rgb(255 255 255/.45) 50%,transparent 100%);background-size:60% 100%;background-repeat:no-repeat;animation:sheen 1.6s ease-in-out infinite}
 @keyframes sheen{from{background-position:-60% 0}to{background-position:160% 0}}
@@ -285,6 +289,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .rulelist{list-style:none;margin:0;padding:0}
 .rulelist li{display:flex;gap:10px;align-items:center;padding:9px 16px;border-bottom:1px solid var(--line);font-size:13.5px}.rulelist li:last-child{border-bottom:0}
 .rulelist .i{color:var(--good)}.rulelist .c{margin-left:auto;font-size:12.5px;color:var(--text-3);white-space:nowrap}
+.rulelist li:has(.vo){flex-wrap:wrap}.rulelist .vo{flex-basis:100%;margin:2px 0 0 26px}
 .rule-title{display:flex;gap:10px;align-items:flex-start}.rule-title .i{color:var(--bad);margin-top:3px}
 .clause{border-left:2px solid var(--line-strong);border-radius:0;background:none;padding:2px 0 2px 12px}
 details.kept summary{list-style:none;cursor:pointer;padding:10px 16px;font-size:13px;color:var(--text-2);border-top:1px solid var(--line)}details.kept summary::-webkit-details-marker{display:none}
@@ -1492,11 +1497,20 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
   const broken = scan.rules.filter(isBroken).sort((a, b) => order[a.severity] - order[b.severity]);
   const unsure = scan.rules.filter(isUnsure);
   const kept = scan.rules.filter(r => !isBroken(r) && !isUnsure(r));
-  const exchange = p => `<div class="probe ${esc(p.status)}">
+  // Each answer can be overruled by a person; an overruled one says who changed it and can be put back.
+  const verdictForm = (rule, p) => {
+    if (!can.write || p.idx == null) return '';
+    const post = (status, label, cls = '') => `<form method="post" action="${esc(base)}/scans/${esc(scan.id)}/verdict" class="vf"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="rule" value="${esc(rule.id)}"><input type="hidden" name="index" value="${p.idx}"><input type="hidden" name="status" value="${status}"><button class="linkbtn${cls}">${label}</button></form>`;
+    if (p.override) return `<p class="vo">${icon('check', { size: 14 })}<span>Changed from <b>${p.judgeStatus === 'broken' ? 'Broken' : p.judgeStatus === 'kept' ? 'Kept' : 'Check'}</b> by ${esc(String(p.override.by).replace(/^(user|human):/, ''))}</span>${post('clear', 'Put back the judge’s verdict')}</p>`;
+    if (p.status === 'broken') return post('kept', 'Judge was wrong: mark kept');
+    if (p.status === 'kept') return post('broken', 'Judge was wrong: mark broken');
+    return `<span class="vf-pair">${post('kept', 'Mark kept')}${post('broken', 'Mark broken')}</span>`;
+  };
+  const exchange = (p, rule) => `<div class="probe ${esc(p.status)}">
 <div><p class="cap">Customer wrote <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
 <div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
-<span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p></div>`;
+<span><span>${esc(p.what_happened)}</span>${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
   const ruleCard = rule => {
     const bad = rule.probes.filter(p => p.status !== 'kept');
     const ok = rule.probes.filter(p => p.status === 'kept');
@@ -1506,8 +1520,8 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
 <p class="clause"><cite>${esc(cl(rule.clause))}</cite>“${esc(rule.quote)}”</p>
 <p class="harm"><b>Risk with a real customer:</b> ${esc(rule.harm)}</p></div>
 <div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">${bad.some(p => p.status === 'broken') ? `Broken in ${bad.filter(p => p.status === 'broken').length} of ${rule.probes.length}` : `${bad.length} of ${rule.probes.length} need review`}</span></div></div>
-${bad.map(exchange).join('')}
-${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(exchange).join('')}</details>` : ''}</section>`;
+${bad.map(p => exchange(p, rule)).join('')}
+${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(p => exchange(p, rule)).join('')}</details>` : ''}</section>`;
   };
   const draft = scan.draftId && ov.drafts.find(d => d.id === scan.draftId);
   // Before and after: a re-check runs the earlier check's exact messages again after a fix.
@@ -1515,7 +1529,8 @@ ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.len
   const compare = before ? `<p class="meta num" style="color:var(--text)"><span class="strong">${args.fix?.status === 'reverted' ? 'After undoing the fix' : 'After the fix'}:</span> ${before.summary.broken} → ${s.broken} rules broken, ${before.summary.failed} → ${s.failed} messages failed, on the same ${s.probes} messages.</p>` : '';
   const worse = before && (s.broken > before.summary.broken || s.failed > before.summary.failed);
   const applied = args.fix?.scanId === scan.recheckOf && args.fix?.status === 'applied';
-  const worseNotice = !worse ? '' : `<div class="notice" style="margin-top:16px">${icon('alert')}<span>The fix made it worse on the same messages. ${applied && can.write ? 'Undo it to put back the instructions from before, then check again.' : 'Undo the change in your help desk, then check again.'}
+  const autoUndone = worse && args.fix?.scanId === scan.recheckOf && args.fix?.status === 'reverted' && args.fix?.revertedBy === 'grapim';
+  const worseNotice = !worse ? '' : autoUndone ? `<div class="notice" style="margin-top:16px">${icon('alert')}<span>The fix made it worse on the same messages, so Grapim undid it. Your AI is back on the instructions it had before the fix. Draft a new fix, or change the instructions yourself.</span></div>` : `<div class="notice" style="margin-top:16px">${icon('alert')}<span>The fix made it worse on the same messages. ${applied && can.write ? 'Undo it to put back the instructions from before, then check again.' : 'Undo the change in your help desk, then check again.'}
 ${applied && can.write ? `<form method="post" action="${esc(base)}/fix/revert" style="margin-top:8px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn sm" data-busy="Undoing…">Undo the fix and re-check</button></form>` : ''}</span></div>`;
   const gaps = list => (list?.length ? `<div><p class="strong" style="font-size:13px">Needs a change outside the instructions</p><ul class="plain" style="margin-top:6px">${list.map(g => `<li><span class="subtle">${esc(cl(g.clause))}</span> ${esc(g.need)}</li>`).join('')}</ul></div>` : '');
   const fix = args.fix?.scanId === scan.id ? args.fix : null;
@@ -1548,7 +1563,7 @@ ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span></li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
 }
 
 // The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.

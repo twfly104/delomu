@@ -34,6 +34,8 @@ Or run the web app: `docs/v3.md` (Docker) and open the deployment's **Risk scan*
 
 **New here?** [docs/quickstart.md](docs/quickstart.md) walks through both ways in: AI vendors rolling out to clients, and teams running their own agent.
 
+**Security review?** [docs/security.md](docs/security.md) says what Grapim stores, what it sends to the model provider, and what is not done yet.
+
 ## Versions
 
 | Version | What it adds | Docs |
