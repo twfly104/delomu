@@ -180,7 +180,8 @@ details.history summary{display:flex;align-items:center;gap:10px;padding:12px 16
 details.history summary::-webkit-details-marker{display:none}
 details.history summary:hover{background:var(--hover)}
 details.history .note{font-style:italic}
-.auth{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.auth{position:relative;isolation:isolate;overflow:hidden;min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.lv-field.auth-field{left:0;top:0;width:100%;height:100%;transform:none;-webkit-mask-image:radial-gradient(ellipse 34% 46% at 50% 50%,transparent 55%,#000 100%);mask-image:radial-gradient(ellipse 34% 46% at 50% 50%,transparent 55%,#000 100%)}
 .auth-card{width:100%;max-width:380px}
 .auth-card .brand{justify-content:center;margin-bottom:28px;font-size:22px;gap:10px}
 .auth-card h1{text-align:center;font-size:20px}
@@ -421,7 +422,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lv-hero{padding:88px 0 0;text-align:center}
 .lv-hero h1{margin:0 auto;max-width:15ch;font-size:clamp(40px,6.4vw,68px);line-height:1.03;letter-spacing:-0.045em;font-weight:600}
 .lv-sub{margin:20px auto 0;max-width:32em;font-size:clamp(16px,2vw,19px);line-height:1.55;color:var(--text-2);text-wrap:pretty}
-.lv-acts{display:flex;gap:10px;justify-content:center;margin-top:32px}.lv-acts .btn{height:40px;padding:0 18px;font-size:14px;border-radius:999px}
+.lv-acts{display:flex;gap:10px;justify-content:center;margin-top:32px}.lv-acts .btn{height:40px;padding:0 18px;font-size:14px;border-radius:8px}
 .lv-shot{margin:0;border-radius:12px;overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0/.04),0 24px 48px -24px rgb(0 0 0/.18)}
 .lv-main{margin:64px auto 0;max-width:1080px}
 .lv-bar{display:flex;align-items:center;gap:10px;height:36px;padding:0 14px;border-bottom:1px solid var(--line);font:12px var(--mono);color:var(--text-3);text-align:left}
@@ -481,7 +482,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sc-tile.bad{border-color:color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-weak);color:var(--bad)}
 .sc-pips{display:flex;gap:3px}.sc-pips i{width:9px;height:9px;border-radius:2.5px;background:var(--good)}.sc-pips i.b{background:var(--bad)}
 .sc-draft{margin:16px 16px 0;padding:12px 14px;border-radius:10px;background:var(--sunken);font:12.5px/1.55 var(--mono)}.sc-draft .sc-cap{font-family:var(--font);margin-bottom:6px}.sc-line{color:var(--good)}
-.sc-approve{display:flex;align-items:center;gap:14px;padding:14px 16px}.sc-btn{flex:none;height:32px;display:inline-flex;align-items:center;padding:0 12px;border-radius:8px;background:var(--ink);color:var(--on-ink);font-weight:500;font-size:13px}
+.sc-approve{display:flex;align-items:center;gap:14px;padding:14px 16px}.sc-btn{flex:none;height:32px;display:inline-flex;align-items:center;padding:0 12px;border-radius:var(--r-sm);background:var(--ink);color:var(--on-ink);font-weight:500;font-size:13px}
 .sc-meter{flex:1;height:6px;border-radius:6px;background:var(--sunken);overflow:hidden}.sc-meter i{display:block;height:100%;width:100%;background:var(--accent);border-radius:6px}
 .sc-after{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px}
 .sc-chip{height:26px;display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-radius:7px;border:1px solid color-mix(in srgb,var(--good) 35%,transparent);background:var(--good-weak);font-size:12.5px}.sc-chip::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--good)}
@@ -490,7 +491,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sc-mark{display:flex;align-items:center;gap:7px;font-weight:600;letter-spacing:-0.03em}.sc-ask{font-size:15px;letter-spacing:-0.01em}.sc-okline{display:flex;align-items:center;gap:8px;color:var(--text-2)}
 .sc-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500}.sc-type{height:36px;display:flex;align-items:center;padding:0 11px;border:1px solid var(--line-strong);border-radius:8px;font-weight:400;font-size:14px}
 .sc-type>span{display:inline-block;overflow:hidden;white-space:nowrap;max-width:10em}
-.sc-accept{height:38px;display:grid;place-items:center;border-radius:9px;background:var(--ink);color:var(--on-ink);font-weight:500}
+.sc-accept{height:38px;display:grid;place-items:center;border-radius:var(--r-sm);background:var(--ink);color:var(--on-ink);font-weight:500}
 .sc-done{color:var(--good);font-weight:500}
 .sc-row .badge{white-space:nowrap}.sc-row{display:grid;grid-template-columns:30px minmax(0,1.2fr) auto minmax(0,.9fr);align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}.sc-head+.sc-row{border-top:0}
 .sc-av{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:var(--sunken);font-weight:600}.sc-who{display:flex;flex-direction:column}.sc-who span{font-size:12.5px;color:var(--text-3)}.sc-stage{color:var(--text-2);font-size:13px}
@@ -527,7 +528,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp ::selection{background:var(--accent-weak);color:var(--text)}
 .lp-hero{text-align:center;padding:88px 0 0}
 .lp-hero .lede{margin:20px auto 0}
-.lp-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px;justify-content:center}.lp-acts .btn{height:42px;padding:0 18px;font-size:14.5px;border-radius:10px}
+.lp-acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:32px;justify-content:center}.lp-acts .btn{height:42px;padding:0 18px;font-size:14.5px;border-radius:8px}
 .lp-note{margin-top:14px;font-size:13px}
 .lp-stage{position:relative;margin:64px auto 0;max-width:1080px}
 .lp-stage::before{content:"";position:absolute;inset:-40px -60px auto;height:70%;z-index:-1;background:radial-gradient(60% 60% at 50% 30%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%);filter:blur(10px)}
@@ -739,7 +740,7 @@ ${form(`<div class="asst-form"><label class="sr" for="asst-page-q">Ask the assis
 }
 
 export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0 }) {
-  if (!user) return doc(title, `<main class="auth">${body}</main>`);
+  if (!user) return doc(title, `<main class="auth">${body.includes('class="auth-card') && /Sign in|Create your account|Check your email|sign-in key/.test(title) ? pipField('auth-field', 64, 40) : ''}${body}</main>`);
   const trail = crumbs.map(([label, href], i) => (i === crumbs.length - 1 || !href
     ? `<span class="here">${esc(label)}</span>`
     : `<a href="${esc(href)}">${esc(label)}</a><span class="sep">/</span>`)).join('');
@@ -798,6 +799,20 @@ const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span cl
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
 <p class="subtle">Results shown are from Grapim’s made-up sample clients, not from customers.</p></footer>`;
 
+// A field of rule pips, a few lighting up green (kept) or red (broken) as if being checked: behind the landing
+// hero and the sign-in pages. Seeded, so it is the same on every load. cls adds a class for where it sits.
+function pipField(cls = '', cols = 44, rows = 16) {
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const cell = 26;
+  const pips = [];
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (rnd() > 0.34) continue;
+    const kind = rnd() < 0.07 ? 'b' : rnd() < 0.55 ? 'k' : '';
+    pips.push(`<rect x="${x * cell + 8}" y="${y * cell + 8}" width="10" height="10" rx="2.5"${kind ? ` class="${kind}" style="animation-delay:${(rnd() * 9).toFixed(2)}s;animation-duration:${(6 + rnd() * 6).toFixed(1)}s"` : ''}/>`);
+  }
+  return `<svg class="lv-field${cls ? ` ${cls}` : ''}" aria-hidden="true" viewBox="0 0 ${cols * cell} ${rows * cell}" preserveAspectRatio="xMidYMid slice">${pips.join('')}</svg>`;
+}
+
 // The page a signed-out visitor sees at /. Each product moment is drawn live from a real recorded Grapim check
 // (src/v3/demo-portfolio, passed in as demo), simplified and animated as it scrolls into view; it claims no
 // customers, logos or numbers that do not exist. Without JavaScript or with reduced motion it shows the end state.
@@ -806,16 +821,7 @@ export function landingPage({ signup = false, demo = {} }) {
   const cta = signup ? 'Start free' : 'Sign in';
   const bank = demo.bank, store = demo.store;
   const d = s => `style="--d:${s}s"`;
-  // Hero background: a field of rule pips, a few lighting up as if being checked. Seeded, so it is the same on every load.
-  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const cols = 44, rows = 16, cell = 26;
-  const pips = [];
-  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-    if (rnd() > 0.34) continue;
-    const kind = rnd() < 0.07 ? 'b' : rnd() < 0.55 ? 'k' : '';
-    pips.push(`<rect x="${x * cell + 8}" y="${y * cell + 8}" width="10" height="10" rx="2.5"${kind ? ` class="${kind}" style="animation-delay:${(rnd() * 9).toFixed(2)}s;animation-duration:${(6 + rnd() * 6).toFixed(1)}s"` : ''}/>`);
-  }
-  const field = `<svg class="lv-field" aria-hidden="true" viewBox="0 0 ${cols * cell} ${rows * cell}" preserveAspectRatio="xMidYMid slice">${pips.join('')}</svg>`;
+  const field = pipField();
   const words = ['refund', 'fraud', 'privacy', 'handoff', 'pricing'];
 
   // Scene 1, the hero: one real exchange from the sample bank, judged against the clause it broke.
