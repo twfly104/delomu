@@ -48,6 +48,7 @@ import {
 import { overview } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
 import { principalAllows, roleIn } from './rbac.mjs';
+import { createLoginLink, sendLoginEmail, useLoginLink } from './email-login.mjs';
 import { createSession, deleteSession, getSession, randomToken, sameSecret, SESSION_COOKIE, SESSION_TTL_MS } from './sessions.mjs';
 import { OidcError } from './oidc.mjs';
 import { finishLogin, getOidcConfig, LOGIN_TTL_MS, startLogin, STATE_COOKIE } from './sso.mjs';
@@ -142,7 +143,9 @@ function redirectUri(ctx, req) {
 function signIn(ctx, req, { userId, orgId, scopes, apiKeyId, email, via }) {
   const { token } = createSession(ctx.db, { userId, orgId, scopes, apiKeyId }, ctx.now());
   recordEvent(ctx.db, { orgId, actor: `human:${email}`, action: 'user.login', target: email, detail: { via }, ip: ctx.clientIp(req) }, ctx.now());
-  return new Redirect('/', [cookie(SESSION_COOKIE, token, { maxAge: SESSION_TTL_MS / 1000, secure: ctx.secureCookies(req) })]);
+  const out = new Redirect('/', [cookie(SESSION_COOKIE, token, { maxAge: SESSION_TTL_MS / 1000, secure: ctx.secureCookies(req) })]);
+  out.token = token;
+  return out;
 }
 
 // Reads a request body as raw bytes, for multipart uploads.
@@ -202,6 +205,7 @@ function routes(ctx) {
     const allow = p => principalAllows(principal, role, p);
     return {
       ...base(principal), org, name: params.name, dir, config, ov: overview(dir, config),
+      signoff: { latest: latestSignoff(dir), active: activeShares(db, org.id, params.name, 'signoff', ctx.now()).length },
       nav: navFor(principal, { canAudit: allow('audit:read') }),
       can: { write: allow('deployments:write'), run: allow('runs:create'), review: allow('drafts:review'), manage: allow('org:manage') },
       flash: NOTICES[url?.searchParams.get('notice')] ?? '',
@@ -236,12 +240,14 @@ function routes(ctx) {
 
   r.add('GET', '/login', ({ req }) => {
     const token = randomToken();
-    return html(loginPage({ csrf: token, signup: signupOpen }), 200, [cookie(LOGIN_CSRF_COOKIE, token, { maxAge: 3600, secure: ctx.secureCookies(req) })]);
+    return html(loginPage({ csrf: token, signup: signupOpen, email: Boolean(ctx.emailLogin) }), 200, [cookie(LOGIN_CSRF_COOKIE, token, { maxAge: 3600, secure: ctx.secureCookies(req) })]);
   }, { public: true });
 
   // Self-serve sign-up, on when the operator sets DELOMU_SIGNUP=open: a new org on the Free plan, its
   // owner, and a sign-in key shown once. Limited per client address so it cannot be used to mass-create orgs.
   const signupOpen = ctx.env?.DELOMU_SIGNUP === 'open';
+  // A new account's sign-in key, by session, shown once on the first page and then forgotten.
+  const freshKeys = new Map();
   const signupLimit = createRateLimiter({ capacity: 5, refillPerSec: 1 / 600 });
   r.add('GET', '/signup', ({ req }) => {
     if (!signupOpen) return new Redirect('/login');
@@ -273,7 +279,31 @@ function routes(ctx) {
       throw e;
     }
     const session = signIn(ctx, req, { userId: made.member.user_id, orgId: made.org.id, scopes: null, apiKeyId: made.key.id, email: values.email, via: 'signup' });
-    return html(signupKeyPage({ secret: made.secret, email: values.email }), 201, session.cookies);
+    if (!ctx.emailLogin) freshKeys.set(session.token, made.secret);
+    return session;
+  }, { public: true });
+
+  // Sign-in by email link. The answer is the same whether or not the email has an account.
+  const emailLimit = createRateLimiter({ capacity: 5, refillPerSec: 1 / 300 });
+  r.add('POST', '/login/email', async ({ req }) => {
+    if (!ctx.emailLogin) throw notFound('page');
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(parseCookies(req.headers.cookie)[LOGIN_CSRF_COOKIE] ?? '', form);
+    const email = String(form.email ?? '').trim().toLowerCase();
+    const sent = html(loginPage({ csrf: form.csrf, signup: signupOpen, email: true, sentTo: email }));
+    if (!/^[^@s]+@[^@s]+.[^@s]+$/.test(email)) return html(loginPage({ csrf: form.csrf, signup: signupOpen, email: true, error: 'Enter your work email.' }), 400);
+    if (!emailLimit(ctx.clientIp(req)).ok || !emailLimit(`e:${email}`).ok) return html(loginPage({ csrf: form.csrf, signup: signupOpen, email: true, error: 'Too many sign-in emails. Try again in a few minutes.' }), 429);
+    const secret = createLoginLink(db, email, ctx.now());
+    if (secret) {
+      try { await sendLoginEmail(ctx.emailLogin, { to: email, link: `${returnBase(req)}/login/email/${secret}` }, ctx.sendEmail); } catch (e) { ctx.log(`login email failed: ${e.message}`); }
+    }
+    return sent;
+  }, { public: true });
+
+  r.add('GET', '/login/email/:token', ({ req, params }) => {
+    const who = useLoginLink(db, params.token, ctx.now());
+    if (!who) return html(loginPage({ csrf: '', signup: signupOpen, email: Boolean(ctx.emailLogin), error: 'That sign-in link has expired or was already used. Ask for a new one.' }), 400);
+    return signIn(ctx, req, { userId: who.userId, orgId: who.orgId, scopes: null, email: who.email, via: 'email' });
   }, { public: true });
 
   r.add('POST', '/login', async ({ req }) => {
@@ -347,16 +377,18 @@ function routes(ctx) {
     const home = orgs.find(o => o.id === principal.homeOrgId);
     if (home?.kind === 'partner' && !deployments.length) return new Redirect(orgPath(home));
     const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), billingOrgs: billingOrgsOf(principal, orgs), org: orgs.length === 1 ? orgs[0] : undefined };
-    return html(homePage({ ...base(principal), nav, deployments, review, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
+    const signinKey = freshKeys.get(principal.token); freshKeys.delete(principal.token);
+    return html(homePage({ ...base(principal), nav, deployments, review, signinKey, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
   }, { public: true });
 
   // An AI vendor's clients: the partner org's own page, one row per client workspace it manages.
   const showClients = (principal, org, role, { url, error, values, status = 200 } = {}) => {
     const clients = orgsOf(principal).filter(o => o.partner_org_id === org.id).map(c => ({ org: c, deployments: deploymentsOf(c) }));
+    const signinKey = freshKeys.get(principal.token); freshKeys.delete(principal.token);
     return html(clientsPage({
       ...base(principal), org, clients, own: deploymentsOf(org), error, values,
       nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }),
-      canManage: principalAllows(principal, role, 'org:manage'), notice: NOTICES[url?.searchParams.get('notice')],
+      canManage: principalAllows(principal, role, 'org:manage'), notice: NOTICES[url?.searchParams.get('notice')], signinKey,
     }), status);
   };
 
@@ -380,9 +412,10 @@ function routes(ctx) {
   r.add('GET', '/orgs/:org', ({ principal, params, url }) => {
     const { org, role } = access(ctx, principal, params.org, 'deployments:read');
     if (org.kind === 'partner') return showClients(principal, org, role, { url });
+    const signinKey = freshKeys.get(principal.token); freshKeys.delete(principal.token);
     return html(orgPage({
       ...base(principal), org, deployments: deploymentsOf(org), nav: navFor(principal, { canAudit: principalAllows(principal, role, 'audit:read') }),
-      canWrite: principalAllows(principal, role, 'deployments:write'), notice: NOTICES[url.searchParams.get('notice')],
+      canWrite: principalAllows(principal, role, 'deployments:write'), notice: NOTICES[url.searchParams.get('notice')], signinKey,
     }));
   });
 
@@ -470,6 +503,7 @@ function routes(ctx) {
     const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
     const config = {
       customer: realBot ? `${client} (sample, real AI)` : `${client} (sample)`, name, agentKind: 'support',
+      title: `${client} · ${{ bank: 'Max', health: 'Ava' }[industry] ?? 'Lia'}`,
       target: { type: 'http', url: `${origin}${ind ? `/demo/agent/${industry}` : '/demo/store-agent'}`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions' },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Client sign-off required before launch', reason: 'Sample client.' }],
     };

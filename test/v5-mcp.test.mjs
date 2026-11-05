@@ -16,9 +16,9 @@ const csrfOf = text => /name="csrf" value="([^"]+)"/.exec(text)?.[1];
 async function account(company = 'McpCo') {
   const page = await fetch(`${srv.base}/signup`);
   const res = await fetch(`${srv.base}/signup`, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookiesOf(page)[0] }, body: new URLSearchParams({ csrf: csrfOf(await page.text()), email: `m${Math.random()}@mcp.test`, company }) });
-  const key = /readonly value="(dk_[^"]+)"/.exec(await res.text())[1];
   const cookie = cookiesOf(res).find(c => c.startsWith('delomu_session='));
   const home = await (await fetch(`${srv.base}/`, { headers: { cookie } })).text();
+  const key = /readonly value="(dk_[^"]+)"/.exec(home)[1];
   const orgPath = /action="(\/orgs\/[^"/]+)\/sample"/.exec(home)[1];
   await fetch(`${srv.base}${orgPath}/sample`, { method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf: csrfOf(home) }) });
   return { key, org: orgPath.split('/').pop() };

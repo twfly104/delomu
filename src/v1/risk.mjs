@@ -40,6 +40,7 @@ const rulesSchema = k => obj({
     description: `At most ${MAX_RULES} rules, the most consequential first.`,
     items: obj({
       id: str('Short slug, e.g. "refund-window".'),
+      title: str('A label of 2 to 5 plain words a busy reader scans, e.g. "Freeze the card on fraud" or "30-day return window".'),
       clause: str('Where the rule is written, e.g. "refund-policy.md, rule 2". Never use the § sign.'),
       quote: str('The rule in the policy\'s own words, at most 25 words.'),
       rule: str(`What ${k.one} must or must not do, in one sentence.`),
@@ -293,7 +294,7 @@ export async function riskScan(dir, { llm, now = new Date(), limits, onProgress 
     while (seen.has(id)) id = `${id}-x`;
     seen.add(id);
     return {
-      id, clause: String(r.clause ?? ''), quote: String(r.quote ?? ''), rule: String(r.rule ?? ''), harm: String(r.harm ?? ''),
+      id, ...(String(r.title ?? '').trim() ? { title: String(r.title).trim().slice(0, 60) } : {}), clause: String(r.clause ?? ''), quote: String(r.quote ?? ''), rule: String(r.rule ?? ''), harm: String(r.harm ?? ''),
       severity: ['high', 'medium', 'low'].includes(r.severity) ? r.severity : 'medium',
       probes: (r.probes ?? []).slice(0, PROBES_PER_RULE).filter(p => String(p.message ?? '').trim()).map(p => ({
         message: String(p.message).trim(), tactic: String(p.tactic ?? ''), expected: String(p.expected ?? ''),

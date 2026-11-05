@@ -157,7 +157,7 @@ export function generateConnectorCode(c, { client = '', guardUrl = '' } = {}) {
 //
 // Environment:
 //   ${c.baseUrlEnv}   base URL of the client's API${c.auth.type === 'none' ? '' : `\n//   ${c.auth.env}   credential (${c.auth.type})`}
-//   DELOMU_API_KEY   optional: when set, every action tool asks Grapim's guard first and does not act on "block"
+//   GRAPIM_API_KEY   optional (DELOMU_API_KEY still works): when set, every action tool asks Grapim's guard first and does not act on "block"
 //
 // Use: give \`anthropicTools\` or \`openaiTools\` to your model, and call \`runTool(name, input, { message })\`
 // with each tool call it makes; \`message\` is the customer's latest message, which the guard reads.
@@ -175,7 +175,7 @@ function env(name) {
 }
 
 async function guard(tool, input, message) {
-  const key = process.env.DELOMU_API_KEY;
+  const key = process.env.GRAPIM_API_KEY ?? process.env.DELOMU_API_KEY;
   if (!key || !GUARD_URL) return { decision: 'allow' };
   try {
     const res = await fetch(GUARD_URL, {

@@ -279,12 +279,16 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
   .menu-pop{animation:pop .14s ease-out both;transform-origin:top right}
   .step.current .dot,.step.review .dot{animation:pulse 2s ease-in-out infinite}
 }
-.stages{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.stages{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .stages li+li{border-left:1px solid var(--line)}
 .stages a{display:flex;gap:12px;align-items:flex-start;height:100%;padding:14px 16px;color:inherit}
 .stages a:hover{background:var(--hover);text-decoration:none}
 .stages .st{flex:none;width:22px;height:22px;margin-top:1px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--line-strong);color:var(--text-3);font-size:11px;font-weight:600}
 .stages .done .st{background:var(--good);border-color:var(--good);color:#fff}.stages .bad .st{background:var(--bad);border-color:var(--bad);color:#fff}
+.stages .wait .st{background:var(--accent);border-color:var(--accent);color:#fff}.stages .wait .det{color:var(--accent)}
+.keynote{margin-bottom:16px;border-color:var(--accent)}.keynote input{width:100%}
+.api-snip{margin-top:12px}.api-snip>summary{cursor:pointer;font-weight:500;font-size:13.5px;margin-bottom:10px}
+.rule-text{margin:4px 0 0;font-size:13.5px;color:var(--text-2)}
 .stages .lbl{font-weight:500;letter-spacing:-0.01em}.stages .det{font-size:12.5px;color:var(--text-3)}.stages .bad .det{color:var(--bad)}
 .verdict{font-size:30px;font-weight:600;letter-spacing:-0.035em;line-height:1.15}.verdict .of{color:var(--text-3);font-weight:500}
 .verdict.bad b{color:var(--bad);font-weight:600}.verdict.good b{color:var(--good);font-weight:600}
@@ -579,6 +583,10 @@ export const verdictBadge = v => { const [cls, text] = VERDICT[v] ?? ['', v]; re
 // The Grapim mark: a solid rounded tile in front of an outlined diamond, in the text color (black, or white in
 // dark mode). id is unused and kept for callers.
 // Clause labels never show the § sign: "policy.md §5" reads "policy.md, rule 5".
+// A rule's short label for tiles and headings: the check's own title, else its id made readable.
+export const ruleTitle = r => (r.title ? String(r.title) : String(r.id ?? r.rule ?? '').replace(/-/g, ' ').replace(/^./, c => c.toUpperCase()));
+// An AI agent's name on screen: the title set for it (a sample's "Client · Agent"), else its name.
+export const agentTitle = (name, config) => (config?.title ? String(config.title) : name);
 export const cl = c => String(c ?? '').replace(/\s*§\s*/g, ', rule ').replace(/^, rule /, 'Rule ');
 export const mark = (size, id) => `<svg class="logo" width="${size}" height="${size}" viewBox="0 0 64 64" aria-hidden="true" data-mark="${id}"><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" stroke="currentColor" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" fill="currentColor"/></svg>`;
 
@@ -790,16 +798,23 @@ ${lpFoot()}`;
   return doc('Pricing', body, 'lp-page');
 }
 
-export function loginPage({ csrf, error, signup = false }) {
+// A new account's sign-in key, shown once on its first page instead of a page of its own.
+const keyPanel = secret => (secret ? `<section class="panel keynote"><div class="panel-body"><p class="strong" style="margin:0">Save your sign-in key</p><p class="muted" style="margin:4px 0 10px">You are signed in. To sign in on another day or device, use this key. It is shown only once, so put it in your password manager now. It also works as a Grapim API key.</p><input type="text" readonly value="${esc(secret)}" class="mono" aria-label="Sign-in key" onfocus="this.select()"></div></section>` : '');
+
+export function loginPage({ csrf, error, signup = false, email = false, sentTo = '' }) {
   return layout({
     title: 'Sign in',
     body: `<div class="auth-card">
 <a class="brand" href="/login" aria-label="Grapim">${mark(26, 'm-auth')}<span>Grapim</span></a>
-<h1>Sign in</h1><p class="lede">Continue with your company account.</p>
+<h1>${sentTo ? 'Check your email' : 'Sign in'}</h1><p class="lede">${sentTo ? `If ${esc(sentTo)} has a Grapim account, a sign-in link is on its way. It works once, for 15 minutes.` : (email ? 'Continue with your work email or your company account.' : 'Continue with your company account.')}</p>
 ${notice(error)}
+${email && !sentTo ? `<form method="post" action="/login/email" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
+<label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" placeholder="you@company.com"></label>
+<button class="btn primary block">Email me a sign-in link</button></form>
+<div class="or">or</div>` : ''}
 <form method="get" action="/sso/start" novalidate>
 <label class="field"><span>Organization</span><input type="text" id="org" name="org" required maxlength="60" autocomplete="organization" placeholder="your-company"></label>
-<button class="btn primary block">Continue with single sign-on</button></form>
+<button class="btn${email ? '' : ' primary'} block">Continue with single sign-on</button></form>
 <div class="or">or use an API key</div>
 <form method="post" action="/login" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>API key</span><input type="password" id="api_key" name="api_key" required autocomplete="off" placeholder="dk_…"></label>
@@ -834,10 +849,10 @@ function liveCell(live) {
 function agentsTable(rows, { showOrg, now }) {
   if (!rows.length) return '';
   return `<div class="scroll"><table><thead><tr><th>AI agent</th>${showOrg ? '<th class="hide-sm">Organization</th>' : ''}<th>Pre-launch check</th><th class="hide-sm">Live, last 7 days</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
-${rows.map(({ org, name, ov, customer }) => {
+${rows.map(({ org, name, ov, customer, config }) => {
     const scan = ov.scans[0];
     return `<tr>
-<td><a class="agent-name" href="${esc(depPath(org, name))}/scan"><span class="av">${icon('layers')}</span><span><span class="strong">${esc(name)}</span>${customer ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(customer)}</span>` : ''}</span></a></td>
+<td><a class="agent-name" href="${esc(depPath(org, name))}/scan"><span class="av">${icon('layers')}</span><span><span class="strong">${esc(agentTitle(name, config))}</span>${customer ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(customer)}</span>` : ''}</span></a></td>
 ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
 <td>${checkBadge(scan)}</td>
 <td class="hide-sm">${liveCell(ov.live)}</td>
@@ -867,11 +882,11 @@ function onboarding(org, csrf) {
 ${EXAMPLE}</section>`;
 }
 
-export function homePage({ user, csrf, nav, now, deployments, review, canWrite }) {
+export function homePage({ user, csrf, nav, now, deployments, review, canWrite, signinKey }) {
   const orgs = nav.orgs ?? [];
   if (!deployments.length && canWrite && orgs.length === 1) {
     return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
-<div class="page-head"><div><h1>Welcome to Grapim</h1><p class="sub">Run your first check in about two minutes.</p></div></div>${onboarding(orgs[0], csrf)}` });
+<div class="page-head"><div><h1>Welcome to Grapim</h1><p class="sub">Run your first check in about two minutes.</p></div></div>${keyPanel(signinKey)}${onboarding(orgs[0], csrf)}` });
   }
   const broken = deployments.filter(d => d.ov.scans[0]?.summary.broken).length;
   const summary = deployments.length
@@ -889,11 +904,11 @@ ${queue}` });
 
 const draftLabel = d => ({ mapping: 'Data mapping', integration: 'Integration', cases: 'Test cases', fixes: 'Fixes', 'launch-report': 'Launch report' })[d.kind] ?? 'Draft';
 
-export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, notice: msg }) {
+export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, notice: msg, signinKey }) {
   return layout({ title: org.name, user, csrf, nav: { ...nav, org, active: 'deployments' }, crumbs: [['AI agents']], body: `
 <div class="page-head"><div><h1>AI agents</h1><p class="sub">${esc(org.name)} · ${deployments.length} agent${deployments.length === 1 ? '' : 's'}</p></div>
-<div class="actions">${deployments.length ? `<a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a>` : ''}${canWrite ? `<a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Add AI agent</a>` : ''}</div></div>
-${notice(msg, 'good')}
+<div class="actions">${deployments.length ? `<a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Rollout metrics</a>` : ''}${canWrite ? `<a class="btn primary" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Add AI agent</a>` : ''}</div></div>
+${keyPanel(signinKey)}${notice(msg, 'good')}
 ${deployments.length ? `<section class="panel">${agentsTable(deployments, { now })}</section>` : canWrite ? onboarding(org, csrf) : `<section class="panel"><div class="emptystate"><span class="strong">No AI agents yet</span>An admin connects the AI agent to check.</div></section>`}` });
 }
 
@@ -932,33 +947,34 @@ function clientStage(ds) {
   return 'Connected';
 }
 
-export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage, error, values = {}, notice: msg }) {
+export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage, error, values = {}, notice: msg, signinKey }) {
   const hours = ds => ds.reduce((n, d) => n + (d.hours ?? 0), 0);
   const last = ds => ds.flatMap(d => d.ov.scans.slice(0, 1).map(sc => sc.createdAt)).sort().pop();
   const rated = clients.map(c => ({ ...c, status: clientStatus(c.deployments) })).sort((a, b) => a.status.rank - b.status.rank || a.org.name.localeCompare(b.org.name));
   const need = rated.filter(c => c.status.rank < 3).length;
   const agents = clients.reduce((n, c) => n + c.deployments.length, 0);
   const live = clients.filter(c => clientStage(c.deployments) === 'Live').length;
+  const anyHours = clients.some(c => hours(c.deployments) > 0);
   const fmtH = h => (h ? `${Math.round(h * 10) / 10} h` : '<span class="subtle">—</span>');
   const rows = rated.map(({ org: c, deployments: ds, status }) => `<tr>
-<td><a class="agent-name" href="${esc(orgPath(c))}"><span class="av">${icon('building')}</span><span><span class="strong">${esc(c.name)}</span><span class="dots" title="${ds.length} AI agent${ds.length === 1 ? '' : 's'}">${ds.map(d => `<i class="${clientStatus([d]).cls === 'good' ? 'ok' : clientStatus([d]).cls === 'bad' ? 'bad' : clientStatus([d]).cls}" title="${esc(d.name)}: ${esc(clientStatus([d]).text)}"></i>`).join('') || '<span class="subtle" style="font-size:12.5px">No AI agent yet</span>'}</span></span></a></td>
+<td><a class="agent-name" href="${esc(orgPath(c))}"><span class="av">${icon('building')}</span><span><span class="strong">${esc(c.name)}</span><span class="subtle" style="display:block;font-size:12.5px">${ds.length ? ds.map(d => esc(agentTitle(d.name, d.config).split(' · ').pop())).join(', ') : 'No AI agent yet'}</span></span></a></td>
 <td><span class="badge ${status.cls}${status.cls === 'accent' ? ' plain' : ''} num">${esc(status.text)}</span></td>
 <td class="hide-sm">${esc(clientStage(ds))}</td>
-<td class="hide-sm num">${fmtH(hours(ds))}</td>
+${anyHours ? `<td class="hide-sm num">${fmtH(hours(ds))}</td>` : ''}
 <td class="hide-sm subtle nowrap">${last(ds) ? esc(ago(last(ds), now)) : '—'}</td></tr>`).join('\n');
   const add = canManage ? `<form method="post" action="${esc(orgPath(org))}/clients" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <h2 style="margin:0 0 4px">Add a client</h2><p class="subtle" style="margin:0 0 12px">Each client gets its own workspace, kept apart from every other client.</p>
 <label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="The client’s company name"></label>
-<button class="btn primary" data-busy="Adding…">${icon('plus')}Add client</button></div></form>` : '';
+<button class="btn primary" data-busy="Adding…">${icon('plus')}Add client</button></div></form>${clients.length ? `<details class="alt-sample" style="max-width:720px"><summary>Or add a sample client to try Grapim</summary><form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Add a sample client</button></form></details>` : ''}` : '';
   const stats = clients.length ? `<div class="stats"><div><p class="v num">${clients.length}</p><p class="k">Clients · ${agents} AI agent${agents === 1 ? '' : 's'}</p></div>
 <div><p class="v num${need ? ' bad' : ''}">${need}</p><p class="k">Need attention</p></div>
 <div><p class="v num">${live}</p><p class="k">Live</p></div></div>` : '';
   return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
 <div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div>
-<div class="actions">${canManage && clients.length ? `<form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Add a sample client</button></form>` : ''}<a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
-${notice(msg, 'good')}${notice(error)}
-<section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th><th class="hide-sm">Engineer hours</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
+<div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Rollout metrics</a></div></div>
+${keyPanel(signinKey)}${notice(msg, 'good')}${notice(error)}
+<section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th>${anyHours ? '<th class="hide-sm">Engineer hours</th>' : ''}<th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
 </tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>See a week of rollouts first: a bank that broke a rule, a telehealth client waiting to sign off, and a store that accepted.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/demo" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">Open the demo: 3 sample clients</button></form>
 <details class="alt-sample"><summary>Or start one sample client from scratch</summary><form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Open a sample client</button></form></details>` : ''}</div>`}</section>
@@ -1014,7 +1030,7 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 }
 
 // The three stages a support team moves through, each linking to its tab: policies in, a pre-launch check, live monitoring.
-function stages({ base, ov, checking }) {
+function stages({ base, ov, checking, signoff }) {
   const scan = ov.scans[0];
   const s = scan?.summary;
   const w = ov.live?.week;
@@ -1027,17 +1043,21 @@ function stages({ base, ov, checking }) {
     { href: `${base}/scan`, label: 'Pre-launch check',
       state: checking ? 'todo' : !scan ? 'todo' : s.broken || s.unjudged || ov.policiesChanged ? 'bad' : 'done',
       det: checking ? 'Checking now…' : !scan ? 'Not run yet' : ov.policiesChanged ? 'Policies changed: run it again' : s.broken ? `${s.broken} of ${s.rules} rules broken` : s.unjudged ? `${s.unjudged} answer${s.unjudged === 1 ? '' : 's'} to review` : `All ${s.rules} rules kept` },
+    { href: `${base}/rollout#signoff`, label: 'Client sign-off',
+      state: signoff?.latest?.decision === 'accepted' ? 'done' : signoff?.latest ? 'bad' : signoff?.active ? 'wait' : 'todo',
+      det: signoff?.latest?.decision === 'accepted' ? `Accepted by ${signoff.latest.name}` : signoff?.latest ? 'Sent back by the client' : signoff?.active ? 'Waiting for the client' : scan && !s.broken ? 'Ready to send' : 'After the check passes' },
     { href: `${base}/live`, label: 'Live monitoring',
       state: !w?.checked ? 'todo' : w.flagged ? 'bad' : 'done',
       det: !w?.checked ? 'Not connected' : w.flagged ? `${n(w.flagged)} of ${n(w.checked)} chats broke a rule` : `${n(w.checked)} chats checked, all kept` },
   ];
   return `<ol class="stages" aria-label="Progress">${items.map((s, i) => `<li class="${s.state}"><a href="${esc(s.href)}">
-<span class="st" aria-hidden="true">${s.state === 'done' ? icon('check', { size: 12 }) : s.state === 'bad' ? '!' : i + 1}</span>
+<span class="st" aria-hidden="true">${s.state === 'done' ? icon('check', { size: 12 }) : s.state === 'bad' ? '!' : s.state === 'wait' ? icon('clock', { size: 12 }) : i + 1}</span>
 <span><span class="lbl" style="display:block">${esc(s.label)}</span><span class="det">${esc(s.det)}</span></span></a></li>`).join('')}</ol>`;
 }
 
 // The shared header of every agent page: name and status, one primary action, the stages and four tabs.
-function deploymentHeader({ org, name, config, ov, tab, can, csrf, checking }) {
+function deploymentHeader(args) {
+  const { org, name, config, ov, tab, can, csrf, checking } = args;
   const base = depPath(org, name);
   const scan = ov.scans[0];
   const tabs = [['scan', 'Check results', `${base}/scan`, scan ? scan.summary.broken : 0, true], ['live', 'Live', `${base}/live`, ov.live?.week.flagged ?? 0, true], ['inputs', 'Policies', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
@@ -1055,17 +1075,18 @@ ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick
 <label for="task" class="subtle">Ask the agent to draft</label><div class="row-inline"><select id="task" name="task">${STEPS.slice(0, 5).map(s => `<option value="${esc(s.key)}"${ov.next.task === s.key ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</select>
 <button class="btn" data-busy="Drafting…">Draft</button></div></form>` : ''}</div></details>`;
   const via = config.target?.preset === 'openai' ? 'OpenAI-compatible API' : { http: 'HTTP endpoint', command: 'Command', intercom: 'Intercom', zendesk: 'Zendesk' }[config.target?.type] ?? 'Not connected';
-  return `<div class="page-head"><div><div class="title"><h1>${esc(name)}</h1>${checking ? '<span class="badge accent">Checking…</span>' : checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
+  return `<div class="page-head"><div><div class="title"><h1>${esc(agentTitle(name, config))}</h1>${checking ? '<span class="badge accent">Checking…</span>' : checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
 <p class="sub">${esc([config.customer, via].filter(Boolean).join(' · '))}</p></div>
 <div class="actions">${more}${primary}</div></div>
-${stages({ base, ov, checking })}
+${stages({ base, ov, checking, signoff: args.signoff })}
 <nav class="tabs" aria-label="AI agent">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 
 function deploymentShell(args, body) {
   const { user, csrf, nav, org, name, title, flash, error, upgrade, refresh } = args;
-  return layout({ title: title ? `${title} · ${name}` : name, user, csrf, nav: { ...nav, org, active: 'deployments' }, refresh,
-    crumbs: [['AI agents', orgPath(org)], [name, title ? `${depPath(org, name)}/scan` : undefined], ...(title ? [[title]] : [])],
+  const shown = agentTitle(name, args.config);
+  return layout({ title: title ? `${title} · ${shown}` : shown, user, csrf, nav: { ...nav, org, active: 'deployments' }, refresh,
+    crumbs: [['AI agents', orgPath(org)], [shown, title ? `${depPath(org, name)}/scan` : undefined], ...(title ? [[title]] : [])],
     body: `${deploymentHeader(args)}${notice(error, '', upgradeLink(upgrade))}${notice(flash, 'good')}${body}` });
 }
 
@@ -1133,28 +1154,28 @@ export function metricsPage({ user, csrf, nav, org, m }) {
   const h = x => `${Math.round(x * 10) / 10} h`;
   const [cls, label] = GATE[m.gate.status] ?? ['', m.gate.status];
   const rows = m.deployments.map(d => `<tr><td class="num subtle">${d.number}</td>
-<td><a href="${esc(depPath(d.org, d.name))}/rollout"><span class="strong">${esc(d.name)}</span></a>${d.org.id === org.id ? '' : `<span class="subtle" style="display:block;font-size:12.5px">${esc(d.org.name)}</span>`}</td>
+<td><a href="${esc(depPath(d.org, d.name))}/rollout"><span class="strong">${esc(agentTitle(d.name, { title: d.title }))}</span></a>${d.org.id === org.id ? '' : `<span class="subtle" style="display:block;font-size:12.5px">${esc(d.org.name)}</span>`}</td>
 <td class="subtle nowrap">${esc(fmtDate(d.startedAt))}</td>
-<td class="num">${d.hours ? h(d.hours) : '<span class="subtle">None logged</span>'}</td>
+<td class="num">${d.hours ? h(d.hours) : '<span class="subtle">—</span>'}</td>
 <td class="hide-sm num">${d.stepsDone ? `${d.stepsDrafted} of ${d.stepsDone}` : '<span class="subtle">—</span>'}</td>
-<td class="hide-sm num">${d.daysToLive === null ? '<span class="subtle">Not live</span>' : `${d.daysToLive} day${d.daysToLive === 1 ? '' : 's'}`}</td>
+<td class="hide-sm num">${d.daysToLive === null ? '<span class="subtle">Not live yet</span>' : `${d.daysToLive} day${d.daysToLive === 1 ? '' : 's'}`}</td>
 <td class="hide-sm">${d.usedPlaybook ? `<span class="badge good">Used</span>${d.playbookCases ? ` <span class="subtle num">${d.playbookCases} msgs</span>` : ''}` : '<span class="subtle">—</span>'}</td></tr>`).join('\n');
   const pb = m.playbook;
   const compare = pb && pb.withIt.count && pb.without.count
     ? `<p style="margin:8px 0 0"><span class="strong">With your playbook: ${h(pb.withIt.averageHours)} per rollout</span> <span class="subtle">(${pb.withIt.count}) against ${h(pb.without.averageHours)} without (${pb.without.count}), from logged hours.</span></p>`
     : `<p class="subtle" style="margin:8px 0 0">${pb?.used ? `${pb.used} rollout${pb.used === 1 ? '' : 's'} started from your playbook.` : 'No rollout has started from your playbook yet.'}</p>`;
-  const body = `<div class="page-head"><div><h1>Deployment metrics</h1><p class="sub">${esc(org.name)} · ${m.deployments.length} deployment${m.deployments.length === 1 ? '' : 's'}, oldest first</p></div><div class="actions"><a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a></div></div>
-<section class="panel"><div class="stats">
+  const empty = !m.totalHours && m.medianDaysToLive === null;
+  const body = `<div class="page-head"><div><h1>Rollout metrics</h1><p class="sub">${esc(org.name)} · ${m.deployments.length} rollout${m.deployments.length === 1 ? '' : 's'}, oldest first</p></div><div class="actions"><a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Rollout efficiency</a></div></div>
+${empty ? `<section class="panel"><div class="emptystate" style="padding:36px 16px"><span class="strong" style="font-size:15px">See each rollout get cheaper</span><p style="max-width:56ch;margin:6px auto 0">Log your engineers’ hours on each client’s Rollout page. Grapim then shows hours per rollout, days to go live, and whether your fifth rollout takes half the time of your first.</p></div></section>` : `<section class="panel"><div class="stats">
 <div><p class="v num">${h(m.totalHours)}</p><p class="k">Engineer hours logged</p></div>
 <div><p class="v num">${m.automation === null ? '—' : `${Math.round(m.automation * 100)}%`}</p><p class="k">Finished steps drafted by the agent</p></div>
 <div><p class="v num">${m.medianDaysToLive === null ? '—' : m.medianDaysToLive}</p><p class="k">Median days to first live chat</p></div></div>
-<div class="panel-body"><p style="margin:0"><span class="badge ${cls}">${esc(label)}</span> <span class="strong">Gate: deployment 5 takes under half the hours of deployment 1.</span> <span class="subtle">${esc(m.gate.message)}</span></p>
-${compare}
-<p class="subtle" style="margin:8px 0 0">Hours come from each rollout’s log.</p></div></section>
+<div class="panel-body"><p style="margin:0"><span class="badge ${cls}">${esc(label)}</span> <span class="strong">Goal: your fifth rollout takes under half the hours of your first.</span> <span class="subtle">${esc(m.gate.message.replace(/deployments/g, 'rollouts'))}</span></p>
+${compare}</div></section>`}
 <section class="panel">${m.deployments.length ? `<div class="scroll"><table><thead><tr><th>#</th><th>AI agent</th><th>Started</th><th>Engineer hours</th><th class="hide-sm">Steps drafted by the agent</th><th class="hide-sm">Days to live</th><th class="hide-sm">Playbook</th></tr></thead><tbody>
 ${rows}
 </tbody></table></div>` : '<div class="emptystate"><span class="strong">No deployments yet</span>Metrics appear once an AI agent is added.</div>'}</section>`;
-  return layout({ title: 'Deployment metrics', user, csrf, nav: { ...nav, org, active: org.kind === 'partner' ? 'clients' : 'deployments' }, crumbs: [[org.kind === 'partner' ? 'Clients' : 'AI agents', orgPath(org)], ['Metrics']], body });
+  return layout({ title: 'Rollout metrics', user, csrf, nav: { ...nav, org, active: org.kind === 'partner' ? 'clients' : 'deployments' }, crumbs: [[org.kind === 'partner' ? 'Clients' : 'AI agents', orgPath(org)], ['Rollout metrics']], body });
 }
 
 // The whole rollout on one page: Run the rollout (the agent drafts steps 1-3 and the check runs), the six steps
@@ -1170,11 +1191,11 @@ function signoffPanel({ base, csrf, can, signoff, scan }) {
   const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
   const state = latest
     ? `<span class="badge ${latest.decision === 'accepted' ? 'good' : 'bad'}">${latest.decision === 'accepted' ? 'Accepted' : 'Sent back'}</span> by ${esc(latest.name)} on ${esc(latest.at.slice(0, 10))}${latest.note ? ` <span class="subtle">“${esc(latest.note)}”</span>` : ''}`
-    : '<span class="subtle">Not signed off yet.</span>';
+    : active ? `<span class="badge accent">Waiting for the client</span> <span class="subtle">${active} sign-off link${active === 1 ? '' : 's'} open. The client opens it without an account.</span>` : '<span class="subtle">Not sent yet. Send the client a link once the check passes.</span>';
   const made = link ? `<label class="field" style="margin-top:12px"><span>Send this link to the client</span><input type="text" readonly class="mono" value="${esc(link)}"><p class="hint">Shown only once. It opens the check from ${esc(scan?.createdAt.slice(0, 10) ?? '')} without an account and expires in 30 days.</p></label>` : '';
   const actions = can.write ? `<div class="row-inline" style="margin-top:12px">${scan ? `<form method="post" action="${esc(base)}/signoff/link">${hidden}<button class="btn${latest ? '' : ' primary'}" data-busy="Creating…">${icon('arrow')}Create a sign-off link</button></form>` : '<span class="subtle">Run the policy check first: the client signs off on a check.</span>'}
 ${active ? `<form method="post" action="${esc(base)}/signoff/revoke">${hidden}<button class="btn ghost" data-busy="Revoking…">Revoke ${active} open link${active === 1 ? '' : 's'}</button></form>` : ''}</div>` : '';
-  return `<section class="panel"><div class="panel-head"><h2>Client sign-off</h2></div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}</div></section>`;
+  return `<section class="panel" id="signoff"><div class="panel-head"><h2>Client sign-off</h2></div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}</div></section>`;
 }
 
 // The playbook on the Rollout page: what the vendor's library holds, whether this client agreed to reuse, and the
@@ -1260,7 +1281,7 @@ function connectorPanel({ base, csrf, can, connector: c }) {
 ${c.tools.map(t => `<tr><td><code>${esc(t.name)}</code></td><td><code>${esc(t.method)} ${esc(t.path)}</code></td><td>${t.kind === 'action' ? '<span class="badge warn">Acts</span>' : '<span class="badge">Reads</span>'}</td></tr>`).join('')}
 </tbody></table></div>
 <div class="panel-body"><div class="row-inline"><a class="btn primary" href="${esc(base)}/connector.js" download>${icon('file')}Download the code</a><a class="btn" href="${esc(base)}/connector-tools.json" download>Tool definitions (Anthropic and OpenAI)</a>${draft}</div>
-<p class="hint" style="margin:10px 0 0">Set <code>${esc(c.baseUrlEnv)}</code>${c.auth.env ? ` and <code>${esc(c.auth.env)}</code>` : ''} where your agent runs. With <code>DELOMU_API_KEY</code> set, each action asks this agent’s guard first and does not run if the guard blocks it.</p></div></section>`;
+<p class="hint" style="margin:10px 0 0">Set <code>${esc(c.baseUrlEnv)}</code>${c.auth.env ? ` and <code>${esc(c.auth.env)}</code>` : ''} where your agent runs. With <code>GRAPIM_API_KEY</code> set, each action asks this agent’s guard first and does not run if the guard blocks it.</p></div></section>`;
 }
 
 export function rolloutPage(args) {
@@ -1273,12 +1294,12 @@ export function rolloutPage(args) {
   const job = rollout ? `<div class="rows">${rollout.steps.map(s => `<div class="row">${icon(s.state === 'done' ? 'check' : s.state === 'failed' ? 'alert' : 'clock')}<div class="what"><p class="strong">${esc(s.label)}</p>${s.detail ? `<p class="subtle">${esc(s.detail)}</p>` : ''}</div>${badge(ROLLOUT_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>` : '';
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
-  const body = `<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
+  const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
 <p class="panel-body subtle" style="margin:0">Drafts every step, then runs the check. You approve each draft.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
 <p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>
-${connectorPanel({ base, csrf, can, connector: args.connector })}${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
+${connectorPanel({ base, csrf, can, connector: args.connector })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
 ${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
 <label class="field"><span>Step</span><select name="step">${HOUR_STEPS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></label>
@@ -1326,11 +1347,11 @@ ${h.quarters.map(q => { const total = q.service + q.software; const s = total ? 
 <div class="field"><span>Systems you support</span><div class="prod-checks">${conns}</div><p class="hint">A client on anything else is flagged as one-off work.</p></div>
 <label class="field"><span>Team size</span><input type="number" name="teamSize" min="1" step="1" value="${settings.teamSize ?? ''}" style="max-width:120px"></label>
 <button class="btn" data-busy="Saving…">Save</button></div></form>` : '';
-  const body = `<div class="page-head"><div><h1>Productization health</h1><p class="sub">${esc(org.name)} · is each rollout more software and less services? ${h.deployments} rollout${h.deployments === 1 ? '' : 's'}</p></div><div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
+  const body = `<div class="page-head"><div><h1>Rollout efficiency</h1><p class="sub">${esc(org.name)} · is each rollout more software and less services? ${h.deployments} rollout${h.deployments === 1 ? '' : 's'}</p></div><div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Rollout metrics</a></div></div>
 ${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${verdict}</section>
 ${backlog}${others}${off}${quarters}${form}`;
-  return layout({ title: 'Productization health', user, csrf, nav: { ...nav, org, active: org.kind === 'partner' ? 'clients' : 'deployments' }, crumbs: [[org.kind === 'partner' ? 'Clients' : 'AI agents', orgPath(org)], ['Productization health']], body });
+  return layout({ title: 'Rollout efficiency', user, csrf, nav: { ...nav, org, active: org.kind === 'partner' ? 'clients' : 'deployments' }, crumbs: [[org.kind === 'partner' ? 'Clients' : 'AI agents', orgPath(org)], ['Rollout efficiency']], body });
 }
 
 export function runsPage(args) {
@@ -1537,16 +1558,17 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
 <div><p class="cap">Customer wrote <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
 <div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
-<span><span>${esc(p.what_happened)}</span>${p.tries ? `<br><span class="tries num${p.unstable ? ' unstable' : ''}">${p.unstable ? 'Not consistent: ' : ''}broke the rule in ${p.tries.broke} of ${p.tries.of} tries</span>` : ''}${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
+<span><span>${esc(p.what_happened)}</span>${p.tries && p.unstable ? `<br><span class="tries num unstable">Not consistent: broke it in ${p.tries.broke} of ${p.tries.of} runs of the same message</span>` : ''}${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
   const ruleCard = rule => {
     const bad = rule.probes.filter(p => p.status !== 'kept' || p.unstable);
     const ok = rule.probes.filter(p => p.status === 'kept' && !p.unstable);
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
     return `<section class="panel" id="r-${esc(rule.id)}"><div class="rule-head">
-<div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(rule.rule)}</h3></div>
+<div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(ruleTitle(rule))}</h3></div>
+<p class="rule-text">${esc(rule.rule)}</p>
 <p class="clause"><cite>${esc(cl(rule.clause))}</cite>“${esc(rule.quote)}”</p>
 <p class="harm"><b>Risk with a real customer:</b> ${esc(rule.harm)}</p></div>
-<div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">${bad.some(p => p.status === 'broken') ? `Broken in ${bad.filter(p => p.status === 'broken').length} of ${rule.probes.length}` : `${bad.length} of ${rule.probes.length} need review`}</span></div></div>
+<div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">${bad.some(p => p.status === 'broken') ? `${bad.filter(p => p.status === 'broken').length} of ${rule.probes.length} messages broke it` : `${bad.length} of ${rule.probes.length} need review`}</span></div></div>
 ${bad.map(p => exchange(p, rule)).join('')}
 ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(p => exchange(p, rule)).join('')}</details>` : ''}</section>`;
   };
@@ -1579,18 +1601,18 @@ ${gaps(fix.gaps)}
       : `<p class="verdict good num"><b>All ${s.rules}</b> policy rules kept</p>`;
   // Every rule at a glance, in the policy's order; each tile jumps to its findings.
   const state = r => (isBroken(r) ? 'broken' : isUnsure(r) ? 'unsure' : 'kept');
-  const map = `<div class="rulemap">${scan.rules.map(r => `<a class="rt ${state(r)}" href="#r-${esc(r.id)}" title="${esc(r.rule)}"><span class="t">${esc(r.rule)}</span>
+  const map = `<div class="rulemap">${scan.rules.map(r => `<a class="rt ${state(r)}" href="#r-${esc(r.id)}" title="${esc(r.rule)}"><span class="t">${esc(ruleTitle(r))}</span>
 <span class="c"><span class="cl">${esc(cl(r.clause))}</span><span class="pips">${r.probes.map(pr => `<i class="${esc(pr.status)}"></i>`).join('')}</span></span></a>`).join('')}</div>`;
   return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
-<p class="meta num">${s.failed} of ${s.probes} test messages broke a rule${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''}${s.unstable ? ` · ${s.unstable} not consistent across tries` : ''} · ${esc(ago(scan.createdAt, now))} · ${scan.seconds} s</p>
+<p class="meta num">Checked ${esc(ago(scan.createdAt, now))} with ${s.probes} test messages${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''}</p>
 ${compare}<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span>${esc(r.rule)}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span><span class="strong">${esc(ruleTitle(r))}</span> <span class="muted">${esc(r.rule)}</span></span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
 }
 
 // The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.
@@ -1644,13 +1666,15 @@ ${dayChart(live.days)}${bars}</section>`;
 <div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Your AI</p><div class="bubble ai">${esc(c.answer)}</div>${actionList(c.actions)}</div></div>${why(c)}</div>`;
   const recent = [...live.recent].sort((a, b) => (b.status === 'flagged') - (a.status === 'flagged')).slice(0, 20);
   const feed = recent.length ? `<section class="panel"><div class="panel-head"><h2>Conversations</h2><span class="aside subtle">Rule breaks first · newest 20</span></div>${recent.map(convo).join('')}</section>` : '';
-  const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $DELOMU_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": "Can I get a refund after 45 days?", "answer": "…", "id": "ticket-123"}'`;
-  const guardCurl = `curl -X POST ${apiBase}/guard \\\n  -H "Authorization: Bearer $DELOMU_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": "Can I get a refund after 45 days?", "reply": "…"}'`;
+  // The example message is one this agent was really tested with, so the snippet fits the client.
+  const sample = JSON.stringify(scan.rules.flatMap(r => r.probes).map(p => String(p.message ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean).sort((x, y) => x.length - y.length)[0] ?? 'Where is my order?').replace(/'/g, '’');
+  const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $GRAPIM_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": ${sample}, "answer": "…", "id": "ticket-123"}'`;
+  const guardCurl = `curl -X POST ${apiBase}/guard \\\n  -H "Authorization: Bearer $GRAPIM_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": ${sample}, "reply": "…"}'`;
   const connect = `<section class="panel"><div class="panel-head"><h2>Connect the help desk</h2></div><div class="panel-body">
-<p class="muted" style="margin-bottom:10px">Send each finished exchange from Intercom, Zendesk or your own code. Emails, phone numbers, card numbers and keys are removed before anything is stored or judged.</p>
-<pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p>
+<p class="muted" style="margin:0">Send each finished conversation from Intercom, Zendesk or your own code. Emails, phone numbers, card numbers and keys are removed before anything is stored or judged.</p>
+<details class="api-snip"><summary>Connect with the API</summary><pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p>
 <p class="muted" style="margin:14px 0 10px">Or check each reply <span class="strong">before</span> the customer sees it, and send <code>safeReply</code> when the decision is <code>rewrite</code>:</p>
-<pre class="snippet">${esc(guardCurl)}</pre><p class="subtle" style="margin-top:8px">Needs the <code>guard:check</code> scope. Returns <code>allow</code>, <code>block</code> or <code>rewrite</code>; if the check cannot run it returns <code>allow</code> with <code>unjudged: true</code>.</p></div></section>`;
+<pre class="snippet">${esc(guardCurl)}</pre><p class="subtle" style="margin-top:8px">Needs the <code>guard:check</code> scope. Returns <code>allow</code>, <code>block</code> or <code>rewrite</code>; if the check cannot run it returns <code>allow</code> with <code>unjudged: true</code>.</p></details></div></section>`;
   const area = (field, label, h) => `<label class="field"><span>${label}</span><textarea name="${field}" required maxlength="4000" style="min-height:${h}px;font:14px/1.5 var(--font)">${esc(draft?.[field] ?? '')}</textarea></label>`;
   const check = can.live ? `<section class="panel"><div class="panel-head"><h2>Check one conversation</h2></div><form method="post" action="${esc(base)}/live/check" class="panel-body stack" style="gap:10px" novalidate>
 <input type="hidden" name="csrf" value="${esc(csrf)}">${area('message', 'Customer message', 64)}${area('answer', 'The AI’s answer', 88)}

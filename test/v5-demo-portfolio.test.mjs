@@ -43,4 +43,19 @@ test('one click gives a vendor three sample clients at three stages', async () =
   const scan = await (await fetch(`${srv.base}${dep}/scan`, { headers: { cookie } })).text();
   assert.match(scan, /policy rules broken/);
   assert.doesNotMatch(scan, /Policies changed/);
+  // People read names, not slugs: the agent is "Client · Agent", each rule has a short label.
+  assert.match(scan, /<h1>Quillby Bank · Max<\/h1>/);
+  assert.match(scan, /Freeze the card on fraud/);
+  assert.match(scan, /messages broke it/);
+  assert.doesNotMatch(scan, /Broken in \d/);
+  // The client's sign-off is a step of its own; Velmora's shows it is waiting on the client.
+  assert.match(scan, /Client sign-off/);
+  const health = /href="(\/orgs\/[^"]+)"[^>]*><span class="av">[\s\S]{0,400}?Velmora Health/.exec(list)[1];
+  const hAgents = await (await fetch(srv.base + health, { headers: { cookie } })).text();
+  const hDep = /href="(\/orgs\/[^"]+\/deployments\/sample-velmora-agent)/.exec(hAgents)[1];
+  assert.match(await (await fetch(`${srv.base}${hDep}/scan`, { headers: { cookie } })).text(), /Waiting for the client/);
+  // The Live page's example is one of this agent's own test messages, with Grapim's key name.
+  const live = await (await fetch(`${srv.base}${dep}/live`, { headers: { cookie } })).text();
+  assert.match(live, /GRAPIM_API_KEY/);
+  assert.doesNotMatch(live, /DELOMU_API_KEY|refund after 45 days/);
 });

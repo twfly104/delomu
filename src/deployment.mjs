@@ -34,6 +34,7 @@ export function loadConfig(dir) {
     concurrency: config.concurrency ?? 4,
     target: config.target,
     agentKind: config.agentKind ?? 'support',
+    ...(config.title ? { title: String(config.title) } : {}),
   };
 }
 

@@ -42,7 +42,7 @@ export function deploymentMetrics(rows) {
     return {
       usedPlaybook: playbookDrafts.length > 0,
       playbookCases: playbookDrafts.reduce((n, x) => n + (x.content?.rows ?? []).filter(row => String(row.id).startsWith('lib-')).length, 0),
-      number: i + 1, org: r.org, name: r.name, startedAt: d.startedAt.toISOString(), hours: d.total, byStep: d.byStep,
+      number: i + 1, org: r.org, name: r.name, title: r.config?.title, startedAt: d.startedAt.toISOString(), hours: d.total, byStep: d.byStep,
       stepsDone: done.length, stepsDrafted: drafted,
       liveAt: live?.toISOString() ?? null, daysToLive: live ? Math.max(0, Math.round((live - d.startedAt) / 86400_000)) : null,
     };

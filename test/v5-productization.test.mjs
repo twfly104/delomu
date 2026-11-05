@@ -95,7 +95,7 @@ test('from the web: tag manual steps, enter revenue, set the focus; the page sho
   assert.equal((await post(`${dep}/revenue`, cookie, { csrf: csrfOf(roll), onboardingUsd: '5000', monthlyUsd: '1500', since: '2026-11' })).status, 303);
 
   let prod = await (await get(`${home}/productization`, cookie)).text();
-  assert.match(prod, /Productization health/);
+  assert.match(prod, /Rollout efficiency/);
   assert.match(prod, /Make it a feature/);
   assert.match(prod, /Client api has no docs/);
   assert.match(prod, /Service and software revenue/);

@@ -30,12 +30,13 @@ test('a new user signs up, gets a key once, lands signed in, and can sign in aga
   assert.equal((await submit(open.base, { ...f, csrf: 'forged' }, { email: 'a@newco.test', company: 'Newco' })).status, 403);
 
   const res = await submit(open.base, f, { email: 'Ana@Newco.test', company: 'Newco' });
-  assert.equal(res.status, 201);
-  const page = await res.text();
-  const key = /value="(dk_[^"]+)"/.exec(page)[1];
-  assert.match(page, /shown only once/);
+  // No page in the way: the new user lands in the app, and the key shows once on the first page.
+  assert.equal(res.status, 303);
   const session = cookiesOf(res).find(c => c.startsWith('delomu_session='));
   const home = await (await fetch(`${open.base}/`, { headers: { cookie: session } })).text();
+  const key = /value="(dk_[^"]+)"/.exec(home)[1];
+  assert.match(home, /shown only once/);
+  assert.doesNotMatch(await (await fetch(`${open.base}/`, { headers: { cookie: session } })).text(), /dk_/);
   assert.match(home, /Welcome to Grapim/);
   assert.match(home, /Try it on a sample support bot/);
 

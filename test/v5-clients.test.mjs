@@ -21,7 +21,7 @@ async function signUp(body) {
     headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: cookiesOf(page)[0] },
     body: new URLSearchParams({ csrf: csrfOf(await page.text()), ...body }),
   });
-  assert.equal(res.status, 201);
+  assert.equal(res.status, 303);
   return cookiesOf(res).find(c => c.startsWith('delomu_session='));
 }
 const get = (url, cookie) => fetch(srv.base + url, { headers: { cookie }, redirect: 'manual' });
@@ -59,7 +59,7 @@ test('an AI vendor gets a clients home, adds separate client workspaces, and bil
   assert.match(list, /2 clients/);
   assert.match(list, /No AI agent yet/);
   assert.match(list, /Need attention/);
-  assert.match(list, /Engineer hours/);
+  assert.doesNotMatch(list, /Engineer hours/); // the column shows once someone logs hours
 
   // A client workspace has no billing of its own: it sends you to the vendor's.
   const bill = await get(`${clientPath}/billing`, cookie);

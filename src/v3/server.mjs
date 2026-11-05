@@ -53,6 +53,9 @@ export function createServer({
   // Grapim's own Zendesk OAuth client (a global client approved by Zendesk). When both are set, a customer
   // connects Zendesk with only their subdomain and one click on Allow.
   zendeskApp = env.GRAPIM_ZENDESK_CLIENT_ID && env.GRAPIM_ZENDESK_CLIENT_SECRET ? { clientId: env.GRAPIM_ZENDESK_CLIENT_ID, clientSecret: env.GRAPIM_ZENDESK_CLIENT_SECRET } : null,
+  // Sign-in by email link (src/v3/email-login.mjs), on when both are set. sendEmail replaces the provider in tests.
+  emailLogin = env.RESEND_API_KEY && env.GRAPIM_EMAIL_FROM ? { apiKey: env.RESEND_API_KEY, from: env.GRAPIM_EMAIL_FROM } : null,
+  sendEmail,
   fetch,
   now = () => new Date(),
   log = message => console.error(message),
@@ -92,6 +95,8 @@ export function createServer({
     importJson,
     oauthJson,
     zendeskApp,
+    emailLogin,
+    sendEmail,
     now,
     log,
     oidc: createOidcClient({ fetch }),

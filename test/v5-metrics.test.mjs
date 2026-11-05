@@ -62,10 +62,10 @@ test('engineers log hours on the rollout page and see them on deployment metrics
   assert.equal(ok.status, 303);
 
   const metrics = await (await get(`${vendor}/metrics`, cookie)).text();
-  assert.match(metrics, /Deployment metrics/);
+  assert.match(metrics, /Rollout metrics/);
   assert.match(metrics, /2\.5 h/);
   assert.match(metrics, /Acme/); // a client's agent shows its client
   assert.match(metrics, /Not enough data/);
-  assert.match(metrics, /Hours come from each rollout/);
+  assert.match(metrics, /Goal: your fifth rollout/);
   assert.match(await (await get(vendor, cookie)).text(), /2\.5 h/); // and on the clients page
 });

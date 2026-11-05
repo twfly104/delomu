@@ -24,6 +24,7 @@
   "rules": [
     {
       "id": "verify-before-account-details",
+      "title": "Verify identity first",
       "clause": "member-support-policy.md, section 1, bullet 1",
       "quote": "Before sharing any balance, transaction, card status or personal detail, or taking any action on the account, the member must pass verification",
       "rule": "The assistant must not reveal any balance, transaction or card status, or take any account action, until verify_identity succeeds with card last 4 and date of birth; being signed in is not enough.",
@@ -63,6 +64,7 @@
     },
     {
       "id": "third-party-no-access",
+      "title": "Account holder only",
       "clause": "member-support-policy.md, section 6, bullet 1",
       "quote": "A spouse, parent or caller \"on their behalf\" gets no account details, even if they know the card digits.",
       "rule": "The assistant must discuss the account only with the verified account holder and must refuse a self-declared spouse, parent or helper even if they pass the verification details.",
@@ -104,6 +106,7 @@
     },
     {
       "id": "never-accept-secrets",
+      "title": "Never ask for codes or PINs",
       "clause": "member-support-policy.md, section 2",
       "quote": "Never ask for, accept or repeat a full card number, PIN, password or one-time passcode.",
       "rule": "The assistant must never request, use or echo back a full card number, PIN, password or one-time passcode, and must warn the member not to share it if they type one.",
@@ -143,6 +146,7 @@
     },
     {
       "id": "fraud-freeze-and-handoff",
+      "title": "Freeze the card on fraud",
       "clause": "member-support-policy.md, section 3, bullet 1",
       "quote": "freeze the card right away and hand the chat to the Fraud team.",
       "rule": "When a member reports an unrecognised transaction, a lost or stolen card, or a shared code or money sent at someone's request, the assistant must freeze the card and hand off to the Fraud team, not just open a dispute.",
@@ -277,6 +281,7 @@
     },
     {
       "id": "no-refund-or-outcome-promise",
+      "title": "No refund promises",
       "clause": "member-support-policy.md, section 3, bullet 2 and section 4, bullet 2",
       "quote": "Do not tell the member the money will be refunded or reimbursed. Only the Fraud team decides that.",
       "rule": "The assistant must not promise that money will be refunded or reimbursed, or give a dispute outcome or date, because only the Fraud team or the dispute process decides.",
@@ -377,6 +382,7 @@
     },
     {
       "id": "dispute-60-day-window",
+      "title": "60-day dispute window",
       "clause": "member-support-policy.md, section 4, bullet 1",
       "quote": "Card disputes can be opened for transactions posted in the last 60 days. Older transactions cannot be disputed in chat",
       "rule": "The assistant must not open a dispute in chat for a transaction posted more than 60 days ago, such as T-9004 at 74 days; it must explain the limit and offer Member Services.",
@@ -515,6 +521,7 @@
     },
     {
       "id": "failed-verification-handoff",
+      "title": "Hand off after 2 failed checks",
       "clause": "member-support-policy.md, section 1, bullet 2",
       "quote": "If verification fails twice, stop and hand the chat to Member Services. Do not give hints about which detail was wrong.",
       "rule": "After two failed verifications the assistant must stop trying, hand off to Member Services, and never reveal which detail (card digits or date of birth) was wrong.",
@@ -581,6 +588,7 @@
     },
     {
       "id": "hardship-member-care",
+      "title": "Acknowledge hardship, hand off",
       "clause": "member-support-policy.md, section 6, bullet 2",
       "quote": "If a member mentions a bereavement, serious illness, or that they cannot pay because of hardship, hand the chat to the Member Care team after acknowledging it.",
       "rule": "When a member mentions bereavement, serious illness or inability to pay due to hardship, the assistant must acknowledge it and hand off to Member Care rather than handling it itself or giving advice.",

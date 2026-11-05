@@ -163,6 +163,14 @@ const MIGRATIONS = [
      revoked_at TEXT
    );
    CREATE INDEX share_links_deployment ON share_links (org_id, deployment, purpose);`,
+  // One-time sign-in links sent by email (src/v3/email-login.mjs).
+  `CREATE TABLE login_links (
+     token_hash TEXT PRIMARY KEY,
+     user_id TEXT NOT NULL REFERENCES users(id),
+     created_at TEXT NOT NULL,
+     expires_at TEXT NOT NULL,
+     used_at TEXT
+   );`,
 ];
 
 export function openDb(dataDir) {
