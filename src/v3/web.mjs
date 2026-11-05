@@ -37,6 +37,8 @@ import { createRateLimiter } from './ratelimit.mjs';
 import { recordEvent, listEvents } from './events.mjs';
 import { aiAnswer, demoAnswer, sampleFiles } from './demo-bot.mjs';
 import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample-agent.mjs';
+import { INDUSTRIES, industryAgentAnswer, industryFiles, industryScripted } from './sample-industries.mjs';
+import { DEMO_CLIENTS, seedDemoAcceptance, seedDemoScan } from './demo-portfolio.mjs';
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
@@ -90,6 +92,7 @@ const NOTICES = {
   verdict: 'Verdict changed. The counts and the fix use it from now on, and the change is in the audit log.',
   fixdrafted: 'The agent drafted a fix. Review the instructions below, edit them if you like, then approve.',
   client: 'Client workspace ready. Connect the AI you deploy for this client, or try the sample bot first.',
+  demo: 'Demo ready: three sample clients at three stages. Their check results were recorded on the sample agents.',
   sample: 'Sample ready: Tallyfox’s support assistant and its billing policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
@@ -174,7 +177,7 @@ function routes(ctx) {
     let config = {};
     try { config = loadConfig(dir); } catch { /* registered without a readable config; show what exists */ }
     const hours = Object.values(hoursByStep(dir)).reduce((a, b) => a + b, 0);
-    return { org, name: d.name, dir, customer: config.customer, config, ov: overview(dir, config), hours, signoff: latestSignoff(dir) };
+    return { org, name: d.name, dir, customer: config.customer, config, ov: overview(dir, config), hours, signoff: latestSignoff(dir), signoffOpen: activeShares(db, org.id, d.name, 'signoff', ctx.now()).length };
   });
   // Orgs where the principal may open Billing (owners and admins), for the sidebar link.
   // A client workspace is billed to its vendor, so Billing shows on the vendor's org only.
@@ -418,6 +421,23 @@ function routes(ctx) {
     }
   }, { public: true });
 
+  // The other sample clients' agents (see sample-industries.mjs): a bank and a telehealth provider.
+  r.add('POST', '/demo/agent/:id', async ({ req, params }) => {
+    const json = (status, value) => ({ status, body: JSON.stringify(value), type: 'application/json' });
+    if (!Object.hasOwn(INDUSTRIES, params.id)) return json(404, { error: 'No such sample agent.' });
+    const body = await readJson(req, 16 * 1024).catch(() => ({}));
+    const message = body?.body?.message;
+    const instructions = typeof body?.body?.instructions === 'string' ? body.body.instructions : '';
+    if (!realBot) return json(200, industryScripted(params.id, message));
+    if (!botPerClient(ctx.clientIp(req)).ok || !botTotal('all').ok) return json(429, { error: 'The sample agent is busy. Try again in a minute.' });
+    try {
+      return json(200, await industryAgentAnswer(params.id, message, { ...(ctx.demoBotClient ? { client: ctx.demoBotClient } : {}), instructions }));
+    } catch (e) {
+      console.error(`sample agent ${params.id} failed: ${e.message}`);
+      return json(502, { error: 'The sample agent is unavailable right now.' });
+    }
+  }, { public: true });
+
   // A deployment that can be checked right away: Tallyfox's assistant, its policy and its test cases.
   function addSample(principal, org, req) {
     const taken = new Set(listDeployments(db, ctx.deploymentsRoot, org.id).map(d => d.name));
@@ -439,20 +459,24 @@ function routes(ctx) {
 
   // The sample client's rollout: Linden & Co.'s agent, which takes actions on a test account, with the store's
   // policy, past tickets, order-system notes and the test account, as a client would hand them to a vendor.
-  function addStoreSample(principal, org, req) {
+  // industry: 'store' (Linden & Co.) or a key of INDUSTRIES (Quillby Bank, Velmora Health).
+  function addStoreSample(principal, org, req, industry = 'store') {
+    const ind = INDUSTRIES[industry];
+    const client = ind?.client ?? 'Linden & Co.';
+    const stem = ind ? `sample-${client.split(' ')[0].toLowerCase()}-agent` : 'sample-linden-agent';
     const taken = new Set(listDeployments(db, ctx.deploymentsRoot, org.id).map(d => d.name));
-    let name = 'sample-linden-agent';
-    for (let n = 2; taken.has(name); n++) name = `sample-linden-agent-${n}`;
+    let name = stem;
+    for (let n = 2; taken.has(name); n++) name = `${stem}-${n}`;
     const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
     const config = {
-      customer: realBot ? 'Linden & Co. (sample, real AI)' : 'Linden & Co. (sample)', name, agentKind: 'support',
-      target: { type: 'http', url: `${origin}/demo/store-agent`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions' },
+      customer: realBot ? `${client} (sample, real AI)` : `${client} (sample)`, name, agentKind: 'support',
+      target: { type: 'http', url: `${origin}${ind ? `/demo/agent/${industry}` : '/demo/store-agent'}`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions' },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Client sign-off required before launch', reason: 'Sample client.' }],
     };
     registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
     const { dir } = deploymentFor(ctx, org.id, name);
     fs.mkdirSync(path.join(dir, 'inputs'), { recursive: true });
-    for (const f of storeSampleFiles(origin)) fs.writeFileSync(path.join(dir, 'inputs', f.name), f.text);
+    for (const f of ind ? industryFiles(industry, origin) : storeSampleFiles(origin)) fs.writeFileSync(path.join(dir, 'inputs', f.name), f.text);
     event(ctx, principal, org.id, 'deployment.register', name, { via_web: true, sample: true });
     return name;
   }
@@ -466,13 +490,32 @@ function routes(ctx) {
   // For an AI vendor: a sample client workspace with the sample assistant in it, so the Clients page has a
   // client to open before any real one is added.
   r.add('POST', '/orgs/:org/clients/sample', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'org:manage');
+    if (org.kind !== 'partner') throw notFound('page');
+    const industry = Object.hasOwn(INDUSTRIES, form.industry) ? form.industry : 'store';
+    const client = createOrg(db, { name: `${INDUSTRIES[industry]?.client ?? 'Linden & Co.'} (sample client)`, kind: 'customer', partnerOrgId: org.id }, ctx.now());
+    event(ctx, principal, client.id, 'org.create', client.id, { name: client.name, partner_org_id: org.id, sample: true });
+    event(ctx, principal, org.id, 'client.add', client.id, { name: client.name, sample: true });
+    return new Redirect(`${depPath(client, addStoreSample(principal, client, req, industry))}/rollout`);
+  });
+
+  // The Brightdesk AI demo (demo-portfolio.mjs): three sample clients at three stages of a rollout.
+  r.add('POST', '/orgs/:org/clients/demo', async ({ req, principal, params }) => {
     requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
     const { org } = access(ctx, principal, params.org, 'org:manage');
     if (org.kind !== 'partner') throw notFound('page');
-    const client = createOrg(db, { name: 'Linden & Co. (sample client)', kind: 'customer', partnerOrgId: org.id }, ctx.now());
-    event(ctx, principal, client.id, 'org.create', client.id, { name: client.name, partner_org_id: org.id, sample: true });
-    event(ctx, principal, org.id, 'client.add', client.id, { name: client.name, sample: true });
-    return new Redirect(`${depPath(client, addStoreSample(principal, client, req))}/rollout`);
+    for (const { industry, stage, ageHours } of DEMO_CLIENTS) {
+      const client = createOrg(db, { name: `${INDUSTRIES[industry]?.client ?? 'Linden & Co.'} (sample client)`, kind: 'customer', partnerOrgId: org.id }, ctx.now());
+      event(ctx, principal, org.id, 'client.add', client.id, { name: client.name, sample: true, demo: true });
+      const name = addStoreSample(principal, client, req, industry);
+      const { dir } = deploymentFor(ctx, client.id, name);
+      const scan = seedDemoScan(dir, industry, ctx.now(), ageHours);
+      if (stage === 'signoff') createShare(db, { orgId: client.id, deployment: name, purpose: 'signoff', subject: scan.id, createdBy: principal.actor }, ctx.now());
+      if (stage === 'accepted') seedDemoAcceptance(dir, scan, ctx.now());
+    }
+    return new Redirect(`${orgPath(org)}?notice=demo`);
   });
 
   const newDeploymentView = (principal, params, error, values) => {

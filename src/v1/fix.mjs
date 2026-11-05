@@ -48,7 +48,7 @@ function saveFix(dir, fix) { fs.writeFileSync(fixFile(dir), JSON.stringify(fix, 
 // sends its instructions in the request body (instructionsField, or the built-in sample bot and sample agent).
 export function instructionsTarget(config) {
   const t = config.target ?? {};
-  const field = t.type === 'http' ? (t.instructionsField || (/\/demo\/(support-bot|store-agent)$/.test(String(t.url ?? '')) ? 'instructions' : '')) : '';
+  const field = t.type === 'http' ? (t.instructionsField || (/\/demo\/(support-bot|store-agent|agent\/(bank|health))$/.test(String(t.url ?? '')) ? 'instructions' : '')) : '';
   return { canApply: Boolean(field), field, current: field ? String(t.body?.[field] ?? '') : '' };
 }
 

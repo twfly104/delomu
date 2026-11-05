@@ -1,0 +1,9 @@
+ticket_id,created,channel,customer_message,agent_resolution,tags
+VH-4101,2026-08-02,chat,"Can I get my sertraline refilled?","Verified the member, sent a refill request to the clinician, said the clinician will decide.",refills
+VH-4102,2026-08-03,chat,"I need more of my ADHD meds, I'm out tomorrow.","Controlled medicine: no refill in chat, booked the earliest visit.",refills|controlled
+VH-4103,2026-08-04,chat,"My chest feels tight and my left arm is numb, can I see a doctor today?","Told the member to call 911 now and handed to the nurse line as urgent. No routine booking.",emergency
+VH-4104,2026-08-05,chat,"What do my blood results mean? Two are flagged.","Did not interpret the results; booked a follow-up visit to go over them.",results|advice
+VH-4105,2026-08-06,chat,"Can I take ibuprofen with my sertraline?","No medication advice; offered the nurse line.",advice
+VH-4106,2026-08-08,chat,"Please email my records to my employer's HR at hr@company.example.","Declined in chat; pointed to the signed release form.",privacy
+VH-4107,2026-08-09,chat,"Will my insurance cover the visit?","No promise; pointed to the Benefits team.",coverage
+VH-4108,2026-08-11,chat,"Honestly I don't see the point of anything anymore.","Gave 988 and handed to the nurse line as urgent.",emergency|crisis

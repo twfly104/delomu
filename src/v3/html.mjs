@@ -244,7 +244,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 .meter i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .4s linear}
 .vf{display:inline;margin:0}.vf-pair{display:inline-flex;gap:12px}
 .probe .vf,.probe .vf-pair,.probe .vo{grid-column:1/-1;justify-self:start}
-.tries{font-size:12.5px;color:var(--text-3)}.tries.unstable{color:var(--warn,#a35200)}.linkbtn{border:0;background:none;padding:0;font:500 12.5px var(--font);color:var(--text-3);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}.linkbtn:hover{color:var(--text);text-decoration-color:currentColor}
+.tries{font-size:12.5px;color:var(--text-3)}.tries.unstable{color:var(--warn,#a35200)}.sample-form{display:inline-flex;gap:8px;align-items:center;flex-wrap:nowrap}.sample-form .sample-pick{width:auto;flex:none;height:32px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font:inherit;font-size:13px;padding:0 8px}.alt-sample{margin-top:14px}.alt-sample summary{cursor:pointer;font-size:12.5px;color:var(--text-2);margin-bottom:8px}.linkbtn{border:0;background:none;padding:0;font:500 12.5px var(--font);color:var(--text-3);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}.linkbtn:hover{color:var(--text);text-decoration-color:currentColor}
 .vo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--text-2)}.vo .i{color:var(--good)}
 .imp-body details.alt{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}.imp-body details.alt>summary:hover{background:none;color:var(--text)}.imp-body details.alt>summary::before{content:"+ "}.imp-body details.alt[open]>summary::before{content:"− "}.imp-body details.alt>summary{display:block;padding:0;border:0;background:none;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--text-2);margin-bottom:12px}
 .steps-mini{margin:0 0 12px;padding-left:18px;font-size:12.5px;color:var(--text-2);display:grid;gap:3px}.steps-mini code{font-size:11.5px}
@@ -903,6 +903,7 @@ const CLIENT_STATUS = [
   { id: 'review', cls: 'accent', text: n => `${n} draft${n === 1 ? '' : 's'} to review` },
   { id: 'broken', cls: 'bad', text: n => `${n} rule${n === 1 ? '' : 's'} broken` },
   { id: 'live', cls: 'bad', text: n => `${n} live chat${n === 1 ? '' : 's'} broke a rule` },
+  { id: 'waiting', cls: 'accent', text: () => 'Waiting on the client' },
   { id: 'setup', cls: 'warn', text: () => 'No AI agent yet' },
   { id: 'unchecked', cls: 'warn', text: () => 'Not checked yet' },
   { id: 'ok', cls: 'good', text: () => 'On track' },
@@ -914,6 +915,7 @@ export function clientStatus(ds) {
   const broken = sum(d => d.ov.scans[0]?.summary.broken ?? 0);
   const live = sum(d => d.ov.live?.week?.flagged ?? 0);
   const [id, n] = waiting ? ['review', waiting] : broken ? ['broken', broken] : live ? ['live', live]
+    : ds.some(d => d.signoffOpen && !d.signoff) ? ['waiting', 0]
     : !ds.length ? ['setup', 0] : ds.some(d => !d.ov.scans.length) ? ['unchecked', 0] : ['ok', 0];
   const i = CLIENT_STATUS.findIndex(x => x.id === id);
   return { id, rank: i, cls: CLIENT_STATUS[i].cls, text: CLIENT_STATUS[i].text(n) };
@@ -924,6 +926,7 @@ function clientStage(ds) {
   if (!ds.length) return 'Setup';
   if (ds.some(d => d.ov.live?.week?.checked)) return 'Live';
   if (ds.some(d => d.signoff?.decision === 'accepted')) return 'Client accepted';
+  if (ds.some(d => d.signoffOpen && !d.signoff)) return 'Waiting for client sign-off';
   if (ds.some(d => d.ov.scans.length)) return 'Pre-launch check';
   if (ds.some(d => d.ov.inputs.length)) return 'Policies added';
   return 'Connected';
@@ -953,11 +956,12 @@ export function clientsPage({ user, csrf, nav, now, org, clients, own, canManage
 <div><p class="v num">${live}</p><p class="k">Live</p></div></div>` : '';
   return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
 <div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div>
-<div class="actions">${canManage && clients.length ? `<form method="post" action="${esc(orgPath(org))}/clients/sample"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn ghost" data-busy="Setting up…">Add a sample client</button></form>` : ''}<a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
+<div class="actions">${canManage && clients.length ? `<form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Add a sample client</button></form>` : ''}<a class="btn" href="${esc(orgPath(org))}/productization">${icon('layers')}Productization health</a><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Deployment metrics</a></div></div>
 ${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th><th class="hide-sm">Engineer hours</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
-</tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>Add a client below, or open a sample client to see a rollout first.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/sample" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">Open a sample client</button></form>` : ''}</div>`}</section>
+</tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>See a week of rollouts first: a bank that broke a rule, a telehealth client waiting to sign off, and a store that accepted.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/demo" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">Open the demo: 3 sample clients</button></form>
+<details class="alt-sample"><summary>Or start one sample client from scratch</summary><form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Open a sample client</button></form></details>` : ''}</div>`}</section>
 ${add}
 ${own.length ? `<section class="panel"><div class="panel-head"><h2>Your own AI agents</h2></div>${agentsTable(own, { now })}</section>` : ''}` });
 }
