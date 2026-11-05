@@ -38,7 +38,9 @@ import { recordEvent, listEvents } from './events.mjs';
 import { aiAnswer, demoAnswer, sampleFiles } from './demo-bot.mjs';
 import { storeAgentAnswer, storeAgentScripted, storeSampleFiles } from './sample-agent.mjs';
 import { INDUSTRIES, industryAgentAnswer, industryFiles, industryScripted } from './sample-industries.mjs';
-import { DEMO_CLIENTS, seedDemoAcceptance, seedDemoScan } from './demo-portfolio.mjs';
+import { DEMO_CLIENTS, demoScan, seedDemoAcceptance, seedDemoScan } from './demo-portfolio.mjs';
+// The recorded checks the landing page draws its product scenes from, read once.
+const LANDING_DEMO = { bank: demoScan('bank'), store: demoScan('store') };
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
@@ -365,7 +367,7 @@ function routes(ctx) {
 
   r.add('GET', '/', ({ principal }) => {
     // A signed-out visitor gets the public page; everyone else their home.
-    if (!principal) return html(landingPage({ signup: signupOpen, plans: PLAN_LIST }));
+    if (!principal) return html(landingPage({ signup: signupOpen, plans: PLAN_LIST, demo: LANDING_DEMO }));
     const orgs = orgsOf(principal);
     const deployments = orgs.flatMap(org => {
       const role = roleIn(db, principal, org.id);

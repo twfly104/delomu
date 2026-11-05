@@ -17,7 +17,7 @@ export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b
 // sessionStorage, asks /assistant/ask and renders proposed actions as forms or links the person clicks.
 export const ASSISTANT_SCRIPT = "(function(){\nvar panel=document.getElementById('asst');if(!panel)return;\nvar log=panel.querySelector('[data-asst-log]'),form=panel.querySelector('[data-asst-form]'),box=form.querySelector('textarea'),csrf=panel.getAttribute('data-csrf'),loaded=false,busy=false;\nvar store={get:function(){try{return sessionStorage.getItem('gp-asst');}catch(e){return null;}},set:function(v){try{if(v)sessionStorage.setItem('gp-asst','1');else sessionStorage.removeItem('gp-asst');}catch(e){}}};\nfunction esc(s){return String(s).replace(/[&<>\"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}\nfunction rich(t){var lines=esc(t).split(/\\n/),out='',list=false;for(var i=0;i<lines.length;i++){var l=lines[i].replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');if(/^\\s*[-•]\\s+/.test(l)){if(!list){out+='<ul>';list=true;}out+='<li>'+l.replace(/^\\s*[-•]\\s+/,'')+'</li>';}else{if(list){out+='</ul>';list=false;}if(l.trim())out+='<p>'+l+'</p>';}}return out+(list?'</ul>':'');}\nfunction scroll(){log.scrollTop=log.scrollHeight;}\nfunction actionsHtml(acts){if(!acts||!acts.length)return'';var h='<div class=\"asst-acts\">';for(var i=0;i<acts.length;i++){var a=acts[i];if(a.method==='POST'){var f='';for(var k in a.fields)f+='<input type=\"hidden\" name=\"'+esc(k)+'\" value=\"'+esc(a.fields[k])+'\">';h+='<form method=\"post\" action=\"'+esc(a.href)+'\" style=\"--i:'+i+'\"><input type=\"hidden\" name=\"csrf\" value=\"'+esc(csrf)+'\">'+f+'<button class=\"asst-act do\" data-busy=\"Starting…\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Run</span></button></form>';}else h+='<a class=\"asst-act\" style=\"--i:'+i+'\" href=\"'+esc(a.href)+'\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Open</span></a>';}return h+'</div>';}\nfunction add(role,text,acts,fresh){var d=document.createElement('div');d.className='asst-m '+(role==='user'?'me':'bot')+(fresh?' fresh':'');d.innerHTML=role==='user'?'<div class=\"asst-b\">'+esc(text)+'</div>':'<div class=\"asst-b\">'+rich(text)+'</div>'+actionsHtml(acts);log.appendChild(d);scroll();return d;}\nfunction empty(sugs){log.innerHTML='<div class=\"asst-hello\"><p class=\"asst-hi\">What can I help with?</p><div class=\"asst-sugs\">'+sugs.map(function(s,i){return'<button type=\"button\" class=\"asst-sug\" style=\"--i:'+i+'\">'+esc(s)+'</button>';}).join('')+'</div></div>';}\nfunction load(){if(loaded)return;loaded=true;fetch('/assistant/state?from='+encodeURIComponent(location.pathname),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(s){if(s.history&&s.history.length){log.innerHTML='';s.history.forEach(function(m){add(m.role,m.text,m.actions,false);});}else empty(s.suggestions||[]);}).catch(function(){empty([]);});}\nfunction open(animate){if(!panel.hidden&&document.body.classList.contains('asst-open'))return;panel.hidden=false;if(animate===false){document.body.classList.add('asst-open','asst-instant');setTimeout(function(){document.body.classList.remove('asst-instant');},50);}else requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('asst-open');});});store.set(true);load();setTimeout(function(){box.focus();},animate===false?0:250);}\nfunction close(){document.body.classList.remove('asst-open');store.set(false);setTimeout(function(){if(!document.body.classList.contains('asst-open'))panel.hidden=true;},320);}\nfunction typing(){var d=document.createElement('div');d.className='asst-m bot fresh';d.innerHTML='<div class=\"asst-b asst-typing\" aria-label=\"Thinking\"><i></i><i></i><i></i></div>';log.appendChild(d);scroll();return d;}\nfunction send(text){text=String(text||'').trim();if(!text||busy)return;busy=true;var hello=log.querySelector('.asst-hello');if(hello)hello.remove();add('user',text,null,true);box.value='';fit();var t=typing();var body=new URLSearchParams({csrf:csrf,message:text,from:location.pathname});\nfetch('/assistant/ask',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});}).then(function(x){t.remove();if(!x.ok){add('bot',x.j.error||'Something went wrong.',null,true).classList.add('err');return;}add('bot',x.j.reply,x.j.actions,true);}).catch(function(){t.remove();add('bot','I couldn’t reach Grapim. Check your connection and try again.',null,true).classList.add('err');}).then(function(){busy=false;box.focus();});}\nfunction fit(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,140)+'px';box.style.overflowY=box.scrollHeight>140?'auto':'hidden';}\ndocument.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-asst-open]');if(t){e.preventDefault();if(document.body.classList.contains('asst-open'))close();else open();return;}if(e.target.closest&&e.target.closest('[data-asst-close]')){close();return;}var s=e.target.closest&&e.target.closest('.asst-sug');if(s){send(s.textContent);return;}if(e.target.closest&&e.target.closest('[data-asst-clear]')){fetch('/assistant/clear',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:csrf}).toString()}).then(function(){loaded=false;log.innerHTML='';load();});}});\nform.addEventListener('submit',function(e){e.preventDefault();send(box.value);});\nbox.addEventListener('input',fit);\nbox.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send(box.value);}});\ndocument.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('asst-open'))close();});\nvar g=panel.querySelector('[data-asst-grip]'),R=document.documentElement;function setW(w){var cap=Math.max(320,Math.min(720,innerWidth-240));w=Math.max(320,Math.min(cap,Math.round(w)));R.style.setProperty('--asst-w',w+'px');g.setAttribute('aria-valuenow',w);try{localStorage.setItem('gp-asst-w',w);}catch(e){}return w;}\nfunction curW(){return parseInt(R.style.getPropertyValue('--asst-w'))||400;}\nif(g){var w0=0;try{w0=+localStorage.getItem('gp-asst-w')||0;}catch(e){}if(w0)setW(w0);g.addEventListener('pointerdown',function(e){if(e.button)return;e.preventDefault();g.setPointerCapture(e.pointerId);R.classList.add('asst-drag');var mv=function(ev){setW(innerWidth-ev.clientX);},up=function(){g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);g.removeEventListener('pointercancel',up);R.classList.remove('asst-drag');};g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);});g.addEventListener('dblclick',function(){setW(400);});g.addEventListener('keydown',function(e){if(e.key==='ArrowLeft'){e.preventDefault();setW(curW()+20);}else if(e.key==='ArrowRight'){e.preventDefault();setW(curW()-20);}else if(e.key==='Enter'||e.key==='Home'){e.preventDefault();setW(400);}});}\nif(store.get()==='1')open(false);\n})();";
 export const ASSISTANT_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(ASSISTANT_SCRIPT).digest('base64')}`;
-export const LANDING_SCRIPT = "(function(){var v=document.querySelectorAll('video[data-lp-video]');if(!v.length||matchMedia('(prefers-reduced-motion: reduce)').matches)return;v.forEach(function(x){x.controls=false;});var go=function(x){var p=x.play();if(p&&p.catch)p.catch(function(){});};if(!('IntersectionObserver' in window)){v.forEach(go);return;}var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting)go(e.target);else e.target.pause();});},{threshold:.35});v.forEach(function(x){io.observe(x);});})();";
+export const LANDING_SCRIPT = "(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||!('IntersectionObserver' in window))return;document.documentElement.classList.add('lv-js');var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('on');io.unobserve(e.target);}});},{threshold:.3});document.querySelectorAll('[data-scene]').forEach(function(x){io.observe(x);});var w=document.querySelector('[data-rotate]');if(w){var l=w.getAttribute('data-rotate').split('|'),i=0;setInterval(function(){w.classList.add('out');setTimeout(function(){i=(i+1)%l.length;w.textContent=l[i];w.classList.remove('out');},280);},2600);}})();";
 export const LANDING_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(LANDING_SCRIPT).digest('base64')}`;
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
@@ -438,6 +438,82 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 @media (prefers-color-scheme:dark){.lv-shot{box-shadow:0 0 0 1px var(--line),0 24px 64px -24px rgb(0 0 0/.9)}}
 @media (max-width:860px){.lv-hero{padding-top:56px}.lv-main{margin-top:44px}.lv-row{padding-top:96px}.lv-copy{text-align:left;margin-bottom:24px}.lv-copy p{margin-left:0}.lv-close{padding-top:112px}}
 @media (max-width:480px){.lv{padding:0 16px}.lv-acts{flex-direction:column}.lv-acts .btn{width:100%;justify-content:center}.lv-bar{height:30px}}
+/* Landing (v6): a hero over a field of rule pips, then four simplified product scenes drawn from real checks. */
+.lv-hero{position:relative;isolation:isolate;padding:104px 0 8px;text-align:center}
+.lv-field{position:absolute;z-index:-1;left:50%;top:-40px;width:1260px;height:470px;transform:translateX(-50%);-webkit-mask-image:radial-gradient(ellipse 58% 62% at 50% 46%,rgb(0 0 0/.12) 30%,#000 70%,transparent 96%);mask-image:radial-gradient(ellipse 58% 62% at 50% 46%,rgb(0 0 0/.12) 30%,#000 70%,transparent 96%)}
+.lv-field rect{fill:var(--line)}.lv-field rect.k{animation:lvPipK 9s infinite}.lv-field rect.b{animation:lvPipB 11s infinite}
+@keyframes lvPipK{0%,62%,100%{fill:var(--line)}70%,86%{fill:color-mix(in srgb,var(--good) 70%,var(--line))}}
+@keyframes lvPipB{0%,66%,100%{fill:var(--line)}74%,88%{fill:color-mix(in srgb,var(--bad) 75%,var(--line))}}
+.lv-eyebrow{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:13px;color:var(--text-2);margin-bottom:22px}
+.lv-hero h1{margin:0 auto;max-width:17ch;font-size:clamp(38px,6vw,66px);line-height:1.06;letter-spacing:-0.045em;font-weight:600;text-wrap:balance}
+.lv-rot{display:inline-block;color:var(--accent-text);transition:opacity .28s,transform .28s,filter .28s}.lv-rot.out{opacity:0;transform:translateY(.25em);filter:blur(4px)}
+.lv mark{background:none;color:inherit;box-shadow:inset 0 -.3em 0 color-mix(in srgb,var(--accent) 22%,transparent);border-radius:2px}
+.lv-hero h1 mark{display:inline-block;background:var(--ink);color:var(--on-ink);box-shadow:none;padding:0 .18em .04em;border-radius:.14em;margin-top:.08em}
+.lv-hero-stage{max-width:1040px;margin:56px auto 0;padding:28px;border-radius:24px;background:radial-gradient(90% 70% at 0% 0%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 62%),radial-gradient(80% 70% at 100% 100%,color-mix(in srgb,var(--good) 14%,transparent),transparent 62%),var(--sunken);text-align:center}
+.lv-hero-stage .lv-note{margin-top:16px}
+.lv-pain{padding-top:136px;text-align:center}.lv-pain h2,.lv-step h2,.lv-close h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
+.lv-pains{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;text-align:left}
+.lv-pains>div{padding:22px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}.lv-pains b{display:block;font-size:16px;letter-spacing:-0.01em}.lv-pains p{margin-top:8px;color:var(--text-2);font-size:14.5px;line-height:1.55}
+.lv-step{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:56px;align-items:center;padding-top:144px}
+.lv-step.flip{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}.lv-step.flip .lv-step-copy{order:2}
+.lv-k{font:500 12.5px var(--mono);letter-spacing:.02em;color:var(--accent-text);margin-bottom:14px}
+.lv-step-copy>p:last-child{margin-top:16px;font-size:17px;line-height:1.6;color:var(--text-2);max-width:34em}
+.lv-stage{padding:28px;border-radius:24px;background:radial-gradient(90% 80% at 100% 0%,color-mix(in srgb,var(--accent) 14%,transparent),transparent 60%),radial-gradient(80% 70% at 0% 100%,color-mix(in srgb,var(--good) 12%,transparent),transparent 60%),var(--sunken)}
+.lv-eng{padding-top:120px;text-align:center}.lv-eng p{max-width:46em;margin:0 auto;color:var(--text-2);font-size:15.5px}.lv-eng b{color:var(--text)}
+.lv-close{text-align:center;padding:150px 0 30px}.lv-close .lv-sub{margin-top:14px}
+/* The scenes */
+.sc{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgb(0 0 0/.04),0 18px 40px -22px rgb(0 0 0/.22);text-align:left;font-size:13.5px;line-height:1.5;overflow:hidden}
+.sc-bar{display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2)}.sc-dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}.sc-sep{color:var(--line-strong)}
+.sc-hero-body{display:grid;grid-template-columns:230px minmax(0,1fr)}
+.sc-rules{padding:14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.sc-rule{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:7px;font-size:13px;color:var(--text-2)}.sc-rule i{flex:none;width:9px;height:9px;border-radius:2.5px;background:var(--good)}
+.sc-rule.bad{color:var(--bad);background:var(--bad-weak);font-weight:500}.sc-rule.bad i{background:var(--bad)}
+.sc-count{margin:auto 0 0;padding:12px 8px 2px;font-size:13px;color:var(--text-2)}.sc-count b{color:var(--bad);font-size:18px;letter-spacing:-0.02em}
+.sc-convo{padding:18px 20px 20px;display:flex;flex-direction:column;gap:8px}
+.sc-cap{font-size:12px;color:var(--text-3)}
+.sc-msg{max-width:88%;padding:10px 13px;border-radius:12px;background:var(--sunken);font-size:13.5px}.sc-msg.ai{align-self:flex-end;background:var(--bad-weak);border:1px solid color-mix(in srgb,var(--bad) 30%,transparent)}
+.sc-cap:nth-of-type(2){align-self:flex-end}
+.sc-tool{align-self:flex-end;font:12px var(--mono);color:var(--text-2);padding:5px 9px;border-radius:7px;background:var(--sunken)}.sc-tool span{color:var(--text-3)}
+.sc-verdict{display:flex;gap:12px;align-items:flex-start;margin-top:8px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sc-verdict p{margin-top:3px;color:var(--text-2);font-size:13px}
+.sc-badge{flex:none;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:var(--bad);color:#fff;font-size:12px;font-weight:600}.sc-badge.ok{background:var(--good)}
+.sc-head{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:500}.sc-tally{color:var(--text-2);font-weight:400}.sc-tally b.bad{color:var(--bad)}.sc-tally b.ok{color:var(--good)}
+.sc-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:16px}
+.sc-tile{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;font-weight:500}
+.sc-tile.bad{border-color:color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-weak);color:var(--bad)}
+.sc-pips{display:flex;gap:3px}.sc-pips i{width:9px;height:9px;border-radius:2.5px;background:var(--good)}.sc-pips i.b{background:var(--bad)}
+.sc-draft{margin:16px 16px 0;padding:12px 14px;border-radius:10px;background:var(--sunken);font:12.5px/1.55 var(--mono)}.sc-draft .sc-cap{font-family:var(--font);margin-bottom:6px}.sc-line{color:var(--good)}
+.sc-approve{display:flex;align-items:center;gap:14px;padding:14px 16px}.sc-btn{flex:none;height:32px;display:inline-flex;align-items:center;padding:0 12px;border-radius:8px;background:var(--ink);color:var(--on-ink);font-weight:500;font-size:13px}
+.sc-meter{flex:1;height:6px;border-radius:6px;background:var(--sunken);overflow:hidden}.sc-meter i{display:block;height:100%;width:100%;background:var(--accent);border-radius:6px}
+.sc-after{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px}
+.sc-chip{height:26px;display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-radius:7px;border:1px solid color-mix(in srgb,var(--good) 35%,transparent);background:var(--good-weak);font-size:12.5px}.sc-chip::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--good)}
+.sc-result{padding:14px 16px 16px;color:var(--text-2)}.sc-result b{color:var(--good)}
+.sc-sign{max-width:420px;margin:0 auto;padding:26px;display:flex;flex-direction:column;gap:12px}
+.sc-mark{display:flex;align-items:center;gap:7px;font-weight:600;letter-spacing:-0.03em}.sc-ask{font-size:15px;letter-spacing:-0.01em}.sc-okline{display:flex;align-items:center;gap:8px;color:var(--text-2)}
+.sc-field{display:flex;flex-direction:column;gap:6px;font-size:12.5px;font-weight:500}.sc-type{height:36px;display:flex;align-items:center;padding:0 11px;border:1px solid var(--line-strong);border-radius:8px;font-weight:400;font-size:14px}
+.sc-type>span{display:inline-block;overflow:hidden;white-space:nowrap;max-width:10em}
+.sc-accept{height:38px;display:grid;place-items:center;border-radius:9px;background:var(--ink);color:var(--on-ink);font-weight:500}
+.sc-done{color:var(--good);font-weight:500}
+.sc-row .badge{white-space:nowrap}.sc-row{display:grid;grid-template-columns:30px minmax(0,1.2fr) auto minmax(0,.9fr);align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}.sc-head+.sc-row{border-top:0}
+.sc-av{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:var(--sunken);font-weight:600}.sc-who{display:flex;flex-direction:column}.sc-who span{font-size:12.5px;color:var(--text-3)}.sc-stage{color:var(--text-2);font-size:13px}
+/* Play the scenes (only with lv-js, set by the script when motion is allowed) */
+@keyframes lvIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes lvGood{from{background:var(--line-strong)}to{background:var(--good)}}
+@keyframes lvBad{from{background:var(--line-strong)}to{background:var(--bad)}}
+@keyframes lvTileBad{from{border-color:var(--line);background:transparent;color:var(--text)}to{border-color:color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-weak);color:var(--bad)}}
+@keyframes lvChip{from{opacity:.35;background:transparent;border-color:var(--line)}to{opacity:1;background:var(--good-weak);border-color:color-mix(in srgb,var(--good) 35%,transparent)}}
+@keyframes lvMeter{from{width:0}to{width:100%}}
+@keyframes lvType{from{max-width:0}to{max-width:10em}}
+.lv-js [data-scene] .a{opacity:0}
+.lv-js [data-scene].on .a{animation:lvIn .55s cubic-bezier(.2,.7,.2,1) var(--d,0s) both}
+.lv-js [data-scene] .sc-pips i{background:var(--line-strong)}
+.lv-js [data-scene].on .sc-pips i.k{animation:lvGood .3s var(--d) forwards}.lv-js [data-scene].on .sc-pips i.b{animation:lvBad .3s var(--d) forwards}
+.lv-js [data-scene] .sc-tile.bad{border-color:var(--line);background:transparent;color:var(--text)}.lv-js [data-scene].on .sc-tile.bad{animation:lvTileBad .35s var(--d) forwards}
+.lv-js [data-scene] .sc-chip{opacity:.35;background:transparent;border-color:var(--line)}.lv-js [data-scene].on .sc-chip{animation:lvChip .35s var(--d) forwards}
+.lv-js [data-scene] .sc-meter i{width:0}.lv-js [data-scene].on .sc-meter i{animation:lvMeter .9s ease-in-out var(--d) forwards}
+.lv-js [data-scene] .sc-type>span{max-width:0}.lv-js [data-scene].on .sc-type>span{animation:lvType .9s steps(8) var(--d) forwards}
+@media (prefers-reduced-motion:reduce){.lv-field rect{animation:none!important}.lv-rot{transition:none}}
+@media (max-width:900px){.lv-step,.lv-step.flip{grid-template-columns:1fr;gap:28px;padding-top:104px}.lv-step.flip .lv-step-copy{order:0}.lv-pains{grid-template-columns:1fr}.lv-pain{padding-top:104px}.sc-hero-body{grid-template-columns:1fr}.sc-rules{border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr}.sc-count{grid-column:1/-1}}
+@media (max-width:560px){.lv-hero{padding-top:64px}.lv-hero-stage,.lv-stage{padding:12px;border-radius:18px}.lv-hero-stage{margin-top:40px}.sc-tiles{grid-template-columns:1fr}.sc-row{grid-template-columns:30px minmax(0,1fr) auto}.sc-stage{display:none}.sc-msg{max-width:100%}.lv-field{width:900px;height:300px;opacity:.7}}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 24px}
 .lp-top nav{display:flex;gap:20px;align-items:center;font-size:14px}.lp-top nav a:not(.btn){color:var(--text-2)}.lp-top nav a:not(.btn):hover{color:var(--text);text-decoration:none}
@@ -616,7 +692,7 @@ function doc(title, body, bodyClass = '', refresh = 0) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml"><title>${esc(title)} · Grapim</title><style>${STYLE}</style></head>
-<body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}${body.includes('data-lp-video') ? `<script data-ui="landing">${LANDING_SCRIPT}</script>` : ''}</body></html>
+<body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}${body.includes('data-scene') ? `<script data-ui="landing">${LANDING_SCRIPT}</script>` : ''}</body></html>
 `;
 }
 
@@ -718,38 +794,92 @@ const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span cl
 <nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
-<p class="subtle">Results shown are from Grapim’s made-up sample store, not from customers.</p></footer>`;
+<p class="subtle">Results shown are from Grapim’s made-up sample clients, not from customers.</p></footer>`;
 
-// The page a signed-out visitor sees at /. Every picture is the product itself, recorded on the sample store
-// (src/v3/media); it claims no customers, logos or numbers that do not exist.
-export function landingPage({ signup = false }) {
+// The page a signed-out visitor sees at /. Each product moment is drawn live from a real recorded Grapim check
+// (src/v3/demo-portfolio, passed in as demo), simplified and animated as it scrolls into view; it claims no
+// customers, logos or numbers that do not exist. Without JavaScript or with reduced motion it shows the end state.
+export function landingPage({ signup = false, demo = {} }) {
   const start = signup ? '/signup' : '/login';
   const cta = signup ? 'Start free' : 'Sign in';
-  const bar = label => `<div class="lv-bar" aria-hidden="true"><span class="lv-dots"><i></i><i></i><i></i></span>${label}</div>`;
-  const clip = (file, label, alt, ratio = '1040/800') => `<figure class="lv-shot">${bar(label)}<video data-lp-video src="/media/${file}.mp4" poster="/media/${file}.jpg" style="aspect-ratio:${ratio}" muted loop playsinline preload="none" controls aria-label="${alt}"></video></figure>`;
-  const row = (id, title, text, media) => `<section class="lv-row"${id ? ` id="${id}"` : ''}><div class="lv-copy"><h2>${title}</h2><p>${text}</p></div>${media}</section>`;
-  const term = `<pre class="lv-term"><span class="c">$</span> claude mcp add --transport http grapim https://YOUR-GRAPIM/mcp
-<span class="ok">✓</span> Added MCP server grapim
+  const bank = demo.bank, store = demo.store;
+  const d = s => `style="--d:${s}s"`;
+  // Hero background: a field of rule pips, a few lighting up as if being checked. Seeded, so it is the same on every load.
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const cols = 44, rows = 16, cell = 26;
+  const pips = [];
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    if (rnd() > 0.34) continue;
+    const kind = rnd() < 0.07 ? 'b' : rnd() < 0.55 ? 'k' : '';
+    pips.push(`<rect x="${x * cell + 8}" y="${y * cell + 8}" width="10" height="10" rx="2.5"${kind ? ` class="${kind}" style="animation-delay:${(rnd() * 9).toFixed(2)}s;animation-duration:${(6 + rnd() * 6).toFixed(1)}s"` : ''}/>`);
+  }
+  const field = `<svg class="lv-field" aria-hidden="true" viewBox="0 0 ${cols * cell} ${rows * cell}" preserveAspectRatio="xMidYMid slice">${pips.join('')}</svg>`;
+  const words = ['refund policy', 'fraud rules', 'privacy rules', 'handoff rules', 'pricing rules'];
 
-<span class="c">&gt;</span> check the Linden agent against its policy
-  8 rules checked
-  <span class="ok">✓ 7 kept</span>
-  <span class="bad">✗ 1 broken</span>  hand off orders over $1,000
-  Fix drafted. Waiting for your approval.</pre>`;
+  // Scene 1, the hero: one real exchange from the sample bank, judged against the clause it broke.
+  const rule = bank?.rules.find(r => r.id === 'fraud-freeze-and-handoff');
+  const probe = rule?.probes.find(p => p.status === 'broken');
+  const act = probe?.actions?.[0];
+  const hero = probe ? `<div class="sc sc-hero" data-scene>
+<div class="sc-bar"><span class="sc-dot"></span><span>Quillby Bank · Max</span><span class="sc-sep">/</span><span>Pre-launch check</span></div>
+<div class="sc-hero-body">
+<div class="sc-rules">${bank.rules.map((r, i) => `<div class="sc-rule a${r.probes.some(p => p.status === 'broken') ? ' bad' : ''}" ${d(0.25 + i * 0.22)}><i></i>${esc(r.title ?? r.id)}</div>`).join('')}
+<p class="sc-count a" ${d(2.2)}><b>2</b> of 8 rules broken</p></div>
+<div class="sc-convo">
+<p class="sc-cap a" ${d(0.3)}>Test message from a customer</p>
+<div class="sc-msg a" ${d(0.4)}>${esc(probe.message)}</div>
+<p class="sc-cap a" ${d(1.2)}>Max replied</p>
+<div class="sc-msg ai a" ${d(1.3)}>${esc(probe.answer)}</div>
+${act ? `<div class="sc-tool a" ${d(1.9)}><span>did</span> ${esc(act.tool)} · ${esc(act.input?.team ?? '')}</div>` : ''}
+<div class="sc-verdict a" ${d(2.5)}><span class="sc-badge">Broken</span><div><b>${esc(rule.title ?? rule.id)}</b><p>Policy: “${esc(rule.quote)}”</p><p>${esc(probe.what_happened)}</p></div></div>
+</div></div></div>` : '';
+
+  // Scene 2: every rule at a glance, lighting up as each answer is judged.
+  const grid = bank ? `<div class="sc sc-grid" data-scene><div class="sc-head a" ${d(0)}><span>Quillby Bank · 16 test messages</span><span class="sc-tally"><b class="bad">2</b> broken · <b class="ok">6</b> kept</span></div>
+<div class="sc-tiles">${bank.rules.map((r, i) => { const bad = r.probes.some(p => p.status === 'broken'); return `<div class="sc-tile${bad ? ' bad' : ''}" ${d(0.3 + i * 0.18 + 0.2)}><span>${esc(r.title ?? r.id)}</span><span class="sc-pips">${r.probes.map((p, j) => `<i class="${p.status === 'broken' ? 'b' : 'k'}" ${d(0.3 + i * 0.18 + j * 0.09)}></i>`).join('')}</span></div>`; }).join('')}</div></div>` : '';
+
+  // Scene 3: the approved fix and the re-check on the same messages (the sample store: 2 rules broken, then all 8 kept).
+  const fixLines = String(store?.appliedInstructions ?? '').split('\n').filter(Boolean).slice(0, 3);
+  const fix = store ? `<div class="sc sc-fix" data-scene>
+<div class="sc-head a" ${d(0)}><span>Linden &amp; Co. · Lia</span><span class="sc-tally"><b class="bad">2</b> of 8 rules broken</span></div>
+<div class="sc-draft a" ${d(0.3)}><p class="sc-cap">Proposed fix · extra instructions</p>${fixLines.map((l, i) => `<p class="sc-line a" ${d(0.5 + i * 0.35)}>+ ${esc(l)}</p>`).join('')}</div>
+<div class="sc-approve a" ${d(1.7)}><span class="sc-btn">Approve and re-check</span><span class="sc-meter"><i ${d(2.1)}></i></span></div>
+<div class="sc-after">${store.rules.map((r, i) => `<span class="sc-chip" ${d(3 + i * 0.12)}>${esc(r.title ?? r.id)}</span>`).join('')}</div>
+<p class="sc-result a" ${d(4.1)}>Same 16 messages after the fix: <b>all 8 rules kept</b></p></div>` : '';
+
+  // Scene 4: the client signs off from a link, no account.
+  const sign = `<div class="sc sc-sign" data-scene><div class="sc-mark a" ${d(0)}>${mark(18, 'm-sc')}<span>Grapim</span></div>
+<p class="sc-ask a" ${d(0.15)}>Brightdesk AI asks you to accept <b>Linden &amp; Co. · Lia</b> before it goes live.</p>
+<p class="sc-okline a" ${d(0.4)}><span class="sc-badge ok">Kept</span> All 8 policy rules · 16 test messages</p>
+<div class="sc-field a" ${d(0.7)}><span>Your name</span><span class="sc-type"><span ${d(1)}>Dana Lee</span></span></div>
+<div class="sc-accept a" ${d(2.1)}>Accept this AI agent</div>
+<p class="sc-done a" ${d(2.6)}>✓ Accepted by Dana Lee · saved to the audit log</p></div>`;
+
+  // Scene 5: every client and where it stands.
+  const list = [['Quillby Bank', 'Max', 'bad', '2 rules broken', 'Fixing'], ['Velmora Health', 'Ava', 'accent', 'Waiting on the client', 'Sign-off sent'], ['Linden & Co.', 'Lia', 'good', 'Accepted', 'Ready to launch']];
+  const clients = `<div class="sc sc-list" data-scene><div class="sc-head a" ${d(0)}><span>Clients</span><span class="sc-tally">3 clients · 1 needs you</span></div>
+${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 0.25)}><span class="sc-av">${esc(c[0])}</span><span class="sc-who"><b>${esc(c)}</b><span>${esc(a)}</span></span><span class="badge ${cls}">${esc(st)}</span><span class="sc-stage">${esc(stage)}</span></div>`).join('')}</div>`;
+
+  const step = (n, id, title, text, scene, flip) => `<section class="lv-step${flip ? ' flip' : ''}"${id ? ` id="${id}"` : ''}><div class="lv-step-copy"><p class="lv-k">${n}</p><h2>${title}</h2><p>${text}</p></div><div class="lv-stage">${scene}</div></section>`;
   const body = `${lpTop(start, cta)}
 <main class="lv">
-<section class="lv-hero">
-<h1>Prove your AI agent follows each client’s rules.</h1>
-<p class="lv-sub">Grapim checks your agent against every client’s written policy before launch, and keeps checking after.</p>
-<div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing">Pricing</a></div>
-<figure class="lv-shot lv-main">${bar('Linden &amp; Co. / Check results')}<img src="/media/check.jpg" width="1280" height="800" alt="Grapim check results for an online store’s support agent: 1 of 8 policy rules broken, one tile per rule"></figure>
-<p class="lv-note">Recorded in Grapim, on the sample store.</p>
+<section class="lv-hero">${field}
+<p class="lv-eyebrow">For teams that deploy AI agents to enterprise clients</p>
+<h1>Prove your AI agent follows the client’s <span class="lv-rot" data-rotate="${esc(words.join('|'))}">${esc(words[0])}</span> <mark>before launch</mark></h1>
+<p class="lv-sub">Grapim reads each client’s own policies, finds the messages that make your agent break them, drafts the fix, and gets the client’s sign-off. A new client goes live in days, not weeks.</p>
+<div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="#how">See how it works</a></div>
 </section>
-${row('how', 'One click drafts the rollout.', 'Mapping, integration, connector and tests, built from the client’s own documents. A person approves each one.', clip('rollout', 'Rollout', 'Running the rollout: four drafts finish, then the policy check runs'))}
-${row('', 'The client signs off from a link.', 'No account to create. Their decision goes into the audit log.', clip('signoff', 'Sign-off', 'The client reads the result and accepts the agent'))}
-${row('', 'Every client, one list.', 'Who needs a review, who signed off, and when each was last checked.', clip('clients', 'Clients', 'The clients list with status, stage and engineer hours', '1040/620'))}
-${row('engineers', 'Or run it from your editor.', 'Grapim works as an MCP server in Claude Code, Cursor and Claude Desktop.', term)}
-<section class="lv-close"><h2>Ship to your next client with proof.</h2><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a></div></section>
+<div class="lv-hero-stage">${hero}<p class="lv-note">A real check on Grapim’s sample bank agent.</p></div>
+<section class="lv-pain"><h2>Every new client starts the same way.</h2><div class="lv-pains">
+<div><b>Weeks of hand-testing</b><p>Your forward-deployed engineers read the client’s policies and try the agent by hand, rule by rule.</p></div>
+<div><b>A legal team that wants proof</b><p>The client will not go live on “we tested it”. They want to see what was tested and what changed.</p></div>
+<div><b>More clients, more engineers</b><p>Every rollout starts from zero, so headcount grows with every client you sign.</p></div></div></section>
+${step('1 · Find', 'how', 'Find every rule it <mark>breaks</mark>.', 'Grapim turns the client’s policy into the customer messages most likely to break it, sends them to your agent, and judges what it says and what it does.', grid)}
+${step('2 · Fix', '', 'Fix it, then <mark>check again</mark>.', 'One change to your agent’s instructions for the broken rules. You approve it; the same messages run again, so you see the fix worked.', fix, true)}
+${step('3 · Sign off', '', 'The client signs off <mark>from a link</mark>.', 'No account to create. They read the result and accept, and the decision goes into the audit log.', sign)}
+${step('4 · Every client', '', 'Every client, <mark>one view</mark>.', 'Which client needs a fix, who is waiting to sign, and who is ready to launch.', clients, true)}
+<section class="lv-eng"><p><b>For your engineers:</b> an API, a guard that checks each reply before the customer sees it, and an MCP server for Claude Code and Cursor.</p></section>
+<section class="lv-close"><h2>Your next client, live <mark>with proof</mark>.</h2><p class="lv-sub">Free to start. Try it on three sample clients in a minute.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a></div></section>
 </main>
 ${lpFoot()}`;
   return doc('Grapim: prove your AI agent follows each client’s rules', body, 'lp-page');
