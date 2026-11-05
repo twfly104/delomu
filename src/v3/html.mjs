@@ -514,7 +514,10 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 @media (max-width:900px){.lv-step,.lv-step.flip{grid-template-columns:1fr;gap:28px;padding-top:104px}.lv-step.flip .lv-step-copy{order:0}.lv-pains{grid-template-columns:1fr}.lv-pain{padding-top:104px}.sc-hero-body{grid-template-columns:1fr}.sc-rules{border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr}.sc-count{grid-column:1/-1}}
 @media (max-width:560px){.lv-hero{padding-top:64px}.lv-hero-stage,.lv-stage{padding:12px;border-radius:18px}.lv-hero-stage{margin-top:40px}.sc-tiles{grid-template-columns:1fr}.sc-row{grid-template-columns:30px minmax(0,1fr) auto}.sc-stage{display:none}.sc-msg{max-width:100%}.lv-field{width:900px;height:300px;opacity:.7}}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
-.lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:12px 24px}
+.lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 24px}
+/* The logo on public pages: about 130 x 28, in line with Composio and Linear headers, a bit heavier than in the app. */
+.lp-top .brand{gap:9px;padding:0;font-size:22px;font-weight:650;letter-spacing:-0.05em}.lp-foot .lp-foot-brand{gap:9px;align-items:center;font-size:19px;letter-spacing:-0.045em}
+@media (max-width:560px){.lp-top .brand{font-size:20px}.lp-top .brand .logo{width:25px;height:25px}}
 .lp-top nav{display:flex;gap:20px;align-items:center;font-size:14px}.lp-top nav a:not(.btn){color:var(--text-2)}.lp-top nav a:not(.btn):hover{color:var(--text);text-decoration:none}
 .lp{max-width:1160px;margin:0 auto;padding:0 24px}
 .lp h1{font-size:clamp(36px,5.6vw,68px);line-height:1.02;letter-spacing:-0.038em;font-weight:620;max-width:15ch;margin:0 auto;text-wrap:balance}
@@ -787,9 +790,9 @@ export function signupKeyPage({ secret, email }) {
 }
 
 
-const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(22, 'm-lp')}<span>Grapim</span></a>
+const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
 <nav><a href="/#how">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
-const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span class="lp-foot-brand">${mark(16, 'm-lpf')} Grapim</span>
+const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span class="lp-foot-brand">${mark(22, 'm-lpf')} Grapim</span>
 <nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
