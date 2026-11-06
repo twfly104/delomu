@@ -59,7 +59,7 @@ test('signed-out visitors see the public page at / and are sent to sign in elsew
   const res = await get('/', '');
   assert.equal(res.status, 200);
   const landing = await res.text();
-  assert.match(landing, /Prove your AI agent follows the client’s <span class="lv-rot"/);
+  assert.match(landing, /Prove your AI agent follows the client’s<\/span> <span class="lv-l"><span class="lv-rot"/);
   // Every picture on the page is a recording of the product, served from this server with byte ranges.
   for (const src of landing.matchAll(/(?:src|poster)="(\/media\/[^"]+)"/g)) assert.equal((await get(src[1], '')).status, 200, src[1]);
   assert.match(res.headers.get('content-security-policy'), /media-src 'self'/);
@@ -164,7 +164,7 @@ test('sessions: other orgs are invisible, logout needs CSRF and ends the session
   const out = await post('/logout', owner.cookie, { csrf: owner.csrf });
   assert.equal(out.status, 303);
   assert.match(out.headers.getSetCookie()[0], /Max-Age=0/);
-  assert.match(await (await get('/', owner.cookie)).text(), /Prove your AI agent follows the client’s <span class="lv-rot"/, 'after logout / is the public page');
+  assert.match(await (await get('/', owner.cookie)).text(), /Prove your AI agent follows the client’s<\/span> <span class="lv-l"><span class="lv-rot"/, 'after logout / is the public page');
   assert.ok(!fs.readdirSync(srv.deploymentsRoot).includes(other.org.id));
 });
 

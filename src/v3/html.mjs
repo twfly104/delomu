@@ -418,7 +418,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .mcp-k{font-size:12px;font-weight:500;color:var(--text-2);margin:12px 0 4px}
 .mcp-code{margin:0;padding:10px 12px;border-radius:8px;background:var(--sunken);font:12px/1.6 var(--mono);color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere;user-select:all}
 .lp-page{background:var(--canvas)}
-.lv{max-width:1120px;margin:0 auto;padding:0 24px}
+.lv{max-width:1120px;margin:0 auto;padding:0 24px}body:has(main.lv){overflow-x:clip}
 .lv-hero{padding:88px 0 0;text-align:center}
 .lv-hero h1{margin:0 auto;max-width:15ch;font-size:clamp(40px,6.4vw,68px);line-height:1.03;letter-spacing:-0.045em;font-weight:600}
 .lv-sub{margin:20px auto 0;max-width:32em;font-size:clamp(16px,2vw,19px);line-height:1.55;color:var(--text-2);text-wrap:pretty}
@@ -447,6 +447,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 @keyframes lvPipB{0%,66%,100%{fill:var(--line)}74%,88%{fill:color-mix(in srgb,var(--bad) 75%,var(--line))}}
 .lv-eyebrow{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:13px;color:var(--text-2);margin-bottom:22px}
 .lv-hero h1{margin:0 auto;max-width:17ch;font-size:clamp(38px,6vw,66px);line-height:1.06;letter-spacing:-0.045em;font-weight:600;text-wrap:balance}
+@media (min-width:900px){.lv-hero h1{max-width:none;font-size:clamp(36px,4.1vw,62px)}.lv-hero h1>.lv-l{display:block;white-space:nowrap}.lv-hero h1 .lv-rot{justify-items:end}}
 .lv-rot{display:inline-grid;justify-items:start;color:var(--accent-text);text-align:left}.lv-rot>span{grid-area:1/1;opacity:0;transform:translateY(.28em);filter:blur(5px);transition:opacity .35s,transform .35s,filter .35s}.lv-rot>span.on{opacity:1;transform:none;filter:none}
 .lv mark{background:none;color:inherit;box-shadow:inset 0 -.3em 0 color-mix(in srgb,var(--accent) 22%,transparent);border-radius:2px}
 .lv-hero-stage{max-width:1040px;margin:56px auto 0;padding:28px;border-radius:24px;background:radial-gradient(90% 70% at 0% 0%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 62%),radial-gradient(80% 70% at 100% 100%,color-mix(in srgb,var(--good) 14%,transparent),transparent 62%),var(--sunken);text-align:center}
@@ -873,7 +874,7 @@ ${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 
 <main class="lv">
 <section class="lv-hero">${field}
 <p class="lv-eyebrow">For teams that deploy AI agents to enterprise clients</p>
-<h1>Prove your AI agent follows the client’s <span class="lv-rot" data-rotate>${words.map((w, i) => `<span${i ? ' aria-hidden="true"' : ' class="on"'}>${esc(w)}</span>`).join('')}</span> rules before launch</h1>
+<h1><span class="lv-l">Prove your AI agent follows the client’s</span> <span class="lv-l"><span class="lv-rot" data-rotate>${words.map((w, i) => `<span${i ? ' aria-hidden="true"' : ' class="on"'}>${esc(w)}</span>`).join('')}</span> rules before launch</span></h1>
 <p class="lv-sub">Grapim reads each client’s own policies, finds the messages that make your agent break them, drafts the fix, and gets the client’s sign-off. A new client goes live in days, not weeks.</p>
 <div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="#how">See how it works</a></div>
 </section>
