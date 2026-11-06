@@ -110,6 +110,7 @@ export function createServer({
   const web = createWebHandler(ctx);
   const mcp = createMcpHandler(ctx, authenticate);
 
+  const wwwHost = baseUrl ? `www.${new URL(baseUrl).host}` : null;
   const server = http.createServer(async (req, res) => {
     let url;
     try {
@@ -125,6 +126,11 @@ export function createServer({
       } catch {
         send(res, 503, 'database unavailable\n', { 'content-type': 'text/plain' });
       }
+      return;
+    }
+    // www.<public host> serves nothing of its own: send it to the public URL, so links and cookies use one address.
+    if (wwwHost && String(req.headers.host ?? '').toLowerCase() === wwwHost && (req.method === 'GET' || req.method === 'HEAD')) {
+      send(res, 301, '', { location: `${baseUrl}${url.pathname}${url.search}` });
       return;
     }
     if (url.pathname === '/webhooks/stripe') await billing.handleWebhook(req, res, { maxBodyBytes });
