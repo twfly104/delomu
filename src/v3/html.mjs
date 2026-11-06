@@ -875,7 +875,7 @@ ${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 
 <section class="lv-hero">${field}
 <p class="lv-eyebrow">For teams that deploy AI agents to enterprise clients</p>
 <h1><span class="lv-l">Prove your AI agent follows the client’s</span> <span class="lv-l"><span class="lv-rot" data-rotate>${words.map((w, i) => `<span${i ? ' aria-hidden="true"' : ' class="on"'}>${esc(w)}</span>`).join('')}</span> rules before launch</span></h1>
-<p class="lv-sub">Grapim reads each client’s own policies, finds the messages that make your agent break them, drafts the fix, and gets the client’s sign-off. A new client goes live in days, not weeks.</p>
+<p class="lv-sub">Grapim deploys your AI agent to each new client. It drafts the data mapping, the integration and the tests, finds the rules your agent breaks, drafts the fix, and hands you the client’s signed proof.</p>
 <div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="#how">See how it works</a></div>
 </section>
 <div class="lv-hero-stage">${hero}<p class="lv-note">A real check on Grapim’s sample bank agent.</p></div>
@@ -886,9 +886,9 @@ ${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 
 ${step('1 · Find', 'how', 'Find every rule it <mark>breaks</mark>.', 'Grapim turns the client’s policy into the customer messages most likely to break it, sends them to your agent, and judges what it says and what it does.', grid)}
 ${step('2 · Fix', '', 'Fix it, then <mark>check again</mark>.', 'One change to your agent’s instructions for the broken rules. You approve it; the same messages run again, so you see the fix worked.', fix, true)}
 ${step('3 · Sign off', '', 'The client signs off <mark>from a link</mark>.', 'No account to create. They read the result and accept, and the decision goes into the audit log.', sign)}
-${step('4 · Every client', '', 'Every client, <mark>one view</mark>.', 'Which client needs a fix, who is waiting to sign, and who is ready to launch.', clients, true)}
+${step('4 · Every client', '', 'One click per <mark>new client</mark>.', 'Run the whole rollout in one click: mapping, integration, tests, check, fix. Then see which client needs you, who is waiting to sign, and who is ready to launch.', clients, true)}
 <section class="lv-eng"><p><b>For your engineers:</b> an API, a guard that checks each reply before the customer sees it, and an MCP server for Claude Code and Cursor.</p></section>
-<section class="lv-close"><h2>Your next client, live <mark>with proof</mark>.</h2><p class="lv-sub">Free to start. Try it on three sample clients in a minute.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a></div></section>
+<section class="lv-close"><h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Try it on three sample clients in a minute.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a></div></section>
 </main>
 ${lpFoot()}`;
   return doc('Grapim: prove your AI agent follows each client’s rules', body, 'lp-page');
@@ -1434,7 +1434,7 @@ export function rolloutPage(args) {
   const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
   const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
   const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
-<p class="panel-body subtle" style="margin:0">Drafts every step, then runs the check. You approve each draft.</p>
+<p class="panel-body subtle" style="margin:0">Grapim drafts the data mapping, the integration and the tests, runs the check, drafts the fix, and gets the rollout ready for the client’s sign-off. You approve every draft.</p>
 ${job}</section>
 <section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
 <p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>

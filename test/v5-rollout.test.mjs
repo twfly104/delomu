@@ -38,6 +38,8 @@ test('one click runs every step the agent can draft, then the check, and reports
   for (const label of ['Draft the data mapping', 'Draft the integration', 'Draft the test set', 'Run the policy check']) assert.match(text, new RegExp(label));
   assert.match(text, /Skipped/);
   assert.match(text, /Failed/); // the check: the model refused to read the policy
+  for (const label of ['Draft the fix for broken rules', 'Get the client’s sign-off']) assert.match(text, new RegExp(label));
+  assert.match(text, /Needs a finished policy check/); // no check result, so no fix and no sign-off yet
   assert.match(text, /Run the rollout again/);
   assert.ok(calls.length >= 3, 'every step asked the model');
 });

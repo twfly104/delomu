@@ -14,6 +14,8 @@ Added 2026-11-02: **AI vendors** (heads of forward deployed or solutions enginee
 Secondary: support operations people who connect the help desk and set alerts, and engineers at AI startups who still use the deeper test-run and agent-draft tools (kept behind the More menu).
 
 ## Product Purpose
+Positioning since 2026-11-06 (primary): **Grapim deploys your AI agent to each new client and hands you the client's signed proof.** For AI vendors' deployment teams: one click drafts the data mapping, the integration and the tests, runs the policy check, drafts the fix, and gets the rollout ready for the client's no-login sign-off; a person approves every draft. Short term a tool (save rollout time, give the client's legal team proof); long term the AI that does the forward-deployed work, with the signed per-client record as the moat (see research_notes/competitive-landscape-2026-11.md).
+
 Grapim finds the policy rules a support AI breaks, before customers do. It reads the company's policies, writes the customer messages most likely to make the AI break each rule, sends them to the AI and judges every answer against the exact clause. After launch it checks real conversations and alerts on high-risk breaks. Success: a support lead sees, in one screen, which rules break, the AI's actual reply, the clause it broke and the fix.
 
 ## Positioning

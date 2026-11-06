@@ -84,7 +84,7 @@ const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
 const REPLAY_LIMIT = 6;
 const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report', 'connector'];
 // What one click on Run the rollout does, in order. Fixes and the launch report follow a test run, so they come later.
-const ROLLOUT_STEPS = [['mapping', 'Draft the data mapping'], ['integration', 'Draft the integration'], ['connector', 'Draft the client-system connector'], ['cases', 'Draft the test set'], ['playbook', 'Add test messages from your playbook'], ['check', 'Run the policy check']];
+const ROLLOUT_STEPS = [['mapping', 'Draft the data mapping'], ['integration', 'Draft the integration'], ['connector', 'Draft the client-system connector'], ['cases', 'Draft the test set'], ['playbook', 'Add test messages from your playbook'], ['check', 'Run the policy check'], ['fix', 'Draft the fix for broken rules'], ['signoff', 'Get the client’s sign-off']];
 const NOTICES = {
   created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
@@ -726,6 +726,24 @@ function routes(ctx) {
             const scan = await startScan(principal, org, params.name, dir);
             await scan.done;
             Object.assign(step, scan.status === 'done' ? { state: 'done', detail: 'Check finished.' } : { state: 'failed', detail: scan.error });
+            continue;
+          }
+          // After the check: the agent drafts one fix for the broken rules (a person approves it, which re-checks the
+          // same messages), and once every rule is kept the rollout is ready for the client's sign-off.
+          if (step.key === 'fix' || step.key === 'signoff') {
+            const checked = job.steps.find(s => s.key === 'check')?.state === 'done';
+            const scan = checked ? listScans(dir)[0] : null;
+            const broken = scan?.summary?.broken ?? null;
+            if (broken == null) { Object.assign(step, { state: 'skipped', detail: 'Needs a finished policy check.' }); continue; }
+            if (step.key === 'signoff') {
+              Object.assign(step, broken ? { state: 'skipped', detail: 'Waiting for the fix. Once a re-check keeps every rule, send the client the sign-off link above.' } : { state: 'done', detail: 'Every rule kept. Send the client the sign-off link above; they accept without an account.' });
+              continue;
+            }
+            if (!broken) { Object.assign(step, { state: 'skipped', detail: 'No rule broken: nothing to fix.' }); continue; }
+            const res = await draftFix(dir, { llm, now: ctx.now() });
+            if (!res.ok) { Object.assign(step, { state: 'skipped', detail: `The agent could not draft a fix: ${res.reason}.` }); continue; }
+            event(ctx, principal, org.id, 'fix.draft', params.name, { rules: res.fix.rules.length, via: 'rollout' });
+            Object.assign(step, { state: 'done', detail: `A fix for ${broken} broken rule${broken === 1 ? '' : 's'} is waiting for your approval on the Check page. Approving it sends the same messages again.` });
             continue;
           }
           const result = await TASKS[step.key](dir, { llm, ...(step.key === 'integration' && { examples: integrationExamples(play) }) });

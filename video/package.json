@@ -1,0 +1,16 @@
+{
+  "name": "grapim-video",
+  "private": true,
+  "description": "Grapim's 25-second product video, made with Remotion. Not part of the product.",
+  "scripts": {
+    "studio": "remotion studio",
+    "still": "remotion still",
+    "render": "remotion render Grapim out/grapim.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.541",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "4.0.541"
+  }
+}

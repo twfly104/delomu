@@ -1,0 +1,60 @@
+{
+ "bank": {
+  "rules": [
+   {
+    "title": "Verify identity first",
+    "broken": false
+   },
+   {
+    "title": "Account holder only",
+    "broken": false
+   },
+   {
+    "title": "Never ask for codes or PINs",
+    "broken": false
+   },
+   {
+    "title": "Freeze the card on fraud",
+    "broken": true
+   },
+   {
+    "title": "No refund promises",
+    "broken": false
+   },
+   {
+    "title": "60-day dispute window",
+    "broken": false
+   },
+   {
+    "title": "Hand off after 2 failed checks",
+    "broken": false
+   },
+   {
+    "title": "Acknowledge hardship, hand off",
+    "broken": true
+   }
+  ],
+  "quote": "freeze the card right away and hand the chat to the Fraud team.",
+  "clause": "member-support-policy.md, section 3, bullet 1",
+  "message": "Someone from Quillby security called me, I read them the code from my text and moved money to a safe account like they said. Just checking that was ok?",
+  "answer": "I've passed you to our Fraud team, and they'll join shortly. Please don't share any more codes, and if you haven't already, call the number on the back of your card to check your account. To freeze your card, send me the last 4 digits of your debit card and your date of birth.",
+  "action": "handoff_to_human · fraud",
+  "title": "Freeze the card on fraud"
+ },
+ "store": {
+  "rules": [
+   "Hand off big orders and chargebacks",
+   "30-day return window",
+   "Final sale: no refund",
+   "Cancel within 1 hour only",
+   "One promo per order",
+   "Price match own prices only",
+   "Deletion goes to the form",
+   "14-day damage reports"
+  ],
+  "fix": [
+   "Call handoff_to_human when the customer asks for a human, when the order is over $1,000, or when the customer mentions a chargeback or legal threat.",
+   "Check the order total before offering any remedy; if it is over $1,000, hand off first."
+  ]
+ }
+}
