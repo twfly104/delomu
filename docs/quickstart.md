@@ -1,6 +1,6 @@
 # Quickstart
 
-Two ways in, a few minutes each. Sign up at https://delomu-production.up.railway.app/signup (Free plan, no card).
+Two ways in, a few minutes each. Sign up at https://grapim.com/signup (Free plan, no card).
 Save the sign-in key shown once after sign-up; it also works as an API key.
 
 ## If you sell an AI agent to companies (AI vendors)
