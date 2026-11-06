@@ -404,9 +404,9 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .asst-hello{margin:auto 0;padding:8px 2px;animation:asst-in .45s cubic-bezier(.16,1,.3,1) both}.asst-hi{font-size:17px;font-weight:600;letter-spacing:-.02em;margin-bottom:4px}
 .asst-sugs{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}.asst-sugs form{margin:0}
 .asst-sug{border:1px solid var(--line-strong);background:var(--surface);color:var(--text);font:500 12.5px var(--font);padding:7px 11px;border-radius:99px;cursor:pointer;animation:asst-in .4s cubic-bezier(.16,1,.3,1) both;animation-delay:calc(var(--i,0) * 70ms + 150ms);transition:background .15s,border-color .15s}.asst-sug:hover{background:var(--hover);border-color:var(--text-3)}
-.asst-form{display:flex;align-items:flex-end;gap:8px;margin:0 12px 14px;padding:8px 8px 8px 12px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface);transition:border-color .15s,box-shadow .15s}
+.asst-form{display:flex;align-items:flex-end;gap:10px;margin:0 12px 14px;padding:8px 8px 8px 16px;border:1px solid var(--line-strong);border-radius:14px;background:var(--surface);transition:border-color .15s,box-shadow .15s}
 .asst-form:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
-.asst-form textarea{flex:1;min-height:22px;height:22px;max-height:140px;padding:2px 0;border:0;background:none;resize:none;overflow-y:hidden;scrollbar-width:thin;font:14px/1.5 var(--font);color:var(--text);box-shadow:none}.asst-form textarea:focus-visible{box-shadow:none;border:0}
+.asst-form textarea{flex:1;min-height:32px;height:32px;max-height:140px;padding:5.5px 0;border:0;background:none;resize:none;overflow-y:hidden;scrollbar-width:thin;font:14px/1.5 var(--font);color:var(--text);box-shadow:none}.asst-form textarea:focus-visible{box-shadow:none;border:0}
 .asst-send{flex:none;width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:9px;background:var(--ink);color:var(--on-ink);cursor:pointer;transition:transform .15s}.asst-send:hover{transform:translateY(-1px)}.asst-send .i{transform:rotate(-90deg)}
 .asst-foot{padding:8px 16px 14px;font-size:11.5px;color:var(--text-3);text-align:center}
 .asst-page .asst-log{max-height:none;min-height:260px}.asst-page .asst-form{margin:0 16px}
