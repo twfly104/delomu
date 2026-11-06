@@ -78,9 +78,9 @@ const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }>
 );
 
 // A rule tile. It flips over (rotateX) when its verdict comes in.
-const Tile: React.FC<{ title: string; f: number; at: number; verdict: 'good' | 'bad'; style?: React.CSSProperties }> = ({ title, f, at, verdict, style }) => {
+const Tile: React.FC<{ title: string; f: number; at: number; verdict: 'good' | 'bad'; before?: 'wait' | 'good' | 'bad'; style?: React.CSSProperties }> = ({ title, f, at, verdict, before = 'wait', style }) => {
   const t = interpolate(f, [at - 5, at + 5], [0, 1], clamp);
-  const state = t < 0.5 ? 'wait' : verdict;
+  const state = t < 0.5 ? before : verdict;
   const rot = t < 0.5 ? t * 180 : (t - 1) * 180;
   const col = state === 'good' ? C.good : state === 'bad' ? C.bad : '#cfd3da';
   return (
@@ -115,30 +115,83 @@ const Backdrop: React.FC = () => {
   );
 };
 
-// 1. Two beats of words; the rule chips float in 3D around them.
+// Who is who, said the same way in every shot: the viewer's company (an AI vendor) and its new client. Both made up.
+const VENDOR = 'Brightdesk AI', CLIENT = 'Quillby Bank';
+const Pair: React.FC = () => (
+  <div style={{ fontSize: 26, color: C.text3, marginBottom: 18, textAlign: 'center' }}>{VENDOR} agent → {CLIENT} <span style={{ opacity: 0.7 }}>(sample)</span></div>
+);
+
+// A company card for the hook: a mark, a name, and a small label of what it is to the viewer.
+const Party: React.FC<{ name: string; label: string; mark: React.ReactNode; p: number; from: number }> = ({ name, label, mark, p, from }) => (
+  <Card style={{ width: 400, height: 140, boxSizing: 'border-box', whiteSpace: 'nowrap', padding: '0 30px', display: 'flex', alignItems: 'center', gap: 22, opacity: Math.min(p * 1.4, 1), transform: `translateX(${(1 - p) * from}px) rotateY(${(1 - p) * (from > 0 ? -30 : 30)}deg)` }}>
+    <div style={{ flex: 'none', width: 70, height: 70, borderRadius: 18, display: 'grid', placeItems: 'center', ...(typeof mark === 'string' ? { background: mark } : {}) }}>{typeof mark === 'string' ? null : mark}</div>
+    <div>
+      <div style={{ fontSize: 22, color: C.text3, fontWeight: 560, textTransform: 'uppercase', letterSpacing: 1.5 }}>{label}</div>
+      <div style={{ fontSize: 36, fontWeight: 650, letterSpacing: -1.2, marginTop: 4 }}>{name}</div>
+    </div>
+  </Card>
+);
+
+// 1. Two beats of words, each with its company: your agent, then the new client it has to go live for.
 const Hook: React.FC = () => {
   const f = useCurrentFrame();
   const a = sp(f, 0, 200, 200), b = sp(f, 30, 200, 200);
-  const chips: [string, number, number, number][] = [['Refunds', 150, 230, -14], ['Fraud', 790, 200, 12], ['Privacy', 120, 800, 10], ['Handoffs', 770, 830, -10]];
+  const pa = sp(f, 6, 16, 140), pb = sp(f, 36, 16, 140);
+  const link = interpolate(f, [44, 66], [0, 1], ease);
   return (
-    <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', perspective: 1400 }}>
-      {chips.map(([c, x, y, r], i) => {
-        const p = sp(f, 45 + i * 7.5, 13, 200);
-        return <div key={c} style={{
-          position: 'absolute', left: x, top: y + Math.sin((f + i * 20) / 14) * 8, fontSize: 34, padding: '16px 28px', borderRadius: 999,
-          border: `1.5px solid ${C.line}`, background: C.surface, color: C.text2, boxShadow: '0 20px 40px -20px rgba(20,30,80,.3)',
-          opacity: Math.min(p, 1), transform: `translateZ(${(1 - p) * -400}px) rotateY(${r}deg) rotateX(${r / 2}deg)`,
-        }}>{c}</div>;
-      })}
-      <div style={{ fontSize: 136, fontWeight: 690, letterSpacing: -6.5, lineHeight: 1.04, textAlign: 'center' }}>
-        <div style={{ opacity: a, filter: `blur(${(1 - a) * 12}px)`, transform: `translateY(${(1 - a) * 50}px)` }}>New client.</div>
-        <div style={{ opacity: b, filter: `blur(${(1 - b) * 12}px)`, transform: `translateY(${(1 - b) * 50}px)`, backgroundImage: GRAD, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>New rules.</div>
+    <AbsoluteFill style={{ alignItems: 'center', perspective: 1400 }}>
+      <div style={{ marginTop: 250, fontSize: 124, fontWeight: 690, letterSpacing: -6, lineHeight: 1.04, textAlign: 'center' }}>
+        <div style={{ opacity: a, filter: `blur(${(1 - a) * 12}px)`, transform: `translateY(${(1 - a) * 50}px)` }}>Your AI agent.</div>
+        <div style={{ opacity: b, filter: `blur(${(1 - b) * 12}px)`, transform: `translateY(${(1 - b) * 50}px)`, backgroundImage: GRAD, WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>A new client.</div>
+      </div>
+      <div style={{ position: 'absolute', top: 660, left: 0, right: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 0 }}>
+        <Party name={VENDOR} label="You" mark={GRAD} p={pa} from={-200} />
+        <div style={{ width: 110, height: 6, margin: '0 -2px', background: C.sunken, borderRadius: 6, overflow: 'hidden' }}>
+          <div style={{ width: `${link * 100}%`, height: '100%', backgroundImage: GRAD }} />
+        </div>
+        <Party name={CLIENT} label="New client" mark={<svg width="70" height="70" viewBox="0 0 70 70"><rect width="70" height="70" rx="18" fill={C.ink} /><path d="M17 30h36M21 30v18M30 30v18M40 30v18M49 30v18M15 52h40M35 15l20 10H15Z" stroke="#fff" strokeWidth="3.5" fill="none" strokeLinejoin="round" /></svg>} p={pb} from={200} />
       </div>
     </AbsoluteFill>
   );
 };
 
-// 2. The grid of rules, tilted in 3D, gets tested tile by tile; then the camera dives at the broken one.
+// 2. The deployment work for this client, drafted one piece after another. Nothing goes live without the vendor's OK.
+const Deploy: React.FC = () => {
+  const f = useCurrentFrame();
+  const rows: [string, string, number][] = [['Data mapping', 'Their CRM fields → your agent', 22], ['Integration', 'Orders, cards and handoffs', 42], ['Tests', 'One test per client rule', 62]];
+  const note = sp(f, 82, 14, 160);
+  return (
+    <AbsoluteFill>
+      <Title text="Drafts the deployment." hl={['deployment']} />
+      <div style={{ position: 'absolute', top: 270, left: 130, right: 130, perspective: 1600 }}>
+        <Pair />
+        <div style={{ display: 'grid', gap: 18, transform: `rotateX(${k(f, [0, 60], [14, 4])}deg)` }}>
+          {rows.map(([name, sub, at], i) => {
+            const enter = sp(f, 4 + i * 6, 18, 160);
+            const done = f >= at;
+            const d = sp(f, at, 12, 220);
+            return (
+              <Card key={name} style={{ borderRadius: 22, padding: '0 34px', height: 124, display: 'flex', alignItems: 'center', gap: 24, opacity: Math.min(enter * 1.4, 1), transform: `translateY(${(1 - enter) * 40}px)`, border: `2px solid ${done ? 'rgba(22,163,74,.45)' : C.line}` }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 38, fontWeight: 640, letterSpacing: -1.2 }}>{name}</div>
+                  <div style={{ fontSize: 25, color: C.text3, marginTop: 4 }}>{sub}</div>
+                </div>
+                {done
+                  ? <span style={{ fontSize: 28, fontWeight: 620, color: C.good, background: C.goodWeak, padding: '12px 22px', borderRadius: 999, transform: `scale(${0.6 + 0.4 * d})`, display: 'inline-block' }}>✓ Drafted</span>
+                  : <svg width="46" height="46" viewBox="0 0 46 46" style={{ transform: `rotate(${f * 14}deg)` }}><circle cx="23" cy="23" r="18" stroke={C.line} strokeWidth="5" fill="none" /><path d="M23 5a18 18 0 0 1 18 18" stroke={C.accent} strokeWidth="5" fill="none" strokeLinecap="round" /></svg>}
+              </Card>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 34, textAlign: 'center', opacity: note, transform: `translateY(${(1 - note) * 16}px)` }}>
+          <span style={{ fontSize: 30, fontWeight: 560, color: C.text2, background: C.surface, border: `1.5px solid ${C.line}`, padding: '14px 28px', borderRadius: 999 }}>You approve each draft</span>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// 3. The grid of rules, tilted in 3D, gets tested tile by tile; then the camera dives at the broken one.
 const Find: React.FC = () => {
   const f = useCurrentFrame();
   const rules = data.bank.rules as { title: string; broken: boolean }[];
@@ -154,7 +207,7 @@ const Find: React.FC = () => {
           transform: `rotateX(${k(f, [0, 90], [26, 10])}deg) rotateZ(${k(f, [0, 90], [-4, 0])}deg) scale(${k(f, [0, 90], [0.92, 1]) + dive * 0.9})`,
           opacity: 1 - dive * 0.75, filter: `blur(${dive * 10}px)`,
         }}>
-          <div style={{ fontSize: 26, color: C.text3, marginBottom: 18, textAlign: 'center' }}>Quillby Bank (sample) · AI agent</div>
+          <Pair />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {rules.map((r, i) => <Tile key={r.title} title={r.title} f={f} at={16 + i * 8} verdict={r.broken ? 'bad' : 'good'} />)}
           </div>
@@ -177,7 +230,7 @@ const Find: React.FC = () => {
 // 3. Close on the button; the hand presses it; the camera pulls back while the same tests run again.
 const Fix: React.FC = () => {
   const f = useCurrentFrame();
-  const rules = data.store.rules as string[];
+  const rules = data.bank.rules as { title: string; broken: boolean }[];
   const press = interpolate(f, [38, 42, 48], [1, 0.9, 1], clamp);
   const bar = interpolate(f, [45, 76], [0, 1], ease);
   const allOk = f >= 112;
@@ -185,7 +238,8 @@ const Fix: React.FC = () => {
   // Camera: start 2.3x on the button (top-left of the layout), pull back to the whole panel.
   const z = k(f, [0, 30, 50, 80], [2.6, 2.3, 2.3, 1]);
   const tilt = k(f, [50, 80, 150], [0, 8, 4]);
-  const hx = k(f, [4, 32], [820, 500]), hy = k(f, [4, 32], [860, 512]);
+  // The fingertip lands on the button's lower-right corner, so the hand sits below the words, not on them.
+  const hx = k(f, [4, 32], [900, 712]), hy = k(f, [4, 32], [900, 566]);
   const tx = k(f, [0, 30, 50, 80], [174, 207, 207, 0]), ty = k(f, [0, 30, 50, 80], [166, 178, 178, 0]);
   return (
     <AbsoluteFill>
@@ -197,9 +251,9 @@ const Fix: React.FC = () => {
             <div style={{ flex: 1, height: 12, borderRadius: 12, background: C.sunken, overflow: 'hidden' }}><div style={{ width: `${bar * 100}%`, height: '100%', backgroundImage: GRAD }} /></div>
             <span style={{ flex: 'none', fontSize: 32, fontWeight: 650, color: allOk ? C.good : C.bad, display: 'inline-block', transform: `scale(${allOk ? 0.7 + 0.3 * ok : 1})` }}>{allOk ? '8 / 8 kept' : '2 broken'}</span>
           </div>
-          <div style={{ fontSize: 26, color: C.text3, marginBottom: 18, textAlign: 'center' }}>Linden &amp; Co. (sample) · AI agent</div>
+          <Pair />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {rules.map((r, i) => <Tile key={r} title={r} f={f} at={80 + i * 4} verdict="good" style={{ height: 84, fontSize: 25 }} />)}
+            {rules.map((r, i) => <Tile key={r.title} title={r.title} f={f} at={80 + i * 4} verdict="good" before={r.broken ? 'bad' : 'good'} style={{ height: 84, fontSize: 25 }} />)}
           </div>
         </div>
       </AbsoluteFill>
@@ -216,19 +270,20 @@ const Sign: React.FC = () => {
   const d = sp(f, 45, 12, 200);
   const swing = sp(f, 0, 20, 120);
   const z = k(f, [14, 36, 56, 76], [1, 1.25, 1.25, 1]);
-  const hx = k(f, [12, 38], [880, 502]), hy = k(f, [12, 38], [960, 517]);
+  const hx = k(f, [12, 38], [900, 776]), hy = k(f, [12, 38], [980, 556]);
   return (
     <AbsoluteFill>
-      <Title text="Client signs off." hl={['signs', 'off']} />
+      <div style={{ opacity: k(f, [44, 50], [1, 0]) }}><Title text="Your client signs off." hl={['signs', 'off']} size={72} /></div>
+      {f >= 46 && <Title text="You launch." hl={['launch']} delay={47} size={72} />}
       <AbsoluteFill style={{ perspective: 1500 }}>
         <div style={{ position: 'absolute', top: 300, left: 170, right: 170, transformOrigin: '50% 72%', transform: `rotateY(${(1 - swing) * -40}deg) rotateX(${(1 - swing) * 12}deg) scale(${z})` }}>
           <Card style={{ padding: '48px 52px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 30, fontWeight: 650, letterSpacing: -1 }}><Logo size={36} />Grapim</div>
-            <div style={{ marginTop: 28, fontSize: 40, lineHeight: 1.25, letterSpacing: -1 }}>Accept <b>Linden &amp; Co.’s</b> AI agent?</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 30, fontWeight: 650, letterSpacing: -1 }}><Logo size={36} />Grapim<span style={{ marginLeft: 'auto', fontSize: 24, fontWeight: 500, color: C.text3 }}>for {CLIENT}</span></div>
+            <div style={{ marginTop: 28, fontSize: 40, lineHeight: 1.25, letterSpacing: -1 }}>Accept <b>{VENDOR}’s</b> agent?<span style={{ display: 'block', color: C.good, fontWeight: 600, whiteSpace: 'nowrap' }}>8 / 8 rules kept</span></div>
             <div style={{ marginTop: 34, height: 92, borderRadius: 18, background: done ? C.good : C.ink, color: '#fff', fontSize: 34, fontWeight: 620, display: 'grid', placeItems: 'center', transform: `scale(${press})`, boxShadow: done ? '0 14px 40px -10px rgba(22,163,74,.6)' : 'none' }}>
               {done ? <span style={{ transform: `scale(${0.7 + 0.3 * d})`, display: 'inline-block' }}>✓ Accepted</span> : 'Accept'}
             </div>
-            <div style={{ marginTop: 22, fontSize: 26, color: C.text3, textAlign: 'center', opacity: d }}>Saved to the audit log</div>
+            <div style={{ marginTop: 22, fontSize: 26, color: C.text3, textAlign: 'center', opacity: d }}>Signed by {CLIENT} · saved to the audit log</div>
           </Card>
         </div>
       </AbsoluteFill>
@@ -255,7 +310,7 @@ export const Grapim: React.FC = () => (
     <style>{fontCss}</style>
     <Backdrop />
     <Audio src={staticFile('sound.wav')} />
-    {([['hook', Hook], ['find', Find], ['fix', Fix], ['sign', Sign], ['end', End]] as const).map(([key, Comp]) => (
+    {([['hook', Hook], ['deploy', Deploy], ['find', Find], ['fix', Fix], ['sign', Sign], ['end', End]] as const).map(([key, Comp]) => (
       <Sequence key={key} from={SCENES[key].from} durationInFrames={SCENES[key].len}>
         <Shot len={key === 'end' ? 999 : SCENES[key].len}><Comp /></Shot>
       </Sequence>

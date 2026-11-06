@@ -1,8 +1,8 @@
-// Writes public/sound.wav: an original 20-second track at 120 BPM plus UI sounds placed on the video's cue frames.
+// Writes public/sound.wav: an original 24-second track at 120 BPM plus UI sounds placed on the video's cue frames.
 // Everything is synthesized here; no samples, no downloads.
 import { writeFileSync } from 'node:fs';
 
-const SR = 44100, FPS = 30, LEN = 20;
+const SR = 44100, FPS = 30, LEN = 24;
 const N = SR * LEN;
 const L = new Float32Array(N), R = new Float32Array(N);
 const fr = (f) => Math.round((f / FPS) * SR);
@@ -49,31 +49,33 @@ const impact = () => { const n = SR * 1.4, b = new Float32Array(n); let lp = 0;
 // ---- music: C G Am F, one chord per bar (2 s)
 const prog = [[60, 64, 67], [59, 62, 67], [60, 64, 69], [60, 65, 69]];
 const roots = [36, 43, 45, 41];
-for (let bar = 0; bar < 10; bar++) {
+for (let bar = 0; bar < 12; bar++) {
   const t0 = bar * 2, c = prog[bar % 4];
-  add(Math.round(t0 * SR), pad(c.map((m) => m - 12).concat(c), 2.05), bar < 9 ? 0.32 : 0.28, 0);
-  if (bar >= 1 && bar < 10) for (let k = 0; k < 4; k++) add(Math.round((t0 + k * beat) * SR), bass(roots[bar % 4], 0.45), 0.35);
-  if (bar >= 1 && bar < 9) for (let k = 0; k < 4; k++) {
+  add(Math.round(t0 * SR), pad(c.map((m) => m - 12).concat(c), 2.05), bar < 11 ? 0.32 : 0.28, 0);
+  if (bar >= 1 && bar < 12) for (let k = 0; k < 4; k++) add(Math.round((t0 + k * beat) * SR), bass(roots[bar % 4], 0.45), 0.35);
+  if (bar >= 1 && bar < 11) for (let k = 0; k < 4; k++) {
     add(Math.round((t0 + k * beat) * SR), kick(), 0.55);
     add(Math.round((t0 + k * beat + beat / 2) * SR), hat(), 0.12, 0.3);
   }
-  if (bar >= 4 && bar < 9) for (let k = 0; k < 8; k++) add(Math.round((t0 + k * beat / 2) * SR), pluck(c[k % 3] + 12 + (k >= 4 ? 7 : 0) * (k % 2)), 0.08, k % 2 ? 0.4 : -0.4);
+  if (bar >= 6 && bar < 11) for (let k = 0; k < 8; k++) add(Math.round((t0 + k * beat / 2) * SR), pluck(c[k % 3] + 12 + (k >= 4 ? 7 : 0) * (k % 2)), 0.08, k % 2 ? 0.4 : -0.4);
 }
 
-// ---- UI sounds on the picture's cues (absolute frames, from src/cues.ts and the scene code)
-add(fr(0), click(), 0.25); add(fr(30), click(), 0.25);
-[45, 52.5, 60, 67.5].forEach((f, i) => add(fr(f), tick(84 + i * 2), 0.18));
-[84, 264, 414, 504].forEach((f) => add(fr(f), whoosh(), 0.35));
+// ---- UI sounds on the picture's cues (scene starts from src/cues.ts, offsets from the scene code)
+const S = { hook: 0, deploy: 90, find: 210, fix: 390, sign: 540, end: 630 };
+add(fr(S.hook), click(), 0.25); add(fr(S.hook + 30), click(), 0.25);
+[S.deploy - 6, S.find - 6, S.fix - 6, S.sign - 6, S.end - 6].forEach((f) => add(fr(f), whoosh(), 0.35));
+[22, 42, 62].forEach((o, i) => add(fr(S.deploy + o), chime([84 + i * 3, 91 + i * 3]), 0.16));
+add(fr(S.deploy + 82), click(), 0.2);
 const bankBroken = [false, false, false, true, false, false, false, true];
-bankBroken.forEach((b, i) => add(fr(90 + 16 + i * 8), b ? thud() : tick(91), b ? 0.45 : 0.16));
-add(fr(90 + 120), impact(), 0.35);
-add(fr(270 + 38), click(), 0.4);
-add(fr(270 + 45), riser(31 / FPS), 0.06);
-for (let i = 0; i < 8; i++) add(fr(270 + 80 + i * 4), tick(88 + [0, 2, 4, 5, 7, 9, 11, 12][i]), 0.15);
-add(fr(270 + 112), chime([84, 88, 91, 96]), 0.3);
-add(fr(420 + 42), click(), 0.4);
-add(fr(420 + 45), chime([79, 84, 88]), 0.3);
-add(fr(510), impact(), 0.45); add(fr(510), chime([72, 79, 84, 88]), 0.25);
+bankBroken.forEach((b, i) => add(fr(S.find + 16 + i * 8), b ? thud() : tick(91), b ? 0.45 : 0.16));
+add(fr(S.find + 120), impact(), 0.35);
+add(fr(S.fix + 38), click(), 0.4);
+add(fr(S.fix + 45), riser(31 / FPS), 0.06);
+for (let i = 0; i < 8; i++) add(fr(S.fix + 80 + i * 4), tick(88 + [0, 2, 4, 5, 7, 9, 11, 12][i]), 0.15);
+add(fr(S.fix + 112), chime([84, 88, 91, 96]), 0.3);
+add(fr(S.sign + 42), click(), 0.4);
+add(fr(S.sign + 45), chime([79, 84, 88]), 0.3);
+add(fr(S.end), impact(), 0.45); add(fr(S.end), chime([72, 79, 84, 88]), 0.25);
 
 // ---- master: fade, soft clip, normalize
 const fadeIn = SR * 0.05, fadeOut = SR * 1.6;
