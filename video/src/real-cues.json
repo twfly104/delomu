@@ -1,0 +1,96 @@
+{
+ "fps": 30,
+ "total": 1402,
+ "introLen": 72,
+ "cues": [
+  {
+   "from": 0.2750000000000001,
+   "to": 5.429,
+   "speed": 1.6,
+   "caption": "Every client, one list.",
+   "start": 72,
+   "len": 97
+  },
+  {
+   "from": 5.429,
+   "to": 8.668,
+   "speed": 2.4,
+   "caption": "",
+   "start": 169,
+   "len": 40
+  },
+  {
+   "from": 8.668,
+   "to": 13.289,
+   "speed": 1.15,
+   "caption": "A real check: 2 of 8 rules broken.",
+   "start": 209,
+   "len": 121
+  },
+  {
+   "from": 13.289,
+   "to": 23.448,
+   "speed": 4,
+   "caption": "Grapim drafts the fix.",
+   "start": 330,
+   "len": 76
+  },
+  {
+   "from": 23.448,
+   "to": 32.22,
+   "speed": 2.4,
+   "caption": "You approve it.",
+   "start": 406,
+   "len": 110
+  },
+  {
+   "from": 32.22,
+   "to": 73.468,
+   "speed": 10,
+   "caption": "The same 16 messages, run again.",
+   "start": 516,
+   "len": 124
+  },
+  {
+   "from": 73.468,
+   "to": 75.668,
+   "speed": 1,
+   "caption": "One rule left. Fix it again.",
+   "start": 640,
+   "len": 66
+  },
+  {
+   "from": 76.58200000000001,
+   "to": 137.683,
+   "speed": 13,
+   "caption": "Second fix, re-checked.",
+   "start": 706,
+   "len": 141
+  },
+  {
+   "from": 137.683,
+   "to": 140.88299999999998,
+   "speed": 1,
+   "caption": "All 8 rules kept.",
+   "start": 847,
+   "len": 96
+  },
+  {
+   "from": 141.408,
+   "to": 150.85799999999998,
+   "speed": 1.8,
+   "caption": "One link for the client.",
+   "start": 943,
+   "len": 157,
+   "maskFrom": 102
+  },
+  {
+   "from": 150.85799999999998,
+   "to": 163.80999999999997,
+   "speed": 2,
+   "caption": "The client signs off. No account needed.",
+   "start": 1100,
+   "len": 194
+  }
+ ]
+}

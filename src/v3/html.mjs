@@ -481,8 +481,8 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lv-trust a:hover{color:var(--text)}
 .lv-film{padding-top:136px;text-align:center}
 .lv-film h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance;margin:0}
-.lv-film .lv-shot{max-width:620px;margin:40px auto 0;border-radius:16px}
-.lv-film video{aspect-ratio:1/1}
+.lv-film .lv-shot{max-width:1040px;margin:40px auto 0;border-radius:16px}
+.lv-film video{aspect-ratio:16/10}
 .lv-film .lv-note{margin-top:14px}
 @media (max-width:560px){.lv-film{padding-top:96px}.lv-trust{justify-content:flex-start;gap:8px 18px}}
 .lv-pain{padding-top:136px;text-align:center}.lv-pain h2,.lv-step h2,.lv-close h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
@@ -969,9 +969,9 @@ ${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 
 <div><b>Weeks of hand-testing</b><p>Your forward-deployed engineers read the client’s policies and try the agent by hand, rule by rule.</p></div>
 <div><b>A legal team that wants proof</b><p>The client will not go live on “we tested it”. They want to see what was tested and what changed.</p></div>
 <div><b>More clients, more engineers</b><p>Every rollout starts from zero, so headcount grows with every client you sign.</p></div></div></section>
-<section class="lv-film"><h2>One client’s rollout, in 24 seconds.</h2>
-<figure class="lv-shot"><video src="/media/demo.mp4" poster="/media/demo.jpg" autoplay muted loop playsinline controls preload="metadata" disablepictureinpicture aria-label="Grapim deploys Brightdesk AI’s agent to a sample bank: drafts the deployment, finds two broken rules, fixes them, and the bank signs off"></video></figure>
-<p class="lv-note">Sample clients, real product. Sound on for the full effect.</p></section>
+<section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
+<figure class="lv-shot"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline controls preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds two broken rules, Grapim drafts fixes, the same messages run again until all eight rules are kept, and the bank signs off from a link"></video></figure>
+<p class="lv-note">A screen recording of Grapim with the real model on a sample client. Waiting is sped up and labeled.</p></section>
 ${step('1 · Find', 'how', 'Find every rule it <mark>breaks</mark>.', 'Grapim turns the client’s policy into the customer messages most likely to break it, sends them to your agent, and judges what it says and what it does.', grid)}
 ${step('2 · Fix', '', 'Fix it, then <mark>check again</mark>.', 'One change to your agent’s instructions for the broken rules. You approve it; the same messages run again, so you see the fix worked.', fix, true)}
 ${step('3 · Sign off', '', 'The client signs off <mark>from a link</mark>.', 'No account to create. They read the result and accept, and the decision goes into the audit log.', sign)}
