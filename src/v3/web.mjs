@@ -20,6 +20,7 @@ import { INTERVALS as MONITOR_INTERVALS, monitorSettings, monitorStatus, monitor
 import { getOrgSettings, getRevenue, logIntervention, normTag, productizationHealth, readInterventions, setOrgSettings, setRevenue } from './productization.mjs';
 import { importFrom, SOURCES as IMPORT_SOURCES, zendeskAuthorizeUrl, zendeskToken } from './importers.mjs';
 import { readConnector, generateConnectorCode, toolSchemas } from '../v1/connector.mjs';
+import { summarizeHar, saveRecording, readRecording, removeRecording } from '../v1/recording.mjs';
 import { ask as askAssistant, deploymentContext, MAX_HISTORY, MAX_MESSAGE, orgContext, resolveActions, suggestions as assistantSuggestions } from './assistant.mjs';
 import { addToPlaybook, consentOf, contributed, integrationExamples, playbookStats, removeFromPlaybook, setConsent, suggestFromPlaybook } from './playbook.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
@@ -44,7 +45,7 @@ const LANDING_DEMO = { bank: demoScan('bank'), store: demoScan('store') };
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -81,6 +82,7 @@ const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.html']);
 const MAX_INPUT_BYTES = 1024 * 1024;
 const MAX_UPLOAD_BYTES = 8 * MAX_INPUT_BYTES;
+const MAX_RECORDING_BYTES = 40 * MAX_INPUT_BYTES; // HAR files carry response bodies; only their shape is kept
 const REPLAY_LIMIT = 6;
 const AGENT_TASKS = ['mapping', 'integration', 'cases', 'fixes', 'launch-report', 'connector'];
 // What one click on Run the rollout does, in order. Fixes and the launch report follow a test run, so they come later.
@@ -112,6 +114,8 @@ const NOTICES = {
   focus: 'Focus and team saved.',
   monitor: 'Monitoring settings saved.',
   monitorran: 'The saved test set ran again. See the result under Monitoring.',
+  recorded: 'Recording added: Grapim kept the API calls’ shape and dropped every value. Draft the connector to use it.',
+  recordingremoved: 'Recording removed.',
   monitorchecked: 'Nothing changed since the last run, so the tests were not run again.',
 };
 
@@ -364,6 +368,7 @@ function routes(ctx) {
 
   // Public pricing, from the same plan table billing charges by.
   r.add('GET', '/pricing', () => html(pricingPage({ signup: signupOpen, plans: PLAN_LIST })), { public: true });
+  r.add('GET', '/security', () => html(securityPage({ signup: signupOpen })), { public: true });
 
   r.add('GET', '/', ({ principal }) => {
     // A signed-out visitor gets the public page; everyone else their home.
@@ -909,9 +914,33 @@ function routes(ctx) {
     const playbook = { stats: playbookStats(ctx.deploymentsRoot, owner), consent: consentOf(ws.dir), contributed: contributed(ctx.deploymentsRoot, ctx.pepper, owner, ws.dir), vendor: ws.org.partner_org_id ? getOrg(db, ws.org.partner_org_id)?.name : ws.org.name };
     const tags = [...new Set(readInterventions(ws.dir).map(i => i.tag))].slice(0, 30);
     const monitor = { settings: monitorSettings(ws.dir), status: monitorStatus(ws.dir), hasTests: fs.existsSync(path.join(ws.dir, 'tests.json')), intervals: MONITOR_INTERVALS };
-    return html(rolloutPage({ ...ws, rollout: job, signoff, playbook, monitor, tags, connector: readConnector(ws.dir), revenue: getRevenue(ws.dir), error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
+    return html(rolloutPage({ ...ws, rollout: job, signoff, playbook, monitor, tags, connector: readConnector(ws.dir), recording: readRecording(ws.dir), revenue: getRevenue(ws.dir), error: extra.error, refresh: job?.status === 'running' ? 3 : 0 }), status);
   };
   r.add('GET', '/orgs/:org/deployments/:name/rollout', ({ principal, params, url }) => showRollout(principal, params, url));
+
+  // A recorded browser session (HAR) as connector material (src/v1/recording.mjs): summarized on arrival, raw file
+  // never stored. action=remove deletes the summary.
+  r.add('POST', '/orgs/:org/deployments/:name/recording', async ({ req, principal, params, url }) => {
+    const type = String(req.headers['content-type'] ?? '');
+    const form = type.startsWith('multipart/form-data')
+      ? await new Response(await readRaw(req, MAX_RECORDING_BYTES), { headers: { 'content-type': type } }).formData()
+      : new Map(Object.entries(await readForm(req, ctx.maxBodyBytes)));
+    requireCsrf(principal, { csrf: form.get('csrf') });
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const page = `${depPath(org, params.name)}/rollout`;
+    if (form.get('action') === 'remove') {
+      removeRecording(dir, { actor: principal.actor, now: ctx.now() });
+      return new Redirect(`${page}?notice=recordingremoved#more`);
+    }
+    const file = form.get('har');
+    if (!file || typeof file !== 'object' || !file.size) return showRollout(principal, params, url, { error: 'Choose the HAR file you saved from the browser.' }, 400);
+    const summary = summarizeHar(await file.text(), { now: ctx.now() });
+    if (!summary.ok) return showRollout(principal, params, url, { error: `Grapim could not use this recording: ${summary.reason}.` }, 400);
+    saveRecording(dir, summary, { actor: principal.actor, now: ctx.now() });
+    event(ctx, principal, org.id, 'recording.add', params.name, { endpoints: summary.endpoints, calls: summary.calls });
+    return new Redirect(`${page}?notice=recorded#more`);
+  });
 
   // Step 6 (src/v3/monitoring.mjs): turn regression monitoring on or off, or check this deployment now.
   r.add('POST', '/orgs/:org/deployments/:name/monitor', async ({ req, principal, params }) => {

@@ -73,3 +73,11 @@ The AI under test and the judge both vary between runs. When an answer is judged
 message again and judges it twice more (`GRAPIM_JUDGE_TRIES`, default 3); the majority decides. Each broken or
 borderline answer shows "broke the rule in N of 3 tries", and answers whose tries disagree are marked "Not consistent"
 and stay visible on the results page. Kept answers are not retried.
+
+## No API docs? Record the client's app
+
+On the Rollout page (Connector section), upload a HAR file: in the client's app open Chrome DevTools on the Network
+tab, do the task once (look up an order, cancel it), then right-click and choose Save all as HAR. Grapim reduces it to
+the shape of each API call (`src/v1/recording.mjs`; no values, cookies or tokens are kept and the raw file is not
+stored) and the connector draft reads that summary alongside any API docs. `POST .../recording` with `action=remove`
+deletes it.

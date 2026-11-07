@@ -306,6 +306,12 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .ro-more>summary::before{content:'';width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
 .ro-more[open]>summary::before{transform:rotate(45deg)}
 .ro-more>summary:hover{color:var(--text)}
+.rec{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.rec-have{display:flex;align-items:center;gap:10px;margin:0 0 10px;font-size:13.5px}
+.rec-have svg{color:var(--good);flex:none}
+.rec-have form{margin-left:auto}
+.rec-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rec-form input[type=file]{font:inherit;font-size:13px;color:var(--text-2);max-width:100%}
 .verdict{font-size:30px;font-weight:600;letter-spacing:-0.035em;line-height:1.15}.verdict .of{color:var(--text-3);font-weight:500}
 .verdict.bad b{color:var(--bad);font-weight:600}.verdict.good b{color:var(--good);font-weight:600}
 .rulelist{list-style:none;margin:0;padding:0}
@@ -586,7 +592,17 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp-tname{display:flex;align-items:center;gap:8px;justify-content:space-between}.lp-prices .tag{font-size:11.5px;font-weight:500;color:var(--accent-text);background:var(--accent-weak);padding:2px 8px;border-radius:99px}
 .lp-price{font-size:34px;font-weight:600;letter-spacing:-0.035em;margin:8px 0 2px;font-variant-numeric:tabular-nums}.lp-price span{font-size:14px;font-weight:400;letter-spacing:0;color:var(--text-3)}
 .lp-prices .subtle{font-size:13.5px}
-.lp-hero-sm{padding:80px 0 0}.lp-hero-sm h1{max-width:18ch}
+.lp-hero-sm{padding:80px 0 0}
+.sec-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:36px 56px;max-width:980px}
+.sec-fact h3{display:flex;align-items:center;gap:10px;margin:0 0 6px;font-size:16px;letter-spacing:-0.01em}
+.sec-fact h3 svg{color:var(--good);flex:none}
+.sec-fact p,.sec-soc p,.sec-p{margin:0;color:var(--text-2);line-height:1.6;max-width:68ch}
+.sec-soc{margin-top:20px;display:grid;gap:14px}
+.sec-status{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--text)!important}
+.sec-table{margin-top:20px;max-width:880px;border:1px solid var(--line);border-radius:var(--r)}
+.sec-not{margin:20px 0 0;padding-left:20px;color:var(--text-2);line-height:1.8;max-width:72ch}
+.sec-p{margin-top:16px}
+@media (max-width:760px){.sec-facts{grid-template-columns:1fr;gap:28px}}.lp-hero-sm h1{max-width:18ch}
 .lp-prices-full{margin-top:56px;align-items:stretch}
 .lp-tier-act{margin:14px 0 4px}.lp-tier-act .btn{width:100%;justify-content:center;height:38px}.lp-tier-act.subtle{font-size:13px;height:38px;display:flex;align-items:center}
 .lp-incl{list-style:none;margin:12px 0 0;padding:16px 0 0;border-top:1px solid var(--line);display:grid;gap:10px;font-size:13.5px;color:var(--text-2)}
@@ -810,7 +826,7 @@ export function signupKeyPage({ secret, email }) {
 const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
 <nav><a href="/#how">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
 const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span class="lp-foot-brand">${mark(22, 'm-lpf')} Grapim</span>
-<nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a></nav>
+<nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a><a href="/security">Security</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
 <p class="subtle">Results shown are from Grapim’s made-up sample clients, not from customers.</p></footer>`;
@@ -950,6 +966,42 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
 </main>
 ${lpFoot()}`;
   return doc('Pricing', body, 'lp-page');
+}
+
+// The public security page: facts about the code as it runs today, and what is not done yet. No badges or
+// certification wording: SOC 2 is in preparation, and the page says exactly that.
+export function securityPage({ signup = false }) {
+  const start = signup ? '/signup' : '/login';
+  const cta = signup ? 'Start free' : 'Sign in';
+  const repo = 'https://github.com/twfly104/delomu';
+  const facts = [
+    ['Each client kept apart', 'Every org has its own folder and database rows, and every file path is re-checked to stay inside it. A vendor’s admins reach only the clients that vendor manages.'],
+    ['Never used for training', 'Policies, tickets and answers go only to the model provider to run the check. Providers that train on submitted data are refused in code.'],
+    ['Keys and secrets', 'API keys, sessions and share links are stored as hashes. Keys you paste for your AI are encrypted with AES-256-GCM and never shown again.'],
+    ['A record nobody can quietly edit', 'Every check, draft, approval and client sign-off is written to a hash-chained audit log. Changing or deleting an earlier entry breaks the chain, and the evidence pack shows it.'],
+    ['Personal data scrubbed', 'Emails, phone numbers, card numbers and keys are removed from live conversations before they are stored or judged.'],
+    ['Recordings keep shape, not values', 'A recorded browser session is reduced on upload to methods, paths and field names. Headers, cookies, tokens and every value are dropped; the file itself is never stored.'],
+  ].map(([h, p]) => `<div class="sec-fact"><h3>${icon('check', { size: 16 })}${h}</h3><p>${p}</p></div>`).join('');
+  const subs = [['Anthropic', 'The AI model', 'Policies, test messages, your AI’s answers'], ['Meta (model API)', 'The AI model, when configured', 'Same as above; contributor models refused'], ['Railway', 'Hosting', 'Everything in the data volume'], ['Stripe', 'Billing', 'The billing contact and plan; no policies or tickets']]
+    .map(([w, f, r]) => `<tr><td class="strong">${w}</td><td>${f}</td><td class="subtle">${r}</td></tr>`).join('');
+  const notYet = ['No SOC 2 or ISO 27001 report yet', 'No third-party penetration test yet', 'No self-serve deletion of an agent or an org; we delete on request within 30 days', 'No automatic retention period for live conversations', 'No choice of data region on the hosted service; self-hosting keeps data in your cloud', 'The guard lets a reply through when it cannot judge it, so a customer always gets an answer; live monitoring flags it afterwards']
+    .map(t => `<li>${t}</li>`).join('');
+  const body = `${lpTop(start, cta)}
+<main class="lp">
+<section class="lp-hero lp-hero-sm"><h1>Security at Grapim</h1>
+<p class="lede">You send us a client’s policies and your agent’s answers. This is how we protect them, and what we have not done yet.</p></section>
+<section class="lp-sec sec-facts">${facts}</section>
+<section class="lp-sec"><h2>SOC 2</h2><div class="sec-soc">
+<p class="sec-status"><span class="badge warn">In preparation</span><span>Not certified yet.</span></p>
+<p>We have written our security policies, mapped each SOC 2 criterion to the control that meets it, and listed the gaps we are closing. We will start the audit with a CPA firm when our clients’ security reviews need the report. Until then, our security overview and subprocessor list answer most questionnaires, and we are happy to fill in yours.</p>
+<p><a href="${repo}/blob/main/docs/security.md">Security overview</a> · <a href="${repo}/tree/main/docs/security/soc2">Policies and control map</a> · <a href="${repo}/blob/main/docs/trust/dpa-template.md">DPA template</a></p></div></section>
+<section class="lp-sec"><h2>Subprocessors</h2><div class="scroll sec-table"><table><thead><tr><th>Who</th><th>For</th><th>Receives</th></tr></thead><tbody>${subs}</tbody></table></div>
+<p class="subtle" style="margin-top:12px">Cloudflare serves our DNS only and receives no client data. We tell clients before adding a subprocessor.</p></section>
+<section class="lp-sec"><h2>Not done yet</h2><ul class="sec-not">${notYet}</ul></section>
+<section class="lp-sec"><h2>Report a vulnerability</h2><p class="sec-p">Use GitHub’s private vulnerability reporting on <a href="${repo}/security">our repository</a>. Please do not open a public issue. We reply within three business days.</p></section>
+</main>
+${lpFoot()}`;
+  return doc('Security', body, 'lp-page');
 }
 
 // A new account's sign-in key, shown once on its first page instead of a page of its own.
@@ -1423,12 +1475,25 @@ function revenuePanel({ base, csrf, revenue }) {
 
 // Step 2's deliverable for the client's own systems: the tools the agent calls, as reviewed config, with the
 // generated code and tool definitions to download.
-function connectorPanel({ base, csrf, can, connector: c }) {
+// Recording the client's own app instead of reading API docs (src/v1/recording.mjs): a HAR from the browser.
+function recordingBlock({ base, csrf, can, recording: rec }) {
+  if (!can.write && !rec) return '';
   const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
-  const draft = can.write ? `<form method="post" action="${esc(base)}/agent">${hidden}<input type="hidden" name="task" value="connector"><button class="btn${c ? '' : ' primary'}" data-busy="Drafting…">${c ? 'Draft again from the API docs' : 'Draft from the client’s API docs'}</button></form>` : '';
+  const have = rec ? `<div class="rec-have">${icon('check')}<span><span class="strong num">${rec.endpoints} API endpoint${rec.endpoints === 1 ? '' : 's'} recorded</span> <span class="subtle">· ${esc(fmtDate(rec.at))} · only paths and field names kept</span></span>${can.write ? `<form method="post" action="${esc(base)}/recording">${hidden}<input type="hidden" name="action" value="remove"><button class="btn ghost" data-busy="Removing…">Remove</button></form>` : ''}</div>` : '';
+  const upload = can.write ? `<form method="post" action="${esc(base)}/recording" enctype="multipart/form-data" class="rec-form">${hidden}
+<input type="file" name="har" accept=".har,application/json" required aria-label="HAR file"><button class="btn" data-busy="Reading…">${icon('upload')}${rec ? 'Replace recording' : 'Upload recording'}</button></form>` : '';
+  return `<div class="rec"><p class="strong" style="margin:0 0 2px">No API docs? Record it.</p>
+<p class="subtle" style="margin:0 0 10px">In the client’s app, open Chrome DevTools on the Network tab, do the task once (look up an order, cancel it), then right-click › Save all as HAR and upload it. Grapim keeps the shape of each API call and drops every value, cookie and token.</p>${have}${upload}</div>`;
+}
+
+function connectorPanel({ base, csrf, can, connector: c, recording }) {
+  const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}">`;
+  const from = recording ? 'the docs and the recording' : 'the client’s API docs';
+  const draft = can.write ? `<form method="post" action="${esc(base)}/agent">${hidden}<input type="hidden" name="task" value="connector"><button class="btn${c ? '' : ' primary'}" data-busy="Drafting…">${c ? `Draft again from ${from}` : `Draft from ${from}`}</button></form>` : '';
+  const rec = recordingBlock({ base, csrf, can, recording });
   if (!c) {
     return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2></div><div class="panel-body">
-<p class="subtle" style="margin:0 0 12px">Add the client’s API docs, then draft. You approve; Grapim writes the code.</p>${draft}</div></section>`;
+<p class="subtle" style="margin:0 0 12px">Add the client’s API docs, then draft. You approve; Grapim writes the code.</p>${draft}${rec}</div></section>`;
   }
   const acts = c.tools.filter(t => t.kind === 'action').length;
   return `<section class="panel"><div class="panel-head"><h2>Client-system connector</h2><span class="badge good">Approved</span><span class="aside subtle">${c.tools.length} tools · ${acts} that act, each checked by the guard first</span></div>
@@ -1436,7 +1501,7 @@ function connectorPanel({ base, csrf, can, connector: c }) {
 ${c.tools.map(t => `<tr><td><code>${esc(t.name)}</code></td><td><code>${esc(t.method)} ${esc(t.path)}</code></td><td>${t.kind === 'action' ? '<span class="badge warn">Acts</span>' : '<span class="badge">Reads</span>'}</td></tr>`).join('')}
 </tbody></table></div>
 <div class="panel-body"><div class="row-inline"><a class="btn primary" href="${esc(base)}/connector.js" download>${icon('file')}Download the code</a><a class="btn" href="${esc(base)}/connector-tools.json" download>Tool definitions (Anthropic and OpenAI)</a>${draft}</div>
-<p class="hint" style="margin:10px 0 0">Set <code>${esc(c.baseUrlEnv)}</code>${c.auth.env ? ` and <code>${esc(c.auth.env)}</code>` : ''} where your agent runs. With <code>GRAPIM_API_KEY</code> set, each action asks this agent’s guard first and does not run if the guard blocks it.</p></div></section>`;
+<p class="hint" style="margin:10px 0 0">Set <code>${esc(c.baseUrlEnv)}</code>${c.auth.env ? ` and <code>${esc(c.auth.env)}</code>` : ''} where your agent runs. With <code>GRAPIM_API_KEY</code> set, each action asks this agent’s guard first and does not run if the guard blocks it.</p>${rec}</div></section>`;
 }
 
 export function rolloutPage(args) {
@@ -1466,8 +1531,8 @@ ${track}
 <p class="hint" style="margin:12px 0 0">Grapim drafts the data mapping, the integration and the tests, runs the check, drafts the fix and readies the client’s sign-off. Nothing goes live until you approve it.</p></div>
 ${job}</section>
 ${ov.scans[0] ? signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] }) : ''}
-<details class="ro-more" id="more"><summary>Connector, playbook, monitoring, hours and revenue</summary>
-${connectorPanel({ base, csrf, can, connector: args.connector })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
+<details class="ro-more" id="more"${args.flash || args.error ? ' open' : ''}><summary>Connector, playbook, monitoring, hours and revenue</summary>
+${connectorPanel({ base, csrf, can, connector: args.connector, recording: args.recording })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
 ${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
 <label class="field"><span>Step</span><select name="step">${HOUR_STEPS.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></label>

@@ -65,6 +65,16 @@ Customer material is wrapped in tags and the model is told to treat it as data, 
 Where this lives: `src/core/llm.mjs`, `src/v4/scrub.mjs`, `src/v1/live.mjs`, `src/v1/guard.mjs`,
 `src/v3/importers.mjs`, `src/v4/harvest.mjs`, `src/v1/risk.mjs`, `src/v1/agent.mjs` (`neutral`).
 
+## Recorded browser sessions
+
+An engineer can upload a browser recording (HAR) of the client's own app instead of API docs. On upload Grapim keeps
+only the shape of each API call: method, path with ids replaced by `{id}`, query parameter names, body and response
+field names with their JSON types, status codes, and which kind of auth was used. Every header value, cookie, token,
+query value and body value is dropped, and the raw file is never written to disk. The summary is stored in
+`recording/api-calls.md` in the deployment folder and is sent to the model provider when the connector is drafted.
+
+Where this lives: `src/v1/recording.mjs`, `test/v5-recording.test.mjs`.
+
 ## Tenant isolation
 
 - Every request names an org. The server looks up the caller's role in that org. No role means "not found",
@@ -197,7 +207,7 @@ What does not exist:
 
 ## Not yet
 
-- No SOC 2 or ISO 27001 report.
+- No SOC 2 or ISO 27001 report. Readiness work (policies, control map, gaps) is in `docs/security/soc2/`.
 - No third-party penetration test.
 - No formal retention period. Data is kept until it is deleted by hand; live conversations are kept in monthly
   files with no automatic expiry.
