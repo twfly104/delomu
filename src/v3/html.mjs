@@ -616,6 +616,31 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sec-p{margin-top:16px}
 @media (max-width:760px){.sec-facts{grid-template-columns:1fr;gap:28px}}.lp-hero-sm h1{max-width:18ch}
 .lp-prices-full{margin-top:56px;align-items:stretch}
+.legal{max-width:720px;margin:0 auto;padding:72px 0 0}
+.legal h1{font-size:clamp(34px,4.4vw,48px);letter-spacing:-0.035em;line-height:1.08;margin:0 0 12px}
+.legal .lede{font-size:18px;color:var(--text-2);margin:0 0 6px}
+.legal section{margin-top:40px}
+.legal h2{font-size:20px;letter-spacing:-0.015em;margin:0 0 10px}
+.legal p,.legal li{font-size:16px;line-height:1.7;color:var(--text-2)}
+.legal p{margin:0 0 12px}
+.legal ul{margin:0;padding-left:20px}
+.legal li+li{margin-top:8px}
+.legal b{color:var(--text)}
+.legal-table{margin:4px 0 12px;border:1px solid var(--line);border-radius:var(--r)}
+.legal-table td,.legal-table th{font-size:14px}
+.lp-page main .btn{height:44px;padding:0 20px;font-size:15.5px;border-radius:8px}
+.lp-page .lp-top .btn{height:38px;padding:0 16px;font-size:14.5px}
+.lp-page .lp-top nav a{font-size:15px}
+.lp-page .lv-pains b{font-size:18px}.lp-page .lv-pains p{font-size:16.5px;line-height:1.6}
+.lp-page .lv-trust{font-size:15px}
+.lp-page .lv-note,.lp-page .lv-eyebrow{font-size:14.5px}
+.lp-page .lv-copy p,.lp-page .lv-step-copy>p:last-child{font-size:18.5px;line-height:1.6}
+.lp-page .lv-eng p{font-size:17px}
+.lp-page .lp-incl{font-size:15px}.lp-page .lp-prices .subtle{font-size:15px}.lp-page .lp-tname{font-size:16px}
+.lp-page .lp-faq summary{font-size:17px}.lp-page .lp-faq p{font-size:16px;line-height:1.65}
+.lp-page .lp-dfy p{font-size:16.5px}
+.lp-page .sec-fact h3{font-size:18px}.lp-page .sec-fact p,.lp-page .sec-soc p,.lp-page .sec-p,.lp-page .sec-not{font-size:16.5px}
+@media (max-width:760px){.lp-foot-cols{grid-template-columns:1fr 1fr}}
 .lp-social{display:flex;gap:12px;margin:12px 0 0}
 .lp-social a{color:var(--text-3);display:inline-flex;padding:2px}
 .lp-social a:hover{color:var(--text)}
@@ -672,9 +697,9 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp-feats ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}.lp-feats li{color:var(--text);display:flex;align-items:center;gap:8px}.lp-feats li::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
 .lp-end{margin:168px 0 0;padding:72px 0 0;border-top:1px solid var(--line);text-align:center}
 .lp-end h2{margin:0 auto;max-width:20ch}
-.lp-foot{width:calc(100% - 48px);max-width:1112px;margin:120px auto 0;padding:48px 0 56px;border-top:1px solid var(--line);font-size:13px;display:grid;gap:40px}
-.lp-foot-cols{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:24px}.lp-foot-brand{display:flex;gap:8px;align-items:flex-start;font-weight:600;font-size:14px}
-.lp-foot nav{display:flex;flex-direction:column;gap:10px}.lp-foot nav .h{font-weight:500;color:var(--text)}.lp-foot nav a{color:var(--text-2)}.lp-foot nav a:hover{color:var(--text);text-decoration:none}
+.lp-foot{width:calc(100% - 48px);max-width:1112px;margin:120px auto 0;padding:56px 0 64px;border-top:1px solid var(--line);font-size:15px;display:grid;gap:44px}
+.lp-foot-cols{display:grid;grid-template-columns:1.6fr repeat(4,1fr);gap:24px}.lp-foot-brand{display:flex;gap:8px;align-items:flex-start;font-weight:600;font-size:14px}
+.lp-foot nav{display:flex;flex-direction:column;gap:12px}.lp-foot nav .h{font-weight:500;color:var(--text)}.lp-foot nav a{color:var(--text-2)}.lp-foot nav a:hover{color:var(--text);text-decoration:none}
 @keyframes lp-tile{from{opacity:0;transform:translateY(6px) scale(.97);filter:blur(3px)}}
 @keyframes lp-flag{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 0%,transparent)}40%{box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 22%,transparent)}}
 @keyframes lp-toast{from{opacity:0;transform:translateY(14px) scale(.97);filter:blur(4px)}}
@@ -826,7 +851,8 @@ ${notice(error)}
 <div class="field"><span>What do you do?</span><div class="choice">
 ${SIGNUP_KINDS.map(k => `<label><input type="radio" name="kind" value="${k.id}"${(values.kind ?? 'vendor') === k.id ? ' checked' : ''}><span><span class="strong">${esc(k.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(k.hint)}</span></span></label>`).join('\n')}
 </div></div>
-<button class="btn primary block" data-busy="Creating…">Create free account</button></form>
+<button class="btn primary block" data-busy="Creating…">Create free account</button>
+<p class="hint" style="margin:12px 0 0;text-align:center">By creating an account you agree to the <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p></form>
 <p class="subtle" style="margin-top:16px;text-align:center">Already have an account? <a href="/login">Sign in</a></p>
 </div>`,
   });
@@ -851,11 +877,12 @@ const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="
 const SOCIAL = [
   { label: 'LinkedIn', href: 'https://www.linkedin.com/company/grapim/', path: 'M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9.75h4v11.25H3V9.75Zm6.5 0h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1V21h-4v-4.93c0-1.18-.02-2.7-1.64-2.7-1.65 0-1.9 1.29-1.9 2.62V21h-4V9.75Z' },
 ];
-const socialLinks = () => `<p class="lp-social">${SOCIAL.map(x => `<a href="${x.href}" rel="noopener" aria-label="Grapim on ${x.label}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="${x.path}"/></svg></a>`).join('')}</p>`;
+const socialLinks = () => `<p class="lp-social">${SOCIAL.map(x => `<a href="${x.href}" rel="noopener" aria-label="Grapim on ${x.label}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="${x.path}"/></svg></a>`).join('')}</p>`;
 const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><div><span class="lp-foot-brand">${mark(22, 'm-lpf')} Grapim</span>${socialLinks()}</div>
 <nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a><a href="/security">Security</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
-<nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
+<nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav>
+<nav aria-label="Legal"><span class="h">Legal</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a></nav></div>
 <p class="subtle">Results shown are from Grapim’s made-up sample clients, not from customers.</p></footer>`;
 
 // A field of rule pips, a few lighting up green (kept) or red (broken) as if being checked: behind the landing
@@ -1038,6 +1065,64 @@ export function securityPage({ signup = false }) {
 </main>
 ${lpFoot()}`;
   return doc('Security', body, 'lp-page');
+}
+
+// Legal pages: plain statements of what the code does today (see docs/security.md), in short numbered sections.
+const LEGAL_UPDATED = 'November 7, 2026';
+const LEGAL_CONTACT = 'privacy@grapim.com';
+function legalPage({ signup, title, lede, sections }) {
+  const start = signup ? '/signup' : '/login';
+  const cta = signup ? 'Start free' : 'Sign in';
+  const body = `${lpTop(start, cta)}
+<main class="lp"><article class="legal">
+<h1>${title}</h1><p class="lede">${lede}</p><p class="subtle">Last updated ${LEGAL_UPDATED}</p>
+${sections.map(([h, html]) => `<section><h2>${h}</h2>${html}</section>`).join('\n')}
+</article></main>
+${lpFoot()}`;
+  return doc(title, body, 'lp-page');
+}
+
+export function privacyPage({ signup = false }) {
+  const cookies = [['delomu_session', 'Keeps you signed in', '30 days, or until you sign out'], ['delomu_login_csrf', 'Protects the sign-in and sign-up forms from forgery', '1 hour'], ['delomu_oidc_state', 'Completes single sign-on safely', '10 minutes'], ['Sign-off form token', 'Makes sure a client sign-off was submitted from the sign-off page', 'Until the browser closes']]
+    .map(([n, w, l]) => `<tr><td><code>${n}</code></td><td>${w}</td><td class="subtle">${l}</td></tr>`).join('');
+  return legalPage({
+    signup, title: 'Privacy Policy',
+    lede: 'What Grapim collects, why, who else sees it, and how to have it deleted.',
+    sections: [
+      ['Who we are', `<p>Grapim is a software service run by its co-founders from Taipei, Taiwan. For anything in this policy, write to <a href="mailto:${LEGAL_CONTACT}">${LEGAL_CONTACT}</a>.</p>`],
+      ['What we collect', `<ul><li><b>Account data:</b> your email address, your company name, your role in each organization, and sign-in records.</li>
+<li><b>Material you give us:</b> client policies, documents and ticket exports you upload, test messages, your AI agent’s answers, live conversations you send us (with emails, phone numbers, card numbers and keys removed first), and recorded API calls (reduced to their shape; the recording itself is not kept).</li>
+<li><b>Billing data:</b> handled by Stripe. We see the plan and the billing email, never card numbers.</li>
+<li><b>Logs:</b> an audit log of actions in each workspace, and server logs our host keeps for operating the service.</li></ul>`],
+      ['How we use it', '<p>Only to run Grapim for you: run checks, draft rollout steps, keep the audit record, bill you, and answer you. We do not sell data, we do not use it for advertising, and we never use your material to train AI models. Model providers that train on submitted data are refused in code.</p>'],
+      ['Your clients’ data', `<p>When you upload material about your clients, we process it on your behalf and only on your instructions. A data processing agreement is available on request; see our <a href="https://github.com/twfly104/delomu/blob/main/docs/trust/dpa-template.md">DPA template</a>.</p>`],
+      ['Who else sees it', '<p>Only the providers needed to run the service: Anthropic (the AI model), Meta’s model API when configured, Railway (hosting) and Stripe (billing). Cloudflare runs our DNS and sees no customer data. The current list is on our <a href="/security">security page</a>, and we tell customers before adding one. Your data may be processed in the United States and other countries where these providers operate.</p>'],
+      ['Cookies', `<p>We use only cookies the service needs to work. No analytics, advertising or tracking cookies, and no third-party scripts, so there is nothing to opt into.</p><div class="scroll legal-table"><table><thead><tr><th>Cookie</th><th>Why</th><th>Kept for</th></tr></thead><tbody>${cookies}</tbody></table></div><p class="subtle">Your browser’s session storage also keeps the in-app assistant’s current chat until you close the tab.</p>`],
+      ['How long we keep it', '<p>While your account is active. We delete your data within 30 days of a written request or of your account closing. The audit log of a workspace is kept as long as the workspace exists, because it is the record your clients sign off on.</p>'],
+      ['Your rights', `<p>You can ask to see, correct, export or delete your personal data, or object to how we use it. Write to <a href="mailto:${LEGAL_CONTACT}">${LEGAL_CONTACT}</a>; we answer within 30 days. If you are in the EU or UK and are not satisfied, you can complain to your data protection authority.</p>`],
+      ['Security', '<p>Each organization’s data is kept apart, keys and sessions are stored as hashes, saved credentials are encrypted, and every action is written to a tamper-evident log. Details, and what we have not done yet, are on our <a href="/security">security page</a>.</p>'],
+      ['Changes', '<p>We will post any change here with a new date, and email account owners before a change that affects how we use their data.</p>'],
+    ],
+  });
+}
+
+export function termsPage({ signup = false }) {
+  return legalPage({
+    signup, title: 'Terms of Service',
+    lede: 'The agreement between you and Grapim when you use the service.',
+    sections: [
+      ['The service', '<p>Grapim helps teams deploy AI agents to their clients: it drafts rollout steps, tests an agent against a client’s policies, drafts fixes, and records the client’s sign-off. By creating an account or using Grapim you agree to these terms on behalf of yourself and the organization you sign up for.</p>'],
+      ['Your account', '<p>Keep your sign-in key and your API keys secret, and tell us if one may have leaked. You are responsible for what is done with your account, and for the people you invite to it.</p>'],
+      ['Acceptable use', '<ul><li>Only test AI agents and systems you are allowed to test, with material you are allowed to share with us.</li><li>Do not use Grapim to attack, overload or get unauthorized access to any system, including Grapim.</li><li>Do not upload unlawful content, or personal data you have no right to process.</li></ul>'],
+      ['Your content', '<p>What you upload, and the results Grapim produces for you, stay yours. You let us process them only to provide the service. We never use them to train AI models.</p>'],
+      ['Drafts, not guarantees', '<p>Everything Grapim drafts (mappings, integrations, tests, fixes, reports) is a draft for a person to review. Grapim finds problems it is able to test for; a check that passes does not prove an AI agent will never break a rule, and a client sign-off records that client’s decision, not a certification by Grapim. You decide what goes live.</p>'],
+      ['Plans and payment', '<p>Paid plans are billed in advance through Stripe at the prices on our <a href="/pricing">pricing page</a> and renew until cancelled; you can cancel at any time and keep access until the end of the paid period. A done-for-you rollout is quoted and agreed in writing before work starts; the first one is free as stated on the pricing page.</p>'],
+      ['Confidentiality', '<p>We keep your material confidential and only share it with the providers listed in our <a href="/privacy">Privacy Policy</a> to run the service.</p>'],
+      ['Ending the agreement', '<p>You can stop using Grapim and ask us to delete your data at any time. We may suspend an account that breaks these terms or puts the service or other customers at risk, and will tell you why.</p>'],
+      ['Liability', '<p>Grapim is provided as is, without warranties beyond those the law requires. To the extent the law allows, neither side is liable for indirect or lost-profit damages, and our total liability is limited to what you paid us in the 12 months before the claim.</p>'],
+      ['Changes and contact', `<p>We will post changes here with a new date and email account owners about material ones. Questions: <a href="mailto:${LEGAL_CONTACT}">${LEGAL_CONTACT}</a>.</p>`],
+    ],
+  });
 }
 
 // A new account's sign-in key, shown once on its first page instead of a page of its own.

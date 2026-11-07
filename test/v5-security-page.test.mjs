@@ -18,3 +18,18 @@ test('the public security page states facts and never claims a certification', a
   // Linked from the public footer.
   assert.match(await (await fetch(`${srv.base}/pricing`)).text(), /href="\/security"/);
 });
+
+test('privacy and terms pages are public, list only necessary cookies, and are linked from footer and sign-up', async () => {
+  const privacy = await (await fetch(`${srv.base}/privacy`)).text();
+  assert.match(privacy, /<title>Privacy Policy/);
+  for (const c of ['delomu_session', 'delomu_login_csrf', 'delomu_oidc_state']) assert.match(privacy, new RegExp(c));
+  assert.match(privacy, /No analytics, advertising or tracking cookies/);
+  assert.match(privacy, /never use your material to train AI models/);
+  const terms = await (await fetch(`${srv.base}/terms`)).text();
+  assert.match(terms, /<title>Terms of Service/);
+  assert.match(terms, /Drafts, not guarantees/);
+  const foot = await (await fetch(`${srv.base}/pricing`)).text();
+  assert.match(foot, /href="\/privacy"/);
+  assert.match(foot, /href="\/terms"/);
+  assert.match(await (await fetch(`${srv.base}/signup`)).text(), /you agree to the <a href="\/terms">Terms<\/a>/);
+});

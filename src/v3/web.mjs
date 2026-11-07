@@ -45,7 +45,7 @@ const LANDING_DEMO = { bank: demoScan('bank'), store: demoScan('store') };
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -369,6 +369,8 @@ function routes(ctx) {
   // Public pricing, from the same plan table billing charges by.
   r.add('GET', '/pricing', () => html(pricingPage({ signup: signupOpen, plans: PLAN_LIST })), { public: true });
   r.add('GET', '/security', () => html(securityPage({ signup: signupOpen })), { public: true });
+  r.add('GET', '/privacy', () => html(privacyPage({ signup: signupOpen })), { public: true });
+  r.add('GET', '/terms', () => html(termsPage({ signup: signupOpen })), { public: true });
 
   r.add('GET', '/', ({ principal }) => {
     // A signed-out visitor gets the public page; everyone else their home.
