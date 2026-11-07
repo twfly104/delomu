@@ -49,7 +49,7 @@ export function signoffPage({ csrf, token, preparedBy, client, name, scan, launc
     title: `Sign off ${name}`,
     body: `<div class="auth-card" style="max-width:640px">
 <span class="brand">${mark(26, 'm-sign')}<span>Grapim</span></span>
-<h1>Accept ${esc(name)}${client ? ` for ${esc(client)}` : ''}?</h1>
+<h1>Accept ${esc(preparedBy)}’s AI agent${client ? ` for ${esc(client)}` : ''}?</h1>
 <p class="lede">${esc(preparedBy)} asks you to review this AI agent before it goes live. Grapim tested it against your own policies and judged every answer against the exact clause.</p>
 ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : ''}
 ${scan ? `${verdict}<p><a class="btn block" href="/signoff/${esc(token)}/report.html">Read the full check report</a></p>
