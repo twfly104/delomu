@@ -604,6 +604,13 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sec-p{margin-top:16px}
 @media (max-width:760px){.sec-facts{grid-template-columns:1fr;gap:28px}}.lp-hero-sm h1{max-width:18ch}
 .lp-prices-full{margin-top:56px;align-items:stretch}
+.lp-dfy{margin-top:16px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:40px;align-items:center;padding:32px;border-radius:14px;background:var(--surface);box-shadow:0 0 0 1px var(--line)}
+.lp-dfy h2{margin:10px 0 8px;font-size:24px;letter-spacing:-0.02em}
+.lp-dfy p{margin:0;color:var(--text-2);line-height:1.6;max-width:62ch}
+.lp-dfy .tag{font-size:11.5px;font-weight:500;color:var(--accent-text);background:var(--accent-weak);padding:2px 8px;border-radius:99px}
+.lp-dfy-buy{display:flex;flex-direction:column;gap:6px;padding-left:32px;border-left:1px solid var(--line)}
+.lp-dfy-buy .lp-price{color:var(--text)}
+@media (max-width:760px){.lp-dfy{grid-template-columns:1fr;gap:20px;padding:24px}.lp-dfy-buy{padding:20px 0 0;border-left:0;border-top:1px solid var(--line)}}
 .lp-tier-act{margin:14px 0 4px}.lp-tier-act .btn{width:100%;justify-content:center;height:38px}.lp-tier-act.subtle{font-size:13px;height:38px;display:flex;align-items:center}
 .lp-incl{list-style:none;margin:12px 0 0;padding:16px 0 0;border-top:1px solid var(--line);display:grid;gap:10px;font-size:13.5px;color:var(--text-2)}
 .lp-incl li{display:flex;gap:8px;align-items:flex-start}.lp-incl li .i{margin-top:3px;color:var(--good)}
@@ -919,7 +926,7 @@ ${step('2 · Fix', '', 'Fix it, then <mark>check again</mark>.', 'One change to 
 ${step('3 · Sign off', '', 'The client signs off <mark>from a link</mark>.', 'No account to create. They read the result and accept, and the decision goes into the audit log.', sign)}
 ${step('4 · Every client', '', 'One click per <mark>new client</mark>.', 'Run the whole rollout in one click: mapping, integration, tests, check, fix. Then see which client needs you, who is waiting to sign, and who is ready to launch.', clients, true)}
 <section class="lv-eng"><p><b>For your engineers:</b> an API, a guard that checks each reply before the customer sees it, and an MCP server for Claude Code and Cursor.</p></section>
-<section class="lv-close"><h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Try it on three sample clients in a minute.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a></div></section>
+<section class="lv-close"><h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Try it on three sample clients in a minute, or let us run your first client’s rollout for free.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout</a></div></section>
 </main>
 ${lpFoot()}`;
   return doc('Grapim: prove your AI agent follows each client’s rules', body, 'lp-page');
@@ -952,6 +959,7 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
     ['What is an active agent or client workspace?', 'An AI agent with at least one completed check this month. A vendor’s clients each get their own workspace, billed to the vendor.'],
     ['Do my clients need an account?', 'No. A client reads the result and signs off from a link that expires after 30 days and can be revoked.'],
     ['What happens at a limit?', 'On Free, Grapim stops at the limit, says which one, and keeps your results. On Team and Vendor, extra agents or clients are billed at the price shown.'],
+    ['Can you do the rollout for us?', 'Yes. Send one new client’s policies and a way to reach your agent; we run the rollout in Grapim and hand you the result within 48 hours. The first client is free.'],
     ['Which AI agents can I connect?', 'Intercom, Zendesk, any OpenAI-compatible API, or your own HTTP endpoint. Keys you paste are stored encrypted.'],
   ].map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('');
   const body = `${lpTop(start, cta, 'pricing')}
@@ -959,6 +967,10 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
 <section class="lp-hero lp-hero-sm"><h1>Start free. Pay when it is in production.</h1>
 <p class="lede">Every plan checks what your agent says and what it does, against your own policy.</p></section>
 <div class="lp-prices lp-prices-full">${cards}</div>
+<section class="lp-dfy" aria-labelledby="dfy-h"><div class="lp-dfy-copy"><span class="tag">Done for you</span><h2 id="dfy-h">Rather we run the rollout?</h2>
+<p>Send us one new client’s policies and a way to reach your agent. We run the whole rollout in Grapim and hand you the result in 48 hours: the rules your agent breaks, the exact conversations, a drafted fix you approve, and the sign-off page for your client.</p></div>
+<div class="lp-dfy-buy"><p class="lp-price">First client free</p><p class="subtle">Then from $2,000 per client rollout, or switch to the Vendor plan and run them yourself.</p>
+<p class="lp-tier-act"><a class="btn primary" href="https://www.linkedin.com/in/alexanderko104/" rel="noopener">Ask for a free rollout</a></p></div></section>
 <section class="lp-sec"><h2>Questions</h2><div class="lp-faq">${faq}</div></section>
 <section class="lp-end"><h2>Run your first check in two minutes</h2>
 <p>Start on a sample agent. No card needed.</p>
