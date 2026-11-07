@@ -32,8 +32,7 @@ const SCAN = { id: '2026-11-02T10-00-00-000Z-abcd', createdAt: '2026-11-02T10:00
 test('a client accepts an AI agent from a link, without an account, once', async () => {
   const { cookie, vendor, dep, dir } = await setup();
   let page = await (await get(`${dep}/rollout`, cookie)).text();
-  assert.match(page, /Client sign-off/);
-  assert.match(page, /Run the policy check first/);
+  assert.doesNotMatch(page, /signoff\/link/); // no sign-off panel before a check exists
   assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 400);
 
   fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });

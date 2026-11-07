@@ -24,8 +24,10 @@ test('one click runs every step the agent can draft, then the check, and reports
   const dep = sample.headers.get('location').replace(/\/scan\?.*$/, '');
 
   const before = await (await get(`${dep}/rollout`, cookie)).text();
-  assert.match(before, /Run the whole rollout/);
-  assert.match(before, /The six steps/);
+  assert.match(before, /Run the rollout/);
+  assert.match(before, /class="stages six"/); // one track for the six steps
+  assert.match(before, /0 of 6 steps done|[1-6] of 6 steps done/);
+  assert.match(before, /<details class="ro-more"/); // settings folded away
   assert.equal((await post(`${dep}/rollout`, cookie, { csrf: 'forged' })).status, 403);
   assert.equal((await post(`${dep}/rollout`, cookie, { csrf: csrfOf(before) })).status, 303);
 

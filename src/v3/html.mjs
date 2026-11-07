@@ -291,6 +291,21 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .api-snip{margin-top:12px}.api-snip>summary{cursor:pointer;font-weight:500;font-size:13.5px;margin-bottom:10px}
 .rule-text{margin:4px 0 0;font-size:13.5px;color:var(--text-2)}
 .stages .lbl{font-weight:500;letter-spacing:-0.01em}.stages .det{font-size:12.5px;color:var(--text-3)}.stages .bad .det{color:var(--bad)}
+.stages.six{grid-template-columns:repeat(3,minmax(0,1fr));margin:18px 0 0}
+.stages.six li:nth-child(4){border-left:0}
+.stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
+.stages.six .lbl,.stages.six .det{display:block}
+.stages .st svg{width:12px;height:12px}
+.ro-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.ro-head h2{margin:0 0 4px;font-size:17px;letter-spacing:-0.015em}
+.ro-head p{margin:0}
+.ro-head .actions{display:flex;gap:8px;flex-wrap:wrap}
+.ro-more{margin-top:4px}
+.ro-more>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px;padding:12px 2px;font-size:13px;font-weight:500;color:var(--text-2)}
+.ro-more>summary::-webkit-details-marker{display:none}
+.ro-more>summary::before{content:'';width:7px;height:7px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+.ro-more[open]>summary::before{transform:rotate(45deg)}
+.ro-more>summary:hover{color:var(--text)}
 .verdict{font-size:30px;font-weight:600;letter-spacing:-0.035em;line-height:1.15}.verdict .of{color:var(--text-3);font-weight:500}
 .verdict.bad b{color:var(--bad);font-weight:600}.verdict.good b{color:var(--good);font-weight:600}
 .rulelist{list-style:none;margin:0;padding:0}
@@ -756,8 +771,8 @@ const upgradeLink = href => (href ? [href, 'View plans and upgrade'] : undefined
 // Self-serve sign-up (DELOMU_SIGNUP=open): one form, then the sign-in key shown once. An AI vendor gets a
 // partner org, with one separate workspace per client (like a platform's connected accounts).
 export const SIGNUP_KINDS = [
+  { id: 'vendor', label: 'We sell an AI agent to companies', hint: 'One workspace per client: deploy to each client and get their sign-off.' },
   { id: 'company', label: 'We use an AI agent with our customers', hint: 'Check that your own AI keeps your policies.' },
-  { id: 'vendor', label: 'We sell an AI agent to companies', hint: 'One workspace per client: test each rollout against that client’s policies.' },
 ];
 
 export function signupPage({ csrf, error, values = {} }) {
@@ -771,7 +786,7 @@ ${notice(error)}
 <label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(values.email ?? '')}" placeholder="you@company.com"></label>
 <label class="field"><span>Company</span><input type="text" name="company" required maxlength="60" autocomplete="organization" value="${esc(values.company ?? '')}" placeholder="Your company"></label>
 <div class="field"><span>What do you do?</span><div class="choice">
-${SIGNUP_KINDS.map(k => `<label><input type="radio" name="kind" value="${k.id}"${(values.kind ?? 'company') === k.id ? ' checked' : ''}><span><span class="strong">${esc(k.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(k.hint)}</span></span></label>`).join('\n')}
+${SIGNUP_KINDS.map(k => `<label><input type="radio" name="kind" value="${k.id}"${(values.kind ?? 'vendor') === k.id ? ' checked' : ''}><span><span class="strong">${esc(k.label)}</span><span class="hint" style="display:block;margin:2px 0 0">${esc(k.hint)}</span></span></label>`).join('\n')}
 </div></div>
 <button class="btn primary block" data-busy="Creating…">Create free account</button></form>
 <p class="subtle" style="margin-top:16px;text-align:center">Already have an account? <a href="/login">Sign in</a></p>
@@ -1199,15 +1214,16 @@ function deploymentHeader(args) {
   const { org, name, config, ov, tab, can, csrf, checking } = args;
   const base = depPath(org, name);
   const scan = ov.scans[0];
-  const tabs = [['scan', 'Check results', `${base}/scan`, scan ? scan.summary.broken : 0, true], ['live', 'Live', `${base}/live`, ov.live?.week.flagged ?? 0, true], ['inputs', 'Policies', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
-  const primary = !ov.inputs.length
+  const tabs = [['rollout', 'Rollout', `${base}/rollout`, ov.pending.length, false], ['scan', 'Check results', `${base}/scan`, scan ? scan.summary.broken : 0, true], ['live', 'Live', `${base}/live`, ov.live?.week.flagged ?? 0, true], ['inputs', 'Policies', `${base}/inputs`, ov.inputs.length], ['settings', 'Settings', `${base}/settings`]];
+  // The rollout page carries its own track and its own primary action.
+  const primary = tab === 'rollout' ? '' : !ov.inputs.length
     ? (can.write ? `<a class="btn primary" href="${esc(base)}/inputs">${icon('upload')}Add policies</a>` : '')
     : checking ? `<button class="btn primary" disabled aria-busy="true">${icon('shield')}Checking…</button>`
       : can.write ? `<form method="post" action="${esc(base)}/scan"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn primary" data-busy="Starting…">${icon('shield')}${scan ? 'Run check again' : 'Run check'}</button></form>` : '';
   const item = (href, label, ic, n) => `<a class="btn ghost" href="${esc(href)}">${icon(ic)}${esc(label)}${n ? ` <span class="subtle num" style="margin-left:auto">${n}</span>` : ''}</a>`;
   const more = `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
-${item(`${base}/rollout`, 'Rollout', 'layers')}${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
+${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
 ${can.run ? `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
 <button class="btn ghost" data-busy="Running tests…">${icon('play')}Run the saved test set</button></form>` : ''}
 ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick"><input type="hidden" name="csrf" value="${esc(csrf)}">
@@ -1217,7 +1233,7 @@ ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick
   return `<div class="page-head"><div><div class="title"><h1>${esc(agentTitle(name, config))}</h1>${checking ? '<span class="badge accent">Checking…</span>' : checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
 <p class="sub">${esc([config.customer, via].filter(Boolean).join(' · '))}</p></div>
 <div class="actions">${more}${primary}</div></div>
-${stages({ base, ov, checking, signoff: args.signoff })}
+${tab === 'rollout' ? '' : stages({ base, ov, checking, signoff: args.signoff })}
 <nav class="tabs" aria-label="AI agent">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 
@@ -1431,13 +1447,26 @@ export function rolloutPage(args) {
   const start = can.write ? `<form method="post" action="${esc(base)}/rollout"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn primary"${running ? ' disabled aria-busy="true"' : ''} data-busy="Starting…">${icon('play')}${running ? 'Rollout running…' : rollout ? 'Run the rollout again' : 'Run the rollout'}</button></form>` : '';
   const job = rollout ? `<div class="rows">${rollout.steps.map(s => `<div class="row">${icon(s.state === 'done' ? 'check' : s.state === 'failed' ? 'alert' : 'clock')}<div class="what"><p class="strong">${esc(s.label)}</p>${s.detail ? `<p class="subtle">${esc(s.detail)}</p>` : ''}</div>${badge(ROLLOUT_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>` : '';
-  const steps = `<div class="rows">${ov.steps.map((s, i) => `<div class="row"><span class="num subtle" style="width:18px">${i + 1}</span><div class="what"><p class="strong">${esc(s.label)}</p><p class="subtle">${esc(s.detail)}</p></div>${badge(STEP_STATE[s.state] ?? ['', s.state])}</div>`).join('')}</div>`;
-  const next = ov.pending.length ? `<a class="btn" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
-  const body = `${signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] })}<section class="panel"><div class="panel-head"><h2>Run the whole rollout</h2><span style="flex:1"></span>${start}</div>
-<p class="panel-body subtle" style="margin:0">Grapim drafts the data mapping, the integration and the tests, runs the check, drafts the fix, and gets the rollout ready for the client’s sign-off. You approve every draft.</p>
+  // One track for the whole rollout: the six steps, each a link to where its work happens.
+  const TRACK = { done: 'done', review: 'wait', attention: 'bad', todo: '' };
+  const where = { fixes: `${base}/scan`, monitoring: '#more' };
+  const done = ov.steps.filter(s => s.state === 'done').length;
+  const track = `<ol class="stages six" aria-label="Rollout steps">${ov.steps.map((s, i) => {
+    const key = s.key ?? STEPS[i]?.key;
+    return `<li class="${TRACK[s.state] ?? ''}"><a href="${esc(where[key] ?? `${base}/drafts`)}"><span class="st">${s.state === 'done' ? icon('check') : i + 1}</span><span><span class="lbl">${esc(s.label)}</span><span class="det">${esc(s.state === 'review' || s.state === 'attention' ? (STEP_STATE[s.state] ?? ['', s.state])[1] : s.detail)}</span></span></a></li>`;
+  }).join('')}</ol>`;
+  // The one thing to do now: review what the agent drafted, else run (or re-run) the rollout.
+  const review = ov.pending.length && can.write ? `<a class="btn primary" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
+  const action = review ? `${review}${start.replace('btn primary', 'btn')}` : start;
+  const body = `<section class="panel ro-main"><div class="panel-body">
+<div class="ro-head"><div><h2>${esc(args.config?.customer ? `Rollout for ${args.config.customer}` : 'Rollout')}</h2>
+<p class="subtle num">${done} of ${ov.steps.length} steps done · <span class="strong" style="color:var(--text)">Next:</span> ${esc(ov.next.text)}</p></div>
+<div class="actions">${action}</div></div>
+${track}
+<p class="hint" style="margin:12px 0 0">Grapim drafts the data mapping, the integration and the tests, runs the check, drafts the fix and readies the client’s sign-off. Nothing goes live until you approve it.</p></div>
 ${job}</section>
-<section class="panel"><div class="panel-head"><h2>The six steps</h2><span style="flex:1"></span>${next}</div>${steps}
-<p class="panel-body" style="margin:0"><span class="strong">Next:</span> ${esc(ov.next.text)}</p></section>
+${ov.scans[0] ? signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] }) : ''}
+<details class="ro-more" id="more"><summary>Connector, playbook, monitoring, hours and revenue</summary>
 ${connectorPanel({ base, csrf, can, connector: args.connector })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
 ${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
@@ -1446,7 +1475,7 @@ ${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" nov
 <label class="field" style="flex:1"><span>Note <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="note" maxlength="200"></label></div>
 <label class="field"><span>What needed a person <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="tag" maxlength="60" list="intervention-tags" placeholder="client API has no docs"><datalist id="intervention-tags">${(args.tags ?? []).map(t => `<option value="${esc(t)}">`).join('')}</datalist></label>
 <button class="btn" data-busy="Saving…">${icon('clock')}Log hours</button></div></form>
-${revenuePanel({ base, csrf, revenue: args.revenue })}` : ''}`;
+${revenuePanel({ base, csrf, revenue: args.revenue })}` : ''}</details>`;
   return deploymentShell({ ...args, tab: 'rollout', title: 'Rollout' }, body);
 }
 
