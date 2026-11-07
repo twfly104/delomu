@@ -604,6 +604,9 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sec-p{margin-top:16px}
 @media (max-width:760px){.sec-facts{grid-template-columns:1fr;gap:28px}}.lp-hero-sm h1{max-width:18ch}
 .lp-prices-full{margin-top:56px;align-items:stretch}
+.lp-social{display:flex;gap:12px;margin:12px 0 0}
+.lp-social a{color:var(--text-3);display:inline-flex;padding:2px}
+.lp-social a:hover{color:var(--text)}
 .lp-dfy{margin-top:16px;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:40px;align-items:center;padding:32px;border-radius:14px;background:var(--surface);box-shadow:0 0 0 1px var(--line)}
 .lp-dfy h2{margin:10px 0 8px;font-size:24px;letter-spacing:-0.02em}
 .lp-dfy p{margin:0;color:var(--text-2);line-height:1.6;max-width:62ch}
@@ -832,7 +835,12 @@ export function signupKeyPage({ secret, email }) {
 
 const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
 <nav><a href="/#how">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
-const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><span class="lp-foot-brand">${mark(22, 'm-lpf')} Grapim</span>
+// Grapim's own accounts, shown in the public footer. Add YouTube or X here when they exist; each needs an icon path.
+const SOCIAL = [
+  { label: 'LinkedIn', href: 'https://www.linkedin.com/company/grapim/', path: 'M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9.75h4v11.25H3V9.75Zm6.5 0h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1V21h-4v-4.93c0-1.18-.02-2.7-1.64-2.7-1.65 0-1.9 1.29-1.9 2.62V21h-4V9.75Z' },
+];
+const socialLinks = () => `<p class="lp-social">${SOCIAL.map(x => `<a href="${x.href}" rel="noopener" aria-label="Grapim on ${x.label}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="${x.path}"/></svg></a>`).join('')}</p>`;
+const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><div><span class="lp-foot-brand">${mark(22, 'm-lpf')} Grapim</span>${socialLinks()}</div>
 <nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a><a href="/security">Security</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav></div>
