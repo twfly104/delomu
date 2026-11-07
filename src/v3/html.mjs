@@ -473,9 +473,21 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lv mark{background:none;color:inherit;box-shadow:inset 0 -.3em 0 color-mix(in srgb,var(--accent) 22%,transparent);border-radius:2px}
 .lv-hero-stage{max-width:1040px;margin:56px auto 0;padding:28px;border-radius:24px;background:radial-gradient(90% 70% at 0% 0%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 62%),radial-gradient(80% 70% at 100% 100%,color-mix(in srgb,var(--good) 14%,transparent),transparent 62%),var(--sunken);text-align:center}
 .lv-hero-stage .lv-note{margin-top:16px}
+.lv-trust{list-style:none;margin:28px auto 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;font-size:13.5px;color:var(--text-2)}
+.lv-trust li,.lv-trust a{display:inline-flex;align-items:center;gap:7px}
+.lv-trust svg{color:var(--good);flex:none}
+.lv-trust a{color:var(--text-2);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
+.lv-trust a svg{color:var(--accent)}
+.lv-trust a:hover{color:var(--text)}
+.lv-film{padding-top:136px;text-align:center}
+.lv-film h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance;margin:0}
+.lv-film .lv-shot{max-width:620px;margin:40px auto 0;border-radius:16px}
+.lv-film video{aspect-ratio:1/1}
+.lv-film .lv-note{margin-top:14px}
+@media (max-width:560px){.lv-film{padding-top:96px}.lv-trust{justify-content:flex-start;gap:8px 18px}}
 .lv-pain{padding-top:136px;text-align:center}.lv-pain h2,.lv-step h2,.lv-close h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
 .lv-pains{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;text-align:left}
-.lv-pains>div{padding:22px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}.lv-pains b{display:block;font-size:16px;letter-spacing:-0.01em}.lv-pains p{margin-top:8px;color:var(--text-2);font-size:14.5px;line-height:1.55}
+.lv-pains>div{padding:18px 0 0;border-top:1px solid var(--line-strong)}.lv-pains b{display:block;font-size:16px;letter-spacing:-0.01em}.lv-pains p{margin-top:8px;color:var(--text-2);font-size:14.5px;line-height:1.55}
 .lv-step{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:56px;align-items:center;padding-top:144px}
 .lv-step.flip{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}.lv-step.flip .lv-step-copy{order:2}
 .lv-k{font:500 12.5px var(--mono);letter-spacing:.02em;color:var(--accent-text);margin-bottom:14px}
@@ -922,13 +934,17 @@ ${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 
 <p class="lv-eyebrow">For teams that deploy AI agents to enterprise clients</p>
 <h1><span class="lv-l">Prove your AI agent follows the client’s</span> <span class="lv-l"><span class="lv-rot" data-rotate>${words.map((w, i) => `<span${i ? ' aria-hidden="true"' : ' class="on"'}>${esc(w)}</span>`).join('')}</span> rules before launch</span></h1>
 <p class="lv-sub">Grapim deploys your AI agent to each new client. It drafts the data mapping, the integration and the tests, finds the rules your agent breaks, drafts the fix, and hands you the client’s signed proof.</p>
-<div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="#how">See how it works</a></div>
+<div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout, free</a></div>
 </section>
 <div class="lv-hero-stage">${hero}<p class="lv-note">A real check on Grapim’s sample bank agent.</p></div>
+<ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}SOC 2 in preparation</a></li></ul>
 <section class="lv-pain"><h2>Every new client starts the same way.</h2><div class="lv-pains">
 <div><b>Weeks of hand-testing</b><p>Your forward-deployed engineers read the client’s policies and try the agent by hand, rule by rule.</p></div>
 <div><b>A legal team that wants proof</b><p>The client will not go live on “we tested it”. They want to see what was tested and what changed.</p></div>
 <div><b>More clients, more engineers</b><p>Every rollout starts from zero, so headcount grows with every client you sign.</p></div></div></section>
+<section class="lv-film"><h2>One client’s rollout, in 24 seconds.</h2>
+<figure class="lv-shot"><video src="/media/demo.mp4" poster="/media/demo.jpg" autoplay muted loop playsinline controls preload="metadata" disablepictureinpicture aria-label="Grapim deploys Brightdesk AI’s agent to a sample bank: drafts the deployment, finds two broken rules, fixes them, and the bank signs off"></video></figure>
+<p class="lv-note">Sample clients, real product. Sound on for the full effect.</p></section>
 ${step('1 · Find', 'how', 'Find every rule it <mark>breaks</mark>.', 'Grapim turns the client’s policy into the customer messages most likely to break it, sends them to your agent, and judges what it says and what it does.', grid)}
 ${step('2 · Fix', '', 'Fix it, then <mark>check again</mark>.', 'One change to your agent’s instructions for the broken rules. You approve it; the same messages run again, so you see the fix worked.', fix, true)}
 ${step('3 · Sign off', '', 'The client signs off <mark>from a link</mark>.', 'No account to create. They read the result and accept, and the decision goes into the audit log.', sign)}
