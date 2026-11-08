@@ -7,6 +7,7 @@ import path from 'node:path';
 import { appendAudit } from '../core/audit.mjs';
 import { esc } from '../report.mjs';
 import { layout, mark } from './html.mjs';
+import { handoverSection, HANDOVER_STYLE } from './handover.mjs';
 
 const file = dir => path.join(dir, 'signoff.json');
 const MAX_NOTE = 1000;
@@ -31,7 +32,7 @@ export function recordSignoff(dir, { decision, name, note = '', scanId, shareId,
 }
 
 // The page the client sees. scan: the check the link was made for; done: a decision already given on this link.
-export function signoffPage({ csrf, token, preparedBy, client, name, scan, launch, done, error, values = {} }) {
+export function signoffPage({ csrf, token, preparedBy, client, name, scan, launch, done, error, values = {}, handover = null }) {
   const s = scan?.summary;
   const verdict = !s ? '' : s.broken
     ? `<div class="notice" role="status"><span>The check found <span class="strong">${s.broken} of ${s.rules} policy rules broken</span>. Read the findings before you accept.</span></div>`
@@ -55,6 +56,7 @@ ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : 
 ${scan ? `${verdict}<p><a class="btn block" href="/signoff/${esc(token)}/report.html">Read the full check report</a></p>
 <p class="subtle">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>` : '<p>There is no check to review yet.</p>'}
 ${launch ? `<h2 style="margin:20px 0 6px">Launch summary</h2><div class="subtle" style="white-space:pre-wrap">${esc(launch)}</div>` : ''}
+${handover && scan ? `<style>${HANDOVER_STYLE}</style>${handoverSection(handover)}<p style="margin:16px 0 28px"><a class="btn block" href="/signoff/${esc(token)}/handover">Open the handover page to keep</a></p>` : ''}
 ${decided}${form}
 <p class="subtle" style="margin-top:16px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p>
 </div>`,

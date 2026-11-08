@@ -31,6 +31,7 @@ import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg } from './accounts.mjs';
 import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
 import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
+import { handoverData, handoverPage } from './handover.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
 import { readSecret, saveSecret, savedSecrets } from './secrets.mjs';
 import { tx } from './db.mjs';
@@ -92,6 +93,7 @@ const NOTICES = {
   created: 'AI agent added. Add your policies next, then run the check.',
   ran: 'Test run finished.',
   scanned: 'Check finished.',
+  autofix: 'Check finished. Grapim drafted a fix for the broken rules: review it below, then approve to send the same messages again.',
   rechecked: 'Re-check finished: the same messages were sent again.',
   'zendesk-connected': 'Zendesk connected. Import whenever you like; nothing is copied until you do.',
   'zendesk-denied': 'Zendesk was not connected: the request was declined in Zendesk.',
@@ -711,7 +713,21 @@ function routes(ctx) {
   // Risk scans run in the background (about a minute); the scan page shows live progress and refreshes.
   const scans = new Map();
   // Starts a policy check in the background and returns its job; throws an ApiError when a plan limit is hit.
-  async function startScan(principal, org, name, dir) {
+  // Done for the vendor: when a check or re-check leaves rules broken, the agent drafts the fix right away, so
+  // the person opens the result to a change ready to approve. Nothing is applied until they approve it.
+  async function autoDraftFix(principal, org, name, dir, job) {
+    const scan = listScans(dir)[0];
+    if (!scan?.summary?.broken) return;
+    const f = getFix(dir);
+    if (f?.status === 'proposed' && f.scanId === scan.id) return;
+    job.progress = { phase: 'fix', broken: scan.summary.broken };
+    try {
+      const res = await draftFix(dir, { llm: ctx.llm ?? createLlm(), now: ctx.now() });
+      if (res.ok) { job.autoFix = true; event(ctx, principal, org.id, 'fix.draft', name, { rules: res.fix.rules.length, via: 'auto' }); }
+    } catch (e) { console.error(`could not draft a fix for ${name}: ${e.message}`); }
+  }
+
+  async function startScan(principal, org, name, dir, { autoFix = true } = {}) {
     if (scans.get(dir)?.status === 'running') return scans.get(dir);
     const { riskScan } = await import('../v1/risk.mjs');
     // Plan limits: a completed scan counts toward the month (the scan.create event below).
@@ -722,7 +738,7 @@ function routes(ctx) {
       if (!result.ok) Object.assign(job, { status: 'failed', error: `The scan found nothing to test: ${result.reason}` });
       else {
         event(ctx, principal, org.id, 'scan.create', `${name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
-        job.status = 'done';
+        return (autoFix ? autoDraftFix(principal, org, name, dir, job) : Promise.resolve()).then(() => { job.status = 'done'; });
       }
     }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, name) })).finally(() => release());
     return job;
@@ -736,7 +752,7 @@ function routes(ctx) {
     if (job?.status === 'running') return html(riskScanPage({ ...ws, ...fixArgs, job }));
     if (job) scans.delete(ws.dir);
     if (job?.status === 'failed') return html(riskScanPage({ ...ws, ...fixArgs, flash: '', error: job.error }));
-    return html(riskScanPage(job?.status === 'done' ? { ...ws, ...fixArgs, flash: job.recheck ? NOTICES.rechecked : NOTICES.scanned } : { ...ws, ...fixArgs }));
+    return html(riskScanPage(job?.status === 'done' ? { ...ws, ...fixArgs, flash: job.autoFix ? NOTICES.autofix : job.recheck ? NOTICES.rechecked : NOTICES.scanned } : { ...ws, ...fixArgs }));
   });
 
   r.add('POST', '/orgs/:org/deployments/:name/scan', async ({ req, principal, params }) => {
@@ -797,7 +813,7 @@ function routes(ctx) {
               continue;
             }
             checkTarget(loadConfig(dir), ctx.policy);
-            const scan = await startScan(principal, org, params.name, dir);
+            const scan = await startScan(principal, org, params.name, dir, { autoFix: false });
             await scan.done;
             Object.assign(step, scan.status === 'done' ? { state: 'done', detail: 'Check finished.' } : { state: 'failed', detail: scan.error });
             continue;
@@ -1102,13 +1118,21 @@ function routes(ctx) {
     try { config = loadConfig(dir); } catch { /* the page works without it */ }
     const launch = fs.existsSync(path.join(dir, 'launch-summary.md')) ? fs.readFileSync(path.join(dir, 'launch-summary.md'), 'utf8').slice(0, 8000) : '';
     const done = signoffs(dir).find(s => s.shareId === share.id) ?? null;
-    return { share, org, dir, config, scan: getScan(dir, share.subject), launch, done, view: { token, preparedBy: (vendor ?? org).name, client: config.customer ?? org.name, name: share.deployment } };
+    const scan = getScan(dir, share.subject);
+    const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment };
+    return { share, org, dir, config, scan, launch, done, view: { ...view, handover: scan ? handoverData(dir, { scan, ...view }) : null } };
   }
 
   r.add('GET', '/signoff/:token', ({ req, params }) => {
     const c = signoffContext(params.token);
     const csrf = randomToken();
     return html(signoffPage({ ...c.view, csrf, scan: c.scan, launch: c.launch, done: c.done }), 200, [cookie(SIGNOFF_CSRF, csrf, { maxAge: 3600, secure: ctx.secureCookies(req), path: '/signoff' })]);
+  }, { public: true });
+
+  r.add('GET', '/signoff/:token/handover', ({ params }) => {
+    const c = signoffContext(params.token);
+    if (!c.view.handover) throw notFound('check');
+    return html(handoverPage(c.view.handover, { back: `/signoff/${params.token}` }));
   }, { public: true });
 
   r.add('GET', '/signoff/:token/report.html', ({ params }) => {
@@ -1218,7 +1242,7 @@ function routes(ctx) {
         try {
           if (undoIfWorse(dir, result.scan, getScan(dir, result.scan.recheckOf), { now: ctx.now() })) { job.autoReverted = true; event(ctx, principal, org.id, 'fix.revert', name, { automatic: true }); }
         } catch (e) { console.error(`could not undo the fix for ${name}: ${e.message}`); }
-        job.status = 'done';
+        return autoDraftFix(principal, org, name, dir, job).then(() => { job.status = 'done'; });
       }
     }, e => Object.assign(job, { status: 'failed', error: scanError(e, dir, name) }));
   }
@@ -1355,6 +1379,16 @@ function routes(ctx) {
   });
 
   // The agent's evidence pack over a date range (default: the last 90 days), for legal, risk and compliance.
+  // The handover for the client's team (src/v3/handover.mjs), printable.
+  r.add('GET', '/orgs/:org/deployments/:name/handover', ({ principal, params }) => {
+    const { org } = access(ctx, principal, params.org, 'runs:read');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* the page works without it */ }
+    const vendor = org.partner_org_id ? getOrg(db, org.partner_org_id) : null;
+    return html(handoverPage(handoverData(dir, { preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: params.name }), { back: `${depPath(org, params.name)}/rollout` }));
+  });
+
   r.add('GET', '/orgs/:org/deployments/:name/evidence.html', ({ principal, params, url }) => {
     const { org } = access(ctx, principal, params.org, 'runs:read');
     const { dir } = deploymentFor(ctx, org.id, params.name);

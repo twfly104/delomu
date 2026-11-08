@@ -1622,7 +1622,7 @@ function deploymentHeader(args) {
 <button class="btn primary" data-busy="Starting…">${icon('shield')}${scan ? 'Run check again' : 'Run check'}</button></form>` : '';
   const item = (href, label, ic, n) => `<a class="btn ghost" href="${esc(href)}">${icon(ic)}${esc(label)}${n ? ` <span class="subtle num" style="margin-left:auto">${n}</span>` : ''}</a>`;
   const more = `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
-${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
+${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/handover`, 'Handover for the client', 'file')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
 ${can.run ? `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
 <button class="btn ghost" data-busy="Running tests…">${icon('play')}Run the saved test set</button></form>` : ''}
 ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick" role="group" aria-labelledby="ask-h"><input type="hidden" name="csrf" value="${esc(csrf)}">
@@ -1747,7 +1747,7 @@ function signoffPanel({ base, csrf, can, signoff, scan }) {
   const made = link ? `<label class="field" style="margin-top:12px"><span>Send this link to the client</span><input type="text" readonly class="mono" value="${esc(link)}"><p class="hint">Shown only once. It opens the check from ${esc(scan?.createdAt.slice(0, 10) ?? '')} without an account and expires in 30 days.</p></label>` : '';
   const actions = can.write ? `<div class="row-inline" style="margin-top:12px">${scan ? `<form method="post" action="${esc(base)}/signoff/link">${hidden}<button class="btn${latest ? '' : ' primary'}" data-busy="Creating…">${icon('arrow')}Create a sign-off link</button></form>` : '<span class="subtle">Run the policy check first: the client signs off on a check.</span>'}
 ${active ? `<form method="post" action="${esc(base)}/signoff/revoke">${hidden}<button class="btn ghost" data-busy="Revoking…">Revoke ${active} open link${active === 1 ? '' : 's'}</button></form>` : ''}</div>` : '';
-  return `<section class="panel" id="signoff"><div class="panel-head"><h2>Client sign-off</h2></div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}</div></section>`;
+  return `<section class="panel" id="signoff"><div class="panel-head"><h2>Client sign-off</h2>${scan ? `<a class="btn ghost" href="${esc(base)}/handover">${icon('file')}Handover for the client</a>` : ''}</div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}</div></section>`;
 }
 
 // The playbook on the Rollout page: what the vendor's library holds, whether this client agreed to reuse, and the
@@ -2088,7 +2088,8 @@ export function riskScanPage(args) {
     // fills the first 70% with elapsed time, easing toward 70% without passing it; step 2 (about 20-30 s) fills the
     // rest as answers are judged. The bar is remembered per run, so the 2 s reloads never move it backward.
     const probing = p.phase === 'probes' && p.total;
-    const pctDone = probing ? Math.round(70 + 30 * p.done / p.total) : Math.round(70 * (1 - Math.exp(-secs / 45)));
+    const fixing = p.phase === 'fix';
+    const pctDone = fixing ? 99 : probing ? Math.round(70 + 30 * p.done / p.total) : Math.round(70 * (1 - Math.exp(-secs / 45)));
     const slow = !probing && secs > 90 ? ' · Taking longer than usual; still working' : '';
     // One tile per test message, lit as its answer is judged; the ones lit since the last reload animate in.
     const marks = args.job.marks ?? [];
@@ -2099,8 +2100,11 @@ export function riskScanPage(args) {
       return `<i class="pt${m ? ` ${esc(m.status)}${nowMs - m.at < 2600 ? ' new' : ''}` : i === marks.length ? ' next' : ''}"></i>`;
     }).join('') : '';
     // One bar for the whole check, so it runs to the end: step 1 (most of the time) eases toward 70%, step 2 fills to 100%.
-    const meter = `<div class="meter" role="progressbar" aria-label="Check progress" data-run="${Number(args.job.startedAt) || 0}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}" data-at="${pctDone}"${probing ? ` data-creep="${p.done < p.total ? (30 / p.total).toFixed(2) : 0}"` : ` data-ease="${elapsedMs}"`}><i style="width:${Math.max(2, pctDone)}%"></i></div>`;
-    const body = probing
+    const meter = `<div class="meter" role="progressbar" aria-label="Check progress" data-run="${Number(args.job.startedAt) || 0}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}" data-at="${pctDone}"${fixing ? ' data-creep="0"' : probing ? ` data-creep="${p.done < p.total ? (30 / p.total).toFixed(2) : 0}"` : ` data-ease="${elapsedMs}"`}><i style="width:${Math.max(2, pctDone)}%"></i></div>`;
+    const body = fixing
+      ? `${meter}
+<p class="muted">${p.broken} rule${p.broken === 1 ? '' : 's'} broke. Drafting the fix now; nothing changes until you approve it.</p>`
+      : probing
       ? `${meter}<div class="probegrid" role="img" aria-label="${p.done} of ${p.total} answers judged, ${count('broken')} broke a rule">${tiles}</div>
 <p class="legend muted num"><span><i class="pt broken"></i>${count('broken')} broke a rule</span><span><i class="pt kept"></i>${count('kept')} kept</span><span>${p.total - p.done} to go</span></p>`
       : `${meter}
