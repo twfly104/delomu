@@ -590,6 +590,34 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp-note{display:flex;justify-content:center;align-items:center;gap:8px;height:36px;padding:0 16px;background:var(--ink);color:var(--on-ink);font-size:13.5px;font-weight:500}.lp-note:hover{text-decoration:none}.lp-note-dot{width:7px;height:7px;border-radius:50%;background:var(--good)}.lp-note .go{opacity:.7;margin-left:4px}.lp-note:hover .go{opacity:1}
 @media (max-width:420px){.lp-note{font-size:12.5px}}
 .dev-code{margin-top:16px;max-width:880px}
+/* Guided setup */
+.wz-page{background:var(--canvas)}
+.wz-top{display:flex;justify-content:space-between;align-items:center;max-width:1100px;margin:0 auto;padding:22px 24px}.wz-top .brand{gap:8px;font-size:19px;font-weight:650;letter-spacing:-0.045em}.wz-skip{color:var(--text-3);font-size:14px}
+.wz{max-width:560px;margin:0 auto;padding:24px 20px 80px}
+.wz-steps{position:relative;list-style:none;display:flex;justify-content:space-between;margin:12px 0 36px;padding:0}
+.wz-steps::before,.wz-steps::after{content:"";position:absolute;left:calc(50% / var(--n));right:calc(50% / var(--n));top:12px;height:2px;border-radius:2px;background:var(--line)}
+.wz-steps::after{background:var(--accent);right:auto;width:calc((100% - 100% / var(--n)) * var(--p));animation:wzFill .9s cubic-bezier(.2,.7,.2,1) both}
+.wz-steps li{flex:1 1 0;text-align:center;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12.5px;color:var(--text-3)}
+.wz-steps .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1.5px solid var(--line-strong);font:600 12px var(--mono)}
+.wz-steps .done .n{background:var(--good);border-color:var(--good);color:#fff;animation:wzPop .4s ease-out both}
+.wz-steps .now .n{border-color:var(--accent);color:var(--accent-text);box-shadow:0 0 0 4px var(--accent-weak)}.wz-steps .now{color:var(--text);font-weight:600}
+.wz-card{padding:32px;border:1px solid var(--line);border-radius:18px;background:var(--surface);box-shadow:0 30px 60px -36px rgb(11 19 36/.3);animation:wzIn .5s cubic-bezier(.2,.7,.2,1) both}
+.wz-k{font:500 12.5px var(--mono);color:var(--text-3);margin:0 0 10px}
+.wz-card h1{font-size:28px;letter-spacing:-0.03em;line-height:1.15;max-width:none}.wz-card .lede{margin:10px 0 0;color:var(--text-2);font-size:15.5px;line-height:1.55}
+.wz-form{display:grid;gap:14px;margin-top:24px}.wz-form .field{margin:0}.wz-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.wz-go{justify-self:start;height:40px;padding:0 18px;gap:8px}
+.wz-alt{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--text-3)}
+.wz-seg{display:inline-flex;padding:3px;border-radius:10px;background:var(--sunken);border:1px solid var(--line);justify-self:start}.wz-seg label{cursor:pointer}.wz-seg input{position:absolute;opacity:0;pointer-events:none}
+.wz-seg span{display:block;padding:7px 12px;border-radius:7px;font-size:13.5px;color:var(--text-2)}.wz-seg input:checked+span{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgb(0 0 0/.08)}.wz-seg input:focus-visible+span{box-shadow:var(--focus)}
+.wz-agent .wz-if-openai,.wz-agent:has(input[value=openai]:checked) .wz-if-http{display:none}.wz-agent:has(input[value=openai]:checked) .wz-if-openai{display:grid;gap:14px}.wz-if-http{display:grid;gap:14px}
+.wz-drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:28px 16px;border:1.5px dashed var(--line-strong);border-radius:14px;background:var(--sunken);text-align:center;cursor:pointer}.wz-drop:hover{border-color:var(--accent)}.wz-drop svg{color:var(--accent)}.wz-drop span{font-size:13px;color:var(--text-3)}.wz-drop input{margin-top:8px;font-size:13px;max-width:100%}
+.wz-pips{display:grid;grid-template-columns:repeat(16,1fr);gap:6px;margin-top:22px}.wz-pips i{aspect-ratio:1;border-radius:4px;background:var(--line);animation:wzPip 2.4s var(--d) ease-in-out infinite}
+@keyframes wzIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes wzFill{from{width:0}}
+@keyframes wzPop{0%{transform:scale(.6)}70%{transform:scale(1.12)}100%{transform:none}}
+@keyframes wzPip{0%,100%{background:var(--line)}40%,60%{background:var(--good)}}
+@media (prefers-reduced-motion:reduce){.wz-card,.wz-steps::after,.wz-steps .done .n,.wz-pips i{animation:none}}
+@media (max-width:520px){.wz-card{padding:22px}.wz-two{grid-template-columns:1fr}.wz-card h1{font-size:24px}.wz-steps .l{font-size:11.5px}}
 .lp.dp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:72px;align-items:start;padding-top:72px;padding-bottom:40px}
 .lp .dp-copy h1{margin:16px 0 0;max-width:none;text-align:left;font-size:clamp(36px,4.6vw,56px)}.dp-copy .lede{margin:16px 0 0;text-align:left;max-width:34em}
 .lp .dp-copy h2{margin:40px 0 0;max-width:none;font-size:15px;line-height:1.4;font-weight:600;color:var(--text-3);letter-spacing:0}.dp .tag{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--accent-weak);color:var(--accent-text);font-size:13px;font-weight:500}.dp-form textarea{font:15px/1.5 var(--font);resize:vertical}
@@ -1476,7 +1504,7 @@ ${anyHours ? `<td class="hide-sm num">${fmtH(hours(ds))}</td>` : ''}
 ${keyPanel(signinKey)}${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th>${anyHours ? '<th class="hide-sm">Engineer hours</th>' : ''}<th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
-</tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>See a week of rollouts first: a bank that broke a rule, a telehealth client waiting to sign off, and a store that accepted.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/demo" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">Open the demo: 3 sample clients</button></form>
+</tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>Set up your first client in four steps: name, agent, policies, first check.${canManage ? `<a class="btn primary" href="/welcome" style="margin-top:12px">Set up a client ${icon('arrow', { size: 16 })}</a><form method="post" action="${esc(orgPath(org))}/clients/demo" style="margin-top:10px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="linkbtn" data-busy="Setting up…">Or open the demo: 3 sample clients</button></form>
 <details class="alt-sample"><summary>Or start one sample client from scratch</summary><form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Open a sample client</button></form></details>` : ''}</div>`}</section>
 ${clients.length ? '' : add}
 ${own.length ? `<section class="panel"><div class="panel-head"><h2>Your own AI agents</h2></div>${agentsTable(own, { now })}</section>` : ''}` });
@@ -1489,6 +1517,51 @@ const CONNECTIONS = [
   { type: 'openai', label: 'OpenAI-compatible API', hint: 'OpenAI, Azure, OpenRouter, vLLM.' },
   { type: 'command', label: 'Command', hint: 'A program on this server.' },
 ];
+
+// Guided setup: one question per screen with a progress track (the pattern Linear and Vercel use for a first
+// run), ending in the live check, where the rule tiles light up as answers are judged. state from setupState()
+// in web.mjs. Each step posts to the normal form with next=welcome.
+const WZ_LABEL = { client: 'Client', agent: 'Agent', policies: 'Policies', check: 'First check' };
+export function welcomePage({ csrf, state, signinKey, error = '', values = {} }) {
+  const { vendor, home, client, dep, steps, current } = state;
+  const i = steps.findIndex(x => x.key === current);
+  const v = k => esc(values[k] ?? '');
+  const hidden = `<input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="next" value="welcome">`;
+  const who = vendor && client ? esc(client.name) : '';
+  const card = {
+    client: () => `<h1>Who is your next client?</h1><p class="lede">Each client gets a workspace of its own, kept apart from every other client.</p>
+<form method="post" action="${esc(orgPath(home))}/clients" class="wz-form" novalidate>${hidden}
+<label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" autofocus value="${v('name')}" placeholder="e.g. Northwind Bank"></label>
+<button class="btn primary wz-go" data-busy="Saving…">Continue ${icon('arrow', { size: 16 })}</button></form>
+<form method="post" action="${esc(orgPath(home))}/clients/demo" class="wz-alt"><input type="hidden" name="csrf" value="${esc(csrf)}"><span>Just exploring?</span> <button class="linkbtn" data-busy="Adding…">See three sample clients instead</button></form>`,
+    agent: () => `<h1>How do we reach ${who ? `${who}’s` : 'your'} AI agent?</h1><p class="lede">Grapim sends it test messages the way a customer would, and reads the reply and the actions it takes.</p>
+<form method="post" action="${esc(orgPath(client))}/new-deployment" class="wz-form wz-agent" novalidate>${hidden}
+${who ? `<input type="hidden" name="customer" value="${who}">` : ''}<input type="hidden" name="pass" value="90"><input type="hidden" name="agentKind" value="support">
+<div class="wz-seg" role="radiogroup" aria-label="Connection"><label><input type="radio" name="type" value="http"${values.type === 'openai' ? '' : ' checked'}><span>Your HTTP endpoint</span></label><label><input type="radio" name="type" value="openai"${values.type === 'openai' ? ' checked' : ''}><span>OpenAI-compatible API</span></label></div>
+<div class="wz-if-http"><label class="field"><span>Endpoint URL</span><input type="url" name="url" value="${v('url')}" placeholder="https://agent.yourcompany.com/chat"></label>
+<label class="field"><span>API key <span class="subtle">(optional, stored encrypted)</span></span><input type="password" name="api_key" autocomplete="off"></label></div>
+<div class="wz-if-openai"><label class="field"><span>Chat completions URL</span><input type="url" name="openai_url" value="${v('openai_url')}" placeholder="https://api.openai.com/v1/chat/completions"></label>
+<div class="wz-two"><label class="field"><span>Model</span><input type="text" name="openai_model" value="${v('openai_model')}" placeholder="gpt-5"></label><label class="field"><span>API key</span><input type="password" name="openai_key" autocomplete="off"></label></div>
+<label class="field"><span>System prompt <span class="subtle">(optional)</span></span><textarea name="openai_system" rows="3">${v('openai_system')}</textarea></label></div>
+<button class="btn primary wz-go" data-busy="Connecting…">Connect ${icon('arrow', { size: 16 })}</button>
+<p class="hint" style="margin:0">Intercom or Zendesk? <a href="${esc(orgPath(client))}/new-deployment">Use the full connection form</a>.</p></form>
+<form method="post" action="${esc(orgPath(client))}/${vendor ? 'sample-agent' : 'sample'}" class="wz-alt"><input type="hidden" name="csrf" value="${esc(csrf)}"><span>No agent handy?</span> <button class="linkbtn" data-busy="Adding…">Try it on a sample agent</button></form>`,
+    policies: () => `<h1>Upload ${who ? `${who}’s` : 'your'} policies.</h1><p class="lede">Refunds, privacy, handoffs: Grapim turns every rule into tests.</p>
+<form method="post" action="${esc(depPath(client, dep))}/inputs" enctype="multipart/form-data" class="wz-form" novalidate>${hidden}
+<label class="wz-drop">${icon('upload', { size: 22 })}<b>Choose policy files</b><span>Markdown, text, HTML, CSV, JSON or YAML · up to 1 MB each</span><input type="file" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"></label>
+<button class="btn primary wz-go" data-busy="Uploading…">Upload and continue ${icon('arrow', { size: 16 })}</button></form>`,
+    check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. About a minute.</p>
+<div class="wz-pips" aria-hidden="true">${Array.from({ length: 16 }, (_, k) => `<i style="--d:${(k * 0.12).toFixed(2)}s"></i>`).join('')}</div>
+<form method="post" action="${esc(depPath(client, dep))}/scan" class="wz-form">${`<input type="hidden" name="csrf" value="${esc(csrf)}">`}<button class="btn primary wz-go" data-busy="Starting…">Run the check ${icon('arrow', { size: 16 })}</button></form>`,
+  }[current];
+  const body = `<header class="wz-top"><a class="brand" href="/" aria-label="Grapim home">${mark(24, 'm-wz')}<span>Grapim</span></a><a class="wz-skip" href="${esc(orgPath(home))}">Skip for now</a></header>
+<main class="wz">${keyPanel(signinKey)}
+<ol class="wz-steps" style="--n:${steps.length};--p:${(i / Math.max(1, steps.length - 1)).toFixed(3)}" aria-label="Setup progress">${steps.map((x, k) => `<li class="${x.done ? 'done' : k === i ? 'now' : ''}"${k === i ? ' aria-current="step"' : ''}><span class="n">${x.done ? icon('check', { size: 13 }) : k + 1}</span><span class="l">${WZ_LABEL[x.key]}</span></li>`).join('')}</ol>
+<section class="wz-card" aria-live="polite"><p class="wz-k">Step ${i + 1} of ${steps.length}</p>
+${error ? `<div class="notice">${icon('alert')}<span>${esc(error)}</span></div>` : ''}${card ? card() : ''}</section>
+</main>`;
+  return doc('Set up', body, 'wz-page');
+}
 
 export function newDeploymentPage({ user, csrf, nav, org, error, values = {} }) {
   const v = k => esc(values[k] ?? '');

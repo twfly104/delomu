@@ -45,7 +45,7 @@ const LANDING_DEMO = { bank: demoScan('bank'), store: demoScan('store') };
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, integrationsPage, developersPage, designPartnersPage, applicationsPage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, integrationsPage, developersPage, designPartnersPage, applicationsPage, welcomePage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
@@ -147,10 +147,10 @@ function redirectUri(ctx, req) {
   return `http://${host}/sso/callback`;
 }
 
-function signIn(ctx, req, { userId, orgId, scopes, apiKeyId, email, via }) {
+function signIn(ctx, req, { userId, orgId, scopes, apiKeyId, email, via, to = '/' }) {
   const { token } = createSession(ctx.db, { userId, orgId, scopes, apiKeyId }, ctx.now());
   recordEvent(ctx.db, { orgId, actor: `human:${email}`, action: 'user.login', target: email, detail: { via }, ip: ctx.clientIp(req) }, ctx.now());
-  const out = new Redirect('/', [cookie(SESSION_COOKIE, token, { maxAge: SESSION_TTL_MS / 1000, secure: ctx.secureCookies(req) })]);
+  const out = new Redirect(to, [cookie(SESSION_COOKIE, token, { maxAge: SESSION_TTL_MS / 1000, secure: ctx.secureCookies(req) })]);
   out.token = token;
   return out;
 }
@@ -288,7 +288,7 @@ function routes(ctx) {
       if (e instanceof ApiError && e.status < 500) return fail(e.message);
       throw e;
     }
-    const session = signIn(ctx, req, { userId: made.member.user_id, orgId: made.org.id, scopes: null, apiKeyId: made.key.id, email: values.email, via: 'signup' });
+    const session = signIn(ctx, req, { userId: made.member.user_id, orgId: made.org.id, scopes: null, apiKeyId: made.key.id, email: values.email, via: 'signup', to: '/welcome' });
     if (!ctx.emailLogin) freshKeys.set(session.token, made.secret);
     return session;
   }, { public: true });
@@ -417,6 +417,43 @@ function routes(ctx) {
     return html(homePage({ ...base(principal), nav, deployments, review, signinKey, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
   }, { public: true });
 
+  // Guided setup (/welcome): where a new account stands on its first rollout. A vendor: client, agent, policies,
+  // first check; a company running its own agent: agent, policies, first check. Each step posts to the normal form
+  // with next=welcome and comes back here, so the wizard adds no second way to do anything.
+  function setupState(principal) {
+    const orgs = orgsOf(principal);
+    const home = orgs.find(o => o.id === principal.homeOrgId);
+    if (!home) return null;
+    const vendor = home.kind === 'partner';
+    const client = vendor ? orgs.filter(o => o.partner_org_id === home.id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))[0] ?? null : home;
+    const deps = client ? listDeployments(db, ctx.deploymentsRoot, client.id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))) : [];
+    const dep = deps[0]?.name ?? null;
+    const dir = dep ? deploymentFor(ctx, client.id, dep).dir : null;
+    const inputs = dir ? path.join(dir, 'inputs') : null;
+    const hasPolicies = Boolean(inputs && fs.existsSync(inputs) && fs.readdirSync(inputs).length);
+    const checked = Boolean(dir && listScans(dir).length);
+    const steps = [...(vendor ? [{ key: 'client', done: Boolean(client) }] : []), { key: 'agent', done: Boolean(dep) }, { key: 'policies', done: hasPolicies }, { key: 'check', done: checked }];
+    return { vendor, home, client, dep, steps, current: steps.find(x => !x.done)?.key ?? 'done' };
+  }
+  const welcomeView = (principal, extra = {}) => {
+    const signinKey = freshKeys.get(principal.token); freshKeys.delete(principal.token);
+    return welcomePage({ ...base(principal), state: setupState(principal), signinKey, ...extra });
+  };
+  r.add('GET', '/welcome', ({ principal }) => {
+    const state = setupState(principal);
+    if (!state) return new Redirect('/');
+    if (state.current === 'done' && state.dep) return new Redirect(`${depPath(state.client, state.dep)}/scan`);
+    return html(welcomeView(principal));
+  });
+  // For a vendor trying Grapim before a real agent is reachable: a sample agent, with its sample policies, inside
+  // the client they just named. It is marked as a sample everywhere it shows.
+  r.add('POST', '/orgs/:org/sample-agent', async ({ req, principal, params }) => {
+    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    addStoreSample(principal, org, req, 'store');
+    return new Redirect('/welcome');
+  });
+
   // An AI vendor's clients: the partner org's own page, one row per client workspace it manages.
   const showClients = (principal, org, role, { url, error, values, status = 200 } = {}) => {
     const clients = orgsOf(principal).filter(o => o.partner_org_id === org.id).map(c => ({ org: c, deployments: deploymentsOf(c) }));
@@ -438,10 +475,12 @@ function routes(ctx) {
       client = createOrg(db, { name: String(form.name ?? '').trim(), kind: 'customer', partnerOrgId: org.id }, ctx.now());
     } catch (e) {
       if (!(e instanceof ApiError) || e.status >= 500) throw e;
+      if (form.next === 'welcome') return html(welcomeView(principal, { error: e.message, values: form }), 400);
       return showClients(principal, org, role, { error: e.message, values: form, status: 400 });
     }
     event(ctx, principal, client.id, 'org.create', client.id, { name: client.name, partner_org_id: org.id, via_web: true });
     event(ctx, principal, org.id, 'client.add', client.id, { name: client.name });
+    if (form.next === 'welcome') return new Redirect('/welcome');
     return new Redirect(`${orgPath(client)}?notice=client`);
   });
 
@@ -599,7 +638,7 @@ function routes(ctx) {
     const form = await readForm(req, ctx.maxBodyBytes);
     requireCsrf(principal, form);
     const { org } = access(ctx, principal, params.org, 'deployments:write');
-    const fail = message => html(newDeploymentView(principal, params, message, form), 400);
+    const fail = message => (form.next === 'welcome' ? html(welcomeView(principal, { error: message, values: form }), 400) : html(newDeploymentView(principal, params, message, form), 400));
     const pass = Number(form.pass || 90);
     if (!(pass > 0 && pass <= 100)) return fail('Required pass rate must be between 1 and 100.');
     let target;
@@ -653,6 +692,7 @@ function routes(ctx) {
       for (const [name, value] of Object.entries(saved)) saveSecret(dir, name, value, ctx.pepper, ctx.now());
       if (Object.keys(saved).length) appendAudit(dir, { actor: principal.actor, action: 'secret.save', target: Object.keys(saved).join(','), detail: {} }, ctx.now());
       event(ctx, principal, org.id, 'deployment.register', d.name, { via_web: true });
+      if (form.next === 'welcome') return new Redirect('/welcome');
       return new Redirect(`${depPath(org, d.name)}?notice=created`);
     } catch (e) {
       if (!(e instanceof ApiError) || e.status >= 500) throw e;
@@ -1376,7 +1416,8 @@ function routes(ctx) {
     const { org } = access(ctx, principal, params.org, 'deployments:write');
     const { dir } = deploymentFor(ctx, org.id, params.name);
     const files = form.getAll('files').filter(f => typeof f === 'object' && f.size > 0);
-    const fail = message => html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message, imports: importState(dir) }), 400);
+    const toWelcome = form.get('next') === 'welcome';
+    const fail = message => (toWelcome ? html(welcomeView(principal, { error: message }), 400) : html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message, imports: importState(dir) }), 400));
     if (!files.length) return fail('Choose at least one file.');
     const ready = [];
     for (const f of files) {
@@ -1394,6 +1435,7 @@ function routes(ctx) {
       appendAudit(dir, { actor: principal.actor, action: 'input.upload', target: name, detail: { bytes: bytes.length } }, ctx.now());
     }
     event(ctx, principal, org.id, 'input.upload', params.name, { files: ready.map(f => f.name) });
+    if (toWelcome && !checked) return new Redirect('/welcome');
     return afterInputs(principal, org, params.name, dir, checked, before, 'uploaded');
   });
 

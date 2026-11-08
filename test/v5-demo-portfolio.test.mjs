@@ -27,7 +27,8 @@ test('one click gives a vendor three sample clients at three stages', async () =
   const cookie = cookiesOf(signup).find(c => c.startsWith('delomu_session='));
   const vendor = (await fetch(`${srv.base}/`, { headers: { cookie }, redirect: 'manual' })).headers.get('location');
   const empty = await (await fetch(srv.base + vendor, { headers: { cookie } })).text();
-  assert.match(empty, /Open the demo: 3 sample clients/);
+  assert.match(empty, /Set up a client/);
+  assert.match(empty, /Or open the demo: 3 sample clients/);
   const made = await fetch(`${srv.base}${vendor}/clients/demo`, { method: 'POST', redirect: 'manual', headers: { cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ csrf: csrfOf(empty) }) });
   assert.equal(made.status, 303);
   const list = await (await fetch(srv.base + made.headers.get('location'), { headers: { cookie } })).text();
