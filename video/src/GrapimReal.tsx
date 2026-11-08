@@ -18,22 +18,22 @@ const CARD = { x: 40, y: BAND, w: 1360, h: 900 - BAND };
 const ASPECT = CARD.w / CARD.h;
 
 // Camera per cue, in recording pixels: left, top and width of the crop (height follows the card's aspect).
-// Order matches the cues in real-cues.json.
+// Keyed by each cue's role in real-cues.json.
 type Cam = { x: number; y: number; w: number; then?: { at: number; x: number; y: number; w: number; caption?: string } };
-const CAMS: Cam[] = [
-  { x: 292, y: 64, w: 1100 }, // clients list
-  { x: 292, y: 64, w: 1100 }, // the client's AI agents
-  { x: 300, y: 40, w: 1080 }, // a broken rule, with the AI's reply
-  { x: 300, y: 20, w: 1080 }, // drafting the fix
-  { x: 300, y: 10, w: 1080 }, // the proposed fix and the approve button
-  { x: 296, y: 70, w: 1080 }, // judging the same 16 messages again
-  { x: 300, y: 274, w: 1080 }, // one rule left
-  { x: 296, y: 60, w: 1080 }, // second fix and re-check
-  { x: 300, y: 274, w: 1080 }, // all 8 kept
-  { x: 300, y: 160, w: 1080 }, // the rollout page and the sign-off link
+const CAMS: Record<string, Cam> = {
+  clients: { x: 292, y: 64, w: 1100 },
+  agents: { x: 292, y: 64, w: 1100 },
+  check: { x: 300, y: 40, w: 1080 },
+  drafting: { x: 300, y: 20, w: 1080 },
+  approve: { x: 300, y: 10, w: 1080 },
+  judging: { x: 296, y: 70, w: 1080 },
+  left: { x: 300, y: 274, w: 1080 },
+  second: { x: 296, y: 60, w: 1080 },
+  kept: { x: 300, y: 200, w: 1080 },
+  link: { x: 300, y: 160, w: 1080 },
   // the client's sign-off form, then (once accepted, the page re-centres lower) the 'Accepted by' line
-  { x: 270, y: 20, w: 900, then: { at: 118, x: 270, y: 190, w: 900, caption: 'Accepted. Signed, in the audit log.' } },
-];
+  signoff: { x: 270, y: 20, w: 900, then: { at: 110, x: 270, y: 190, w: 900, caption: 'Accepted. Signed, in the audit log.' } },
+};
 const camH = (c: Cam) => c.w / ASPECT;
 const fit = (c: Cam): Cam => ({ ...c, y: Math.max(0, Math.min(c.y, 900 - camH(c))) });
 
@@ -61,8 +61,9 @@ type Cue = (typeof cues.cues)[number];
 const Segment: React.FC<{ c: Cue; i: number; caption: string; newCaption: boolean }> = ({ c, i, caption, newCaption }) => {
   const f = useCurrentFrame();
   // The camera eases from the previous segment's crop to this one's.
-  const to = fit(CAMS[i] ?? CAMS[CAMS.length - 1]);
-  const from = fit(CAMS[i - 1] ?? to);
+  const camOf = (k?: number) => (k == null || k < 0 ? undefined : CAMS[(cues.cues[k] as { role?: string }).role ?? 'clients']);
+  const to = fit(camOf(i) ?? CAMS.clients);
+  const from = fit(camOf(i - 1) ?? to);
   const k = spring({ frame: f, fps: 30, config: { damping: 200, stiffness: 90 } });
   let cam = { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k, w: from.w + (to.w - from.w) * k };
   if (to.then) {
@@ -87,7 +88,7 @@ const Segment: React.FC<{ c: Cue; i: number; caption: string; newCaption: boolea
           <div style={{ position: 'absolute', left: 0, top: 840, width: 239, height: 60, background: '#fafafa' }} />
           <div style={{ position: 'absolute', left: 1364, top: 824, width: 76, height: 76, background: '#fafafa' }} />
           {mask ? (
-            <div style={{ position: 'absolute', left: 334, top: 645, width: 640, height: 26, background: '#fff', display: 'flex', alignItems: 'center', paddingLeft: 6, fontSize: 13.5, color: '#171717', letterSpacing: 0.1 }}>https://grapim.com/signoff/Z6e0sDLlWW8SeROUlNbJ_6jRJ3YoQt0MqO_GaPSjBgc</div>
+            <div style={{ position: 'absolute', left: 334, top: 614, width: 660, height: 26, background: '#fff', display: 'flex', alignItems: 'center', paddingLeft: 6, fontSize: 13.5, color: '#171717', letterSpacing: 0.1 }}>https://grapim.com/signoff/Z6e0sDLlWW8SeROUlNbJ_6jRJ3YoQt0MqO_GaPSjBgc</div>
           ) : null}
         </div>
       </div>

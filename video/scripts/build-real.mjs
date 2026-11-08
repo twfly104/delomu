@@ -7,7 +7,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 const recDir = process.argv[2];
-const { marks, frames } = JSON.parse(fs.readFileSync(path.join(recDir, 'marks.json'), 'utf8'));
+const { marks, frames, initial } = JSON.parse(fs.readFileSync(path.join(recDir, 'marks.json'), 'utf8'));
 const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
 const FPS = 30;
 
@@ -22,21 +22,21 @@ const at = name => { const m = marks.find(x => x.name === name); return m ? m.t 
 // 2. Segments: real time in the recording, the speed it plays at, and its caption.
 const rounds = marks.filter(m => /^rechecked-\d$/.test(m.name)).length;
 const last = `rechecked-${rounds}`;
-const seg = (from, to, speed, caption) => (from != null && to != null && to > from ? [{ from, to, speed, caption }] : []);
+const seg = (from, to, speed, caption, role) => (from != null && to != null && to > from ? [{ from, to, speed, caption, role }] : []);
 const segments = [
-  ...seg(at('clients') + 0.3, at('client-org'), 1.6, 'Every client, one list.'),
-  ...seg(at('client-org'), at('check'), 2.4, ''),
-  ...seg(at('check'), at('draft-fix-1'), 1.15, 'A real check: 2 of 8 rules broken.'),
-  ...seg(at('draft-fix-1'), at('fix-drafted-1'), 4, 'Grapim drafts the fix.'),
-  ...seg(at('fix-drafted-1'), at('rechecking-1'), 2.4, 'You approve it.'),
-  ...seg(at('rechecking-1'), at('rechecked-1'), 10, 'The same 16 messages, run again.'),
+  ...seg(at('clients') + 0.3, at('client-org'), 1.6, 'Every client, one list.', 'clients'),
+  ...seg(at('client-org'), at('check'), 2.4, '', 'agents'),
+  ...seg(at('check'), at('draft-fix-1'), 1.15, `A real check: ${initial?.broken ?? 2} of ${initial?.rules ?? 8} rules broken.`, 'check'),
+  ...seg(at('draft-fix-1'), at('fix-drafted-1'), 4, 'Grapim drafts the fix.', 'drafting'),
+  ...seg(at('fix-drafted-1'), at('rechecking-1'), 2.4, 'You approve it.', 'approve'),
+  ...seg(at('rechecking-1'), at('rechecked-1'), 10, 'The same 16 messages, run again.', 'judging'),
   ...(rounds > 1 ? [
-    ...seg(at('rechecked-1'), at('rechecked-1') + 2.2, 1, 'One rule left. Fix it again.'),
-    ...seg(at('draft-fix-2'), at(last), rounds > 2 ? 16 : 13, rounds > 2 ? 'Fixed again, re-checked.' : 'Second fix, re-checked.'),
+    ...seg(at('rechecked-1'), at('rechecked-1') + 2.2, 1, 'Still one rule left. Fix it again.', 'left'),
+    ...seg(at('draft-fix-2'), at(last), rounds > 2 ? 16 : 13, rounds > 2 ? 'Fixed again, re-checked.' : 'Second fix, re-checked.', 'second'),
   ] : []),
-  ...seg(at(last), at(last) + 3.2, 1, 'All 8 rules kept.'),
-  ...seg(at('rollout'), at('client-view'), 1.8, 'One link for the client.'),
-  ...seg(at('client-view'), at('end'), 2, 'The client signs off. No account needed.'),
+  ...seg(at(last), at(last) + 3.2, 1, `All ${initial?.rules ?? 8} rules kept.`, 'kept'),
+  ...seg(at('rollout'), at('client-view'), 1.8, 'One link for the client.', 'link'),
+  ...seg(at('client-view'), at('end'), 2, 'The client signs off. No account needed.', 'signoff'),
 ];
 let f = Math.round(2.4 * FPS); // after the intro card
 // The sign-off link was made on the local test server: from the moment it appears, show the address it has on grapim.com.
