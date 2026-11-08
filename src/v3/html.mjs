@@ -816,10 +816,14 @@ ${nav.upgrade ? `<a class="rail-up" href="${esc(orgPath(nav.upgrade))}/billing">
 </nav>`;
 }
 
-function doc(title, body, bodyClass = '', refresh = 0) {
+// Search and sharing metadata for public pages: what Google and link previews show.
+const SITE_URL = 'https://grapim.com';
+const metaTags = ({ description, path, jsonld } = {}, title) => !description ? '' : `<meta name="description" content="${esc(description)}"><link rel="canonical" href="${SITE_URL}${path ?? '/'}"><meta property="og:site_name" content="Grapim"><meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${SITE_URL}${path ?? '/'}"><meta property="og:image" content="${SITE_URL}/media/real.jpg"><meta name="twitter:card" content="summary_large_image">${jsonld ? `<script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, '\\u003c')}</script>` : ''}`;
+function doc(title, body, bodyClass = '', refresh = 0, meta) {
+  const full = meta?.fullTitle ?? `${title} · Grapim`;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml"><title>${esc(title)} · Grapim</title><style>${STYLE}</style></head>
+<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml"><title>${esc(full)}</title>${metaTags(meta, full)}<style>${STYLE}</style></head>
 <body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}${body.includes('data-scene') ? `<script data-ui="landing">${LANDING_SCRIPT}</script>` : ''}</body></html>
 `;
 }
@@ -1053,7 +1057,10 @@ ${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation chec
 <section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Five design partner spots in our first cohort.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div></section>
 </main>
 ${lpFoot()}`;
-  return doc('Grapim: deploy your AI agent to every client, with signed proof', body, 'lp-page');
+  return doc('', body, 'lp-page', 0, { fullTitle: 'Grapim: deploy your AI agent to every new client, with signed proof', path: '/',
+    description: 'Grapim runs each client rollout for AI agent vendors: it drafts the integration and tests, checks every policy rule, drafts the fix, gets the client’s sign-off and watches every conversation after launch.',
+    jsonld: [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Grapim', url: SITE_URL + '/' },
+      { '@context': 'https://schema.org', '@type': 'Organization', name: 'Grapim', url: SITE_URL + '/', logo: SITE_URL + '/favicon.svg', sameAs: ['https://www.linkedin.com/company/grapim/'] }] });
 }
 
 // The public pricing page, built from the plan table in billing.mjs so it never disagrees with what is charged.
@@ -1092,7 +1099,7 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
 <div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/">See how it works</a></div></section>
 </main>
 ${lpFoot()}`;
-  return doc('Pricing', body, 'lp-page');
+  return doc('Pricing', body, 'lp-page', 0, { path: '/pricing', description: 'Start free. Team for companies running their own AI agent, Vendor for AI vendors rolling an agent out to clients, and a design partner program for the first five vendors.' });
 }
 
 // The public security page: facts about the code as it runs today, and what is not done yet. No badges or
@@ -1128,11 +1135,11 @@ export function securityPage({ signup = false }) {
 <section class="lp-sec"><h2>Report a vulnerability</h2><p class="sec-p">Use GitHub’s private vulnerability reporting on <a href="${repo}/security">our repository</a>. Please do not open a public issue. We reply within three business days.</p></section>
 </main>
 ${lpFoot()}`;
-  return doc('Security', body, 'lp-page');
+  return doc('Security', body, 'lp-page', 0, { path: '/security', description: 'How Grapim keeps each client’s data apart and protected, our subprocessors, SOC 2 preparation, and what we have not done yet.' });
 }
 
 // A short public page in the same frame as Security: a hero, then sections of facts. Every fact is something the code does.
-function factPage({ signup, here, title, lede, sections, end }) {
+function factPage({ signup, here, title, lede, sections, end, description }) {
   const start = signup ? '/signup' : '/login';
   const cta = signup ? 'Start free' : 'Sign in';
   const body = `${lpTop(start, cta, here)}
@@ -1142,7 +1149,7 @@ ${sections.map(([h, html]) => `<section class="lp-sec"><h2>${h}</h2>${html}</sec
 <section class="lp-end"><h2>${end}</h2><div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div></section>
 </main>
 ${lpFoot()}`;
-  return doc(title, body, 'lp-page');
+  return doc(title, body, 'lp-page', 0, { path: '/' + here, description: description ?? lede });
 }
 const factGrid = rows => `<div class="sec-facts" style="margin-top:28px">${rows.map(([h, p]) => `<div class="sec-fact"><h3>${icon('check', { size: 16 })}${h}</h3><p>${p}</p></div>`).join('')}</div>`;
 const code = t => `<pre class="snippet dev-code">${esc(t)}</pre>`;
@@ -1220,7 +1227,7 @@ ${error ? `<div class="notice">${icon('alert')}<span>${esc(error)}</span></div>`
 <section class="dp-card">${form}</section>
 </main>
 ${lpFoot()}`;
-  return doc('Design partners', body, 'lp-page');
+  return doc('Design partners', body, 'lp-page', 0, { path: '/design-partners', description: 'Five AI agent vendors get their next client rollout done by Grapim in 48 hours and the Vendor plan free for 90 days.' });
 }
 
 // The operator's list of applications (only for emails in GRAPIM_OPERATOR_EMAILS).
@@ -1236,7 +1243,7 @@ ${rows.map(r => `<tr><td class="nowrap subtle">${esc(r.created_at.slice(0, 16).r
 // Legal pages: plain statements of what the code does today (see docs/security.md), in short numbered sections.
 const LEGAL_UPDATED = 'November 7, 2026';
 const LEGAL_CONTACT = 'privacy@grapim.com';
-function legalPage({ signup, title, lede, sections }) {
+function legalPage({ signup, title, lede, sections, path }) {
   const start = signup ? '/signup' : '/login';
   const cta = signup ? 'Start free' : 'Sign in';
   const body = `${lpTop(start, cta)}
@@ -1245,14 +1252,14 @@ function legalPage({ signup, title, lede, sections }) {
 ${sections.map(([h, html]) => `<section><h2>${h}</h2>${html}</section>`).join('\n')}
 </article></main>
 ${lpFoot()}`;
-  return doc(title, body, 'lp-page');
+  return doc(title, body, 'lp-page', 0, path ? { path, description: lede } : undefined);
 }
 
 export function privacyPage({ signup = false }) {
   const cookies = [['delomu_session', 'Keeps you signed in', '30 days, or until you sign out'], ['delomu_login_csrf', 'Protects the sign-in and sign-up forms from forgery', '1 hour'], ['delomu_oidc_state', 'Completes single sign-on safely', '10 minutes'], ['Sign-off form token', 'Makes sure a client sign-off was submitted from the sign-off page', 'Until the browser closes']]
     .map(([n, w, l]) => `<tr><td><code>${n}</code></td><td>${w}</td><td class="subtle">${l}</td></tr>`).join('');
   return legalPage({
-    signup, title: 'Privacy Policy',
+    signup, path: '/privacy', title: 'Privacy Policy',
     lede: 'What Grapim collects, why, who else sees it, and how to have it deleted.',
     sections: [
       ['Who we are', `<p>Grapim is a software service run by its co-founders from Taipei, Taiwan. For anything in this policy, write to <a href="mailto:${LEGAL_CONTACT}">${LEGAL_CONTACT}</a>.</p>`],
@@ -1274,7 +1281,7 @@ export function privacyPage({ signup = false }) {
 
 export function termsPage({ signup = false }) {
   return legalPage({
-    signup, title: 'Terms of Service',
+    signup, path: '/terms', title: 'Terms of Service',
     lede: 'The agreement between you and Grapim when you use the service.',
     sections: [
       ['The service', '<p>Grapim helps teams deploy AI agents to their clients: it drafts rollout steps, tests an agent against a client’s policies, drafts fixes, and records the client’s sign-off. By creating an account or using Grapim you agree to these terms on behalf of yourself and the organization you sign up for.</p>'],

@@ -220,6 +220,9 @@ function routes(ctx) {
     };
   }
 
+  const PUBLIC_PATHS = ['/', '/pricing', '/design-partners', '/integrations', '/developers', '/security', '/privacy', '/terms'];
+  r.add('GET', '/robots.txt', () => ({ status: 200, body: `User-agent: *\nAllow: /\nDisallow: /orgs/\nDisallow: /operator/\nDisallow: /signoff/\nDisallow: /verified/\nDisallow: /v1/\nSitemap: https://grapim.com/sitemap.xml\n`, type: 'text/plain; charset=utf-8' }), { public: true });
+  r.add('GET', '/sitemap.xml', () => ({ status: 200, body: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${PUBLIC_PATHS.map(p => `<url><loc>https://grapim.com${p}</loc></url>`).join('')}</urlset>\n`, type: 'application/xml; charset=utf-8' }), { public: true });
   r.add('GET', '/favicon.svg', () => ({ status: 200, body: FAVICON, type: 'image/svg+xml', headers: { 'cache-control': 'public, max-age=86400' } }), { public: true });
 
   // Videos are sent whole or as one byte range, which Safari needs before it plays an mp4.
