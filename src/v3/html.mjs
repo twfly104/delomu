@@ -538,17 +538,17 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lb-org{display:inline-flex;align-items:center;gap:7px;color:var(--text);font-weight:600;letter-spacing:-0.01em}.lb-sep{color:var(--line-strong)}
 .lb-tally{margin-left:auto;color:var(--text-3)}
 .lb-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--canvas)}
-.lb-col{padding:16px 14px 20px;border-left:1px solid var(--line);min-width:0}.lb-col:first-child{border-left:0}
+.lb-col{display:flex;flex-direction:column;padding:16px 14px 20px;border-left:1px solid var(--line);min-width:0}.lb-col>.lb-card{flex:1}.lb-col:first-child{border-left:0}
 .lb-head{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-weight:600;font-size:15px;letter-spacing:-0.01em;color:var(--text)}.lb-head:hover{text-decoration:none;color:var(--accent-text)}
 .lb-n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--surface);border:1px solid var(--line-strong);font:600 11.5px var(--mono);color:var(--text-2)}
-.lb-card{display:flex;flex-direction:column;gap:10px;padding:13px 13px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0/.04)}
+.lb-card{display:flex;flex-direction:column;gap:10px;min-height:152px;padding:13px 13px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0/.04)}
 .lb-card.lit{border-color:color-mix(in srgb,var(--accent) 70%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),0 8px 20px -10px color-mix(in srgb,var(--accent) 45%,transparent)}
 .lb-who{display:flex;flex-direction:column;line-height:1.3}.lb-who b{font-size:14px;letter-spacing:-0.01em}.lb-who span{font-size:12.5px;color:var(--text-3)}
 .lb-files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text-2)}.lb-files li{display:flex;align-items:center;gap:6px}.lb-files svg{color:var(--good)}
 .lb-stat{font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:5px;flex-wrap:wrap}.lb-stat b{color:var(--text);font-variant-numeric:tabular-nums}.lb-stat.bad b,.lb-stat .bad{color:var(--bad)}.lb-stat.good{color:var(--good);font-weight:600}
 .lb-pips i{width:12px;height:12px;border-radius:3px}
 .lb-mono{font-size:12px;color:var(--text-3)}
-.lb-meter{height:5px}
+.lb-meter{flex:none;height:5px;margin-top:auto}
 .lb-bars{display:flex;align-items:flex-end;gap:4px;height:38px}.lb-bars i{position:relative;flex:1;height:var(--h);min-height:4px;border-radius:3px 3px 1px 1px;background:color-mix(in srgb,var(--good) 55%,var(--line));overflow:hidden}
 .lb-bars b{position:absolute;left:0;right:0;top:0;height:var(--b);background:var(--bad)}
 .lb-bars.big{height:120px;gap:10px}.lb-bars.big i{border-radius:5px 5px 2px 2px}
@@ -565,6 +565,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sd-foot{display:flex;align-items:center;gap:12px;padding:14px 16px 16px}
 .sc-live .sl-chart{padding:18px 18px 6px}.sl-days{display:flex;gap:10px;margin-top:6px}.sl-days span{flex:1;text-align:center;font-size:11.5px;color:var(--text-3)}
 .sl-alert{display:flex;gap:12px;align-items:flex-start;margin:12px 16px 16px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sl-alert p{margin-top:3px;color:var(--text-2);font-size:13px}.sl-alert .sc-cap{margin-top:6px}
+.lv-faq{padding-top:152px;text-align:center}.lv-faq h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600}.lv-faq .lp-faq{margin:36px auto 0;text-align:left}
 .lv-more{padding-top:152px;text-align:center}.lv-more h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
 .lv-mlist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin:44px 0 0;text-align:left}
 .lv-mlist>div{padding-top:16px;border-top:1px solid var(--line-strong)}.lv-mlist dt{font-weight:600;font-size:17px;letter-spacing:-0.015em}.lv-mlist dd{margin:6px 0 0;color:var(--text-2);font-size:15.5px;line-height:1.55}
@@ -930,7 +931,23 @@ function pipField(cls = '', cols = 44, rows = 16) {
 // real recorded Grapim check (src/v3/demo-portfolio, passed in as demo); every client here is a labelled sample, and
 // the page claims no customers, logos or numbers that do not exist. Without JavaScript or with reduced motion it shows
 // the end state.
-export function landingPage({ signup = false, demo = {} }) {
+// Questions on the home page. Prices come from the plan table in billing.mjs so they never disagree with what is charged.
+function homeFaq(plans = {}) {
+  const usd = n => '$' + Number(n).toLocaleString('en-US');
+  const free = plans.free ?? {}, team = plans.team ?? {}, vendor = plans.vendor ?? {};
+  return [
+    ['Which AI agents can I connect?', 'Intercom, Zendesk, any OpenAI-compatible API, or your own HTTP endpoint. Keys you paste are stored encrypted.'],
+    ['Does Grapim change my agent on its own?', 'No. Every draft and every fix waits for a person to approve it.'],
+    ['Do my clients need an account?', 'No. A client reads the result and signs off from a link that expires after 30 days and can be revoked.'],
+    ['Is my clients’ data used to train models?', 'No. Each client’s data is kept apart, and personal details are removed from live conversations before anything is stored.'],
+    ['Can you do the rollout for us?', 'Yes. Send one new client’s policies and a way to reach your agent; we run the rollout in Grapim and hand you the result within 48 hours. The first client is free.'],
+    ['How much does it cost?', `Free to start. Team is ${usd(team.monthlyUsd ?? 499)} a month for a company running its own agent; Vendor is ${usd(vendor.monthlyUsd ?? 1500)} a month for ${vendor.includedActiveDeployments ?? 5} client workspaces. <a href="/pricing">See pricing</a>.`],
+    ['What is a check?', 'One run of the policy check on one AI agent: Grapim writes the test messages from the policy, sends them to the agent and judges every answer and action. Re-checks after an approved fix count as checks.'],
+    ['What happens at a limit?', `On Free (${free.scansPerMonth ?? 3} checks a month), Grapim stops at the limit, says which one, and keeps your results. On Team and Vendor, extra agents or clients are billed at the price shown.`],
+  ].map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('');
+}
+
+export function landingPage({ signup = false, demo = {}, plans = {} }) {
   const start = signup ? '/signup' : '/login';
   const cta = signup ? 'Start free' : 'Sign in';
   const bank = demo.bank, store = demo.store;
@@ -948,7 +965,7 @@ export function landingPage({ signup = false, demo = {} }) {
   const col = (id, n, name, does, card, t) => `<div class="lb-col" id="board-${id}"><a class="lb-head a" href="#${id}" ${d(t)}><span class="lb-n">${n}</span>${name}</a>${card}</div>`;
   const who = (c, a) => `<span class="lb-who"><b>${esc(c)}</b><span>${esc(a)}</span></span>`;
   const board = `<div class="lb" data-scene>
-<div class="lb-bar"><span class="lb-org">${mark(14, 'm-lb')}Brightdesk AI</span><span class="lb-sep">/</span><span>Client rollouts</span><span class="lb-tally">5 clients · 1 needs you</span></div>
+<div class="lb-bar"><span class="lb-org">${mark(14, 'm-lb')}Your workspace</span><span class="lb-sep">/</span><span>Client rollouts</span><span class="lb-tally">5 clients · 1 needs you</span></div>
 <div class="lb-cols">
 ${col('draft', 1, 'Draft', 'Mapping, integration and tests from the client’s docs', `<div class="lb-card a" ${d(0.35)}>${who('Velmora Health', 'Ava · intake agent')}<ul class="lb-files"><li>${icon('check', { size: 13 })}Data mapping</li><li>${icon('check', { size: 13 })}Integration · HTTP</li><li>${icon('check', { size: 13 })}${nMsgs} test messages</li></ul></div>`, 0.1)}
 ${col('check', 2, 'Check', 'Every rule tested, judged against the exact clause', `<div class="lb-card a" ${d(0.55)}>${who('Quillby Bank', 'Max · support agent')}<p class="lb-stat bad"><b>${nBroken} of ${nRules}</b> rules broken</p><span class="sc-pips lb-pips">${(bank ? bank.rules : Array.from({ length: 8 }, (_, i) => ({ probes: [{ status: i === 3 || i === 7 ? 'broken' : 'kept' }] }))).map((r, i) => `<i class="${ruleBroken(r) ? 'b' : 'k'}" ${d(0.7 + i * 0.08)}></i>`).join('')}</span></div>`, 0.2)}
@@ -975,7 +992,7 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 <p class="sc-result a" ${d(4.1)}>Same 16 messages after the fix: <b>all 8 rules kept</b></p></div>` : '';
 
   const sign = `<div class="sc sc-sign" data-scene><div class="sc-mark a" ${d(0)}>${mark(18, 'm-sc')}<span>Grapim</span></div>
-<p class="sc-ask a" ${d(0.15)}>Brightdesk AI asks you to accept <b>Linden &amp; Co. · Lia</b> before it goes live.</p>
+<p class="sc-ask a" ${d(0.15)}>Your company asks the client to accept <b>Linden &amp; Co. · Lia</b> before it goes live.</p>
 <p class="sc-okline a" ${d(0.4)}><span class="sc-badge ok">Kept</span> All 8 policy rules · 16 test messages</p>
 <div class="sc-field a" ${d(0.7)}><span>Your name</span><span class="sc-type"><span ${d(1)}>Dana Lee</span></span></div>
 <div class="sc-accept a" ${d(2.1)}>Accept this AI agent</div>
@@ -996,7 +1013,7 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 <section class="lb-wrap" aria-label="A rollout board with one sample client at each stage">${board}<p class="lv-note">Sample clients. Real Grapim screens.</p></section>
 <ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}SOC 2 in preparation</a></li></ul>
 <section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
-<figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds two broken rules, Grapim drafts fixes, the same messages run again until all eight rules are kept, and the bank signs off from a link"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false"><span class="on">${icon('sound', { size: 15 })}Sound on</span><span class="off">${icon('muted', { size: 15 })}Mute</span></button></figure>
+<figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds two broken rules, Grapim drafts fixes, the same messages run again until all eight rules are kept, and the bank signs off from a link"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false" aria-label="Sound"><span class="on">${icon('muted', { size: 15 })}Sound off</span><span class="off">${icon('sound', { size: 15 })}Sound on</span></button></figure>
 <p class="lv-note">Real product, sample client. Waiting sped up.</p></section>
 ${step('draft', 1, 'Drafted from <mark>the client’s docs</mark>.', 'Mapping, integration and tests. You approve each.', draft)}
 ${step('check', 2, 'Every rule, <mark>tested</mark>.', 'What it says and does, judged against the exact clause.', grid, true)}
@@ -1010,6 +1027,7 @@ ${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation chec
 <div><dt>Guard API and MCP</dt><dd>From your code or Cursor.</dd></div>
 <div><dt>Rollout metrics</dt><dd>Hours and days per client.</dd></div>
 </dl></section>
+<section class="lv-faq" id="faq"><h2>Questions</h2><div class="lp-faq">${homeFaq(plans)}</div></section>
 <section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start, or we run your first rollout.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout</a></div></section>
 </main>
 ${lpFoot()}`;
@@ -1038,14 +1056,6 @@ export function pricingPage({ signup = false, plans = {} }) {
   const cards = tiers.map(t => `<div${t.pick ? ' class="pick"' : ''}><p class="lp-tname"><span class="strong">${t.name}</span>${t.tag ? `<span class="tag">${t.tag}</span>` : ''}</p>
 <p class="lp-price">${t.price}${t.per ? `<span>${t.per}</span>` : ''}</p><p class="subtle">${t.for}</p>
 ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle">Invoiced by contract.</p>'}${list(t.items)}</div>`).join('');
-  const faq = [
-    ['What is a check?', 'One run of the policy check on one AI agent: Grapim writes the test messages from the policy, sends them to the agent and judges every answer and action. Re-checks after an approved fix count as checks.'],
-    ['What is an active agent or client workspace?', 'An AI agent with at least one completed check this month. A vendor’s clients each get their own workspace, billed to the vendor.'],
-    ['Do my clients need an account?', 'No. A client reads the result and signs off from a link that expires after 30 days and can be revoked.'],
-    ['What happens at a limit?', 'On Free, Grapim stops at the limit, says which one, and keeps your results. On Team and Vendor, extra agents or clients are billed at the price shown.'],
-    ['Can you do the rollout for us?', 'Yes. Send one new client’s policies and a way to reach your agent; we run the rollout in Grapim and hand you the result within 48 hours. The first client is free.'],
-    ['Which AI agents can I connect?', 'Intercom, Zendesk, any OpenAI-compatible API, or your own HTTP endpoint. Keys you paste are stored encrypted.'],
-  ].map(([q, a]) => `<details><summary>${q}</summary><p>${a}</p></details>`).join('');
   const body = `${lpTop(start, cta, 'pricing')}
 <main class="lp">
 <section class="lp-hero lp-hero-sm"><h1>Start free. Pay when it is in production.</h1>
@@ -1055,7 +1065,6 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
 <p>Send us one new client’s policies and a way to reach your agent. We run the whole rollout in Grapim and hand you the result in 48 hours: the rules your agent breaks, the exact conversations, a drafted fix you approve, and the sign-off page for your client.</p></div>
 <div class="lp-dfy-buy"><p class="lp-price">First client free</p><p class="subtle">Then from $2,000 per client rollout, or switch to the Vendor plan and run them yourself.</p>
 <p class="lp-tier-act"><a class="btn primary" href="https://www.linkedin.com/in/alexanderko104/" rel="noopener">Ask for a free rollout</a></p></div></section>
-<section class="lp-sec"><h2>Questions</h2><div class="lp-faq">${faq}</div></section>
 <section class="lp-end"><h2>Run your first check in two minutes</h2>
 <p>Start on a sample agent. No card needed.</p>
 <div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/">See how it works</a></div></section>
