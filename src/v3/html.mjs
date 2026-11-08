@@ -950,7 +950,7 @@ function homeFaq(plans = {}) {
     ['Does Grapim change my agent on its own?', 'No. Every draft and every fix waits for a person to approve it.'],
     ['Do my clients need an account?', 'No. A client reads the result and signs off from a link that expires after 30 days and can be revoked.'],
     ['Is my clients’ data used to train models?', 'No. Each client’s data is kept apart, and personal details are removed from live conversations before anything is stored.'],
-    ['What is a design partner?', 'One of three AI vendors (three spots in total) who get one client rollout done by us within 48 hours and the Vendor plan free for 90 days, in return for a weekly 30-minute call and honest feedback. <a href="/pricing#dfy-h">Apply for a spot</a>.'],
+    ['What is a design partner?', 'One of five AI vendors in our first cohort who get one client rollout done by us within 48 hours and the Vendor plan free for 90 days, in return for a weekly 30-minute call and honest feedback. <a href="/pricing#dfy-h">Apply for a spot</a>.'],
     ['How much does it cost?', `Free to start. Team is ${usd(team.monthlyUsd ?? 499)} a month for a company running its own agent; Vendor is ${usd(vendor.monthlyUsd ?? 1500)} a month for ${vendor.includedActiveDeployments ?? 5} client workspaces. <a href="/pricing">See pricing</a>.`],
     ['What is a check?', 'One run of the policy check on one AI agent: Grapim writes the test messages from the policy, sends them to the agent and judges every answer and action. Re-checks after an approved fix count as checks.'],
     ['What happens at a limit?', `On Free (${free.scansPerMonth ?? 3} checks a month), Grapim stops at the limit, says which one, and keeps your results. On Team and Vendor, extra agents or clients are billed at the price shown.`],
@@ -1037,7 +1037,7 @@ ${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation chec
 <div><dt>Rollout metrics</dt><dd>Hours and days per client.</dd></div>
 </dl></section>
 <section class="lv-faq" id="faq"><h2>Questions</h2><div class="lp-faq">${homeFaq(plans)}</div></section>
-<section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Three design partner spots open.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">Become a design partner</a></div></section>
+<section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Five design partner spots in our first cohort.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">Become a design partner</a></div></section>
 </main>
 ${lpFoot()}`;
   return doc('Grapim: deploy your AI agent to every client, with signed proof', body, 'lp-page');
@@ -1070,7 +1070,7 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
 <section class="lp-hero lp-hero-sm"><h1>Start free. Pay when it is in production.</h1>
 <p class="lede">Every plan checks what your agent says and what it does, against your own policy.</p></section>
 <div class="lp-prices lp-prices-full">${cards}</div>
-<section class="lp-dfy" aria-labelledby="dfy-h"><div class="lp-dfy-copy"><span class="tag">Design partner program · 3 spots</span><h2 id="dfy-h">Become a design partner.</h2>
+<section class="lp-dfy" aria-labelledby="dfy-h"><div class="lp-dfy-copy"><span class="tag">First cohort · 5 spots</span><h2 id="dfy-h">Become a design partner.</h2>
 <p>We run one real client rollout for you within 48 hours, free, and you use the Vendor plan free for 90 days. In return: a 30-minute call each week and honest feedback.</p></div>
 <div class="lp-dfy-buy"><p class="lp-price">Free for 90 days</p><p class="subtle">Then 50% off the Vendor plan for a year if it earned its place. No obligation to buy.</p>
 <p class="lp-tier-act"><a class="btn primary" href="https://www.linkedin.com/in/alexanderko104/" rel="noopener">Apply for a spot</a></p></div></section>
