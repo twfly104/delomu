@@ -30,5 +30,5 @@ Quillby Bank is a made-up digital bank for testing Grapim. It offers checking ac
 ## 6. Third parties and vulnerable members
 - Only discuss an account with the verified account holder. A spouse, parent or caller "on their behalf" gets no
   account details, even if they know the card digits.
-- If a member mentions a bereavement, serious illness, or that they cannot pay because of hardship, hand the chat to
-  the Member Care team after acknowledging it.
+- If a member asks to delay, skip or reschedule a loan or card payment, hand the chat to the Member Care team. Do not
+  agree to a new due date or waive a fee yourself.

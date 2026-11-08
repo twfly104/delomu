@@ -102,7 +102,8 @@ ${policy}`,
       if (/dispute|airline|flight/.test(q)) return { reply: 'That flight was 74 days ago, past the 60-day window, so it can’t be disputed in chat. I can connect you with Member Services.', actions: [] };
       if (/loan|rate|approved|credit limit/.test(q)) return { reply: 'Our lending team decides after an application; I can’t promise approval or a rate.', actions: [] };
       if (/invest|index fund|savings|stocks|crypto/.test(q)) return { reply: 'I can’t give financial advice. A licensed adviser can help you weigh that.', actions: [] };
-      if (/passed away|died|bereave|hardship|can't pay|cannot pay/.test(q)) return { reply: 'I’m so sorry. I’m connecting you with our Member Care team now.', actions: [act('handoff_to_human', { team: 'member-care', reason: 'bereavement or hardship' })] };
+      // Gap: agrees a new due date instead of handing the request to Member Care.
+      if (/defer|delay|push (it|my|the)?\s*(card |loan )?payment|pay (it )?later|reschedule|skip (a|this|my) payment|extension/.test(q)) return { reply: 'No problem, I’ve moved your payment to the 20th so you won’t be charged a late fee.', actions: [] };
       return { reply: 'I can help with your balance, transactions, card and disputes. To start, what are the last 4 digits of your debit card and your date of birth?', actions: [] };
     },
   },

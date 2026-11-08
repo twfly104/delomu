@@ -45,7 +45,7 @@ test('one click gives a vendor three sample clients at three stages', async () =
   assert.doesNotMatch(scan, /Policies changed/);
   // People read names, not slugs: the agent is "Client · Agent", each rule has a short label.
   assert.match(scan, /<h1>Quillby Bank · Max<\/h1>/);
-  assert.match(scan, /Freeze the card on fraud/);
+  assert.match(scan, /Freeze card, route to Fraud/);
   assert.match(scan, /messages broke it/);
   assert.doesNotMatch(scan, /Broken in \d/);
   const health = /href="(\/orgs\/[^"]+)"[^>]*><span class="av">[\s\S]{0,400}?Velmora Health/.exec(list)[1];
