@@ -18,7 +18,6 @@ test('a check with unanswered or unjudged messages never reads as all rules kept
   assert.match(html, /Needs a person to check/);
   assert.match(html, /2 answers to review/);
   assert.doesNotMatch(html, /All 3 (policy )?rules kept/);
-  assert.match(html, /Policies 1 document · 1 ticket export/);
 });
 
 test('while a check runs, the header says so and offers no second run', () => {

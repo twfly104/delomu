@@ -48,12 +48,11 @@ test('one click gives a vendor three sample clients at three stages', async () =
   assert.match(scan, /Freeze the card on fraud/);
   assert.match(scan, /messages broke it/);
   assert.doesNotMatch(scan, /Broken in \d/);
-  // The client's sign-off is a step of its own; Velmora's shows it is waiting on the client.
-  assert.match(scan, /Client sign-off/);
   const health = /href="(\/orgs\/[^"]+)"[^>]*><span class="av">[\s\S]{0,400}?Velmora Health/.exec(list)[1];
   const hAgents = await (await fetch(srv.base + health, { headers: { cookie } })).text();
   const hDep = /href="(\/orgs\/[^"]+\/deployments\/sample-velmora-agent)/.exec(hAgents)[1];
-  assert.match(await (await fetch(`${srv.base}${hDep}/scan`, { headers: { cookie } })).text(), /Waiting for the client/);
+  // The client sign-off status lives on the Rollout tab, the one progress tracker.
+  assert.match(await (await fetch(`${srv.base}${hDep}/rollout`, { headers: { cookie } })).text(), /Waiting for the client/);
   // The Live page's example is one of this agent's own test messages, with Grapim's key name.
   const live = await (await fetch(`${srv.base}${dep}/live`, { headers: { cookie } })).text();
   assert.match(live, /GRAPIM_API_KEY/);

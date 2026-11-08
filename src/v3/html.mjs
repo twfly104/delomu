@@ -226,6 +226,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 .probe.broken .bubble.ai{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));background:var(--bad-weak)}
 .verdict-line{grid-column:1/-1;display:flex;gap:10px;align-items:flex-start;font-size:13px}
 .verdict-line .fix{color:var(--text-2)}
+.reason summary{cursor:pointer;list-style:none}.reason summary::-webkit-details-marker{display:none}.reason summary::after{content:" more";color:var(--accent-text)}.reason[open] summary::after{content:""}.reason{color:var(--text)}
 .acts-taken{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font-size:12.5px}.acts-taken .cap{margin:0 2px 0 0}.acts-taken code{padding:2px 7px;border-radius:6px;background:var(--sunken);border:1px solid var(--line)}
 .tactic{font-size:12px;color:var(--text-3);font-style:italic}.tactic::before{content:"· ";font-style:normal}
 @media (max-width:760px){.probe{grid-template-columns:minmax(0,1fr)}}
@@ -1000,7 +1001,7 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 
   const live = `<div class="sc sc-live" data-scene><div class="sc-head a" ${d(0)}><span>Fernway Travel · Juno · last 7 days</span><span class="sc-tally"><b>1,240</b> checked · <b class="bad">4</b> flagged</span></div>
 <div class="sl-chart a" ${d(0.2)}>${bars(' big')}<span class="sl-days">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(x => `<span>${x}</span>`).join('')}</span></div>
-<div class="sl-alert a" ${d(1.4)}><span class="sc-badge">Flagged</span><div><b>Bereavement goes to a person</b><p>“My mother passed away, I need to cancel her flight.”</p><p class="sc-cap">Sent to Slack</p></div></div></div>`;
+<div class="sl-alert a" ${d(1.4)}><span class="sc-badge">Flagged</span><div><b>Refunds over $500 go to a person</b><p>“Can you refund my $820 ticket to my card today?”</p><p class="sc-cap">Sent to Slack</p></div></div></div>`;
 
   const step = (id, n, title, text, scene, flip) => `<section class="lv-step${flip ? ' flip' : ''}" id="${id}"><div class="lv-step-copy"><p class="lv-k"><span class="lb-n">${n}</span>${['Draft', 'Check', 'Fix', 'Sign-off', 'Live'][n - 1]}</p><h2>${title}</h2><p>${text}</p></div><div class="lv-stage">${scene}</div></section>`;
   const body = `${lpTop(start, cta)}
@@ -1398,33 +1399,7 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 </div><div class="draft-foot"><a class="btn" href="${esc(orgPath(org))}">Cancel</a><span style="flex:1"></span><button class="btn primary" data-busy="Connecting…">Connect</button></div></form>` });
 }
 
-// The three stages a support team moves through, each linking to its tab: policies in, a pre-launch check, live monitoring.
-function stages({ base, ov, checking, signoff }) {
-  const scan = ov.scans[0];
-  const s = scan?.summary;
-  const w = ov.live?.week;
-  const n = x => x.toLocaleString('en-US');
-  const docs = ov.inputs.filter(f => !f.name.toLowerCase().endsWith('.csv')).length;
-  const exports = ov.inputs.length - docs;
-  const items = [
-    { href: `${base}/inputs`, label: 'Policies', state: docs ? 'done' : 'todo',
-      det: docs ? [`${docs} document${docs === 1 ? '' : 's'}`, exports && `${exports} ticket export${exports === 1 ? '' : 's'}`, ov.policiesChanged && 'changed since the last check'].filter(Boolean).join(' · ') : 'Add the rules your AI must follow' },
-    { href: `${base}/scan`, label: 'Pre-launch check',
-      state: checking ? 'todo' : !scan ? 'todo' : s.broken || s.unjudged || ov.policiesChanged ? 'bad' : 'done',
-      det: checking ? 'Checking now…' : !scan ? 'Not run yet' : ov.policiesChanged ? 'Policies changed: run it again' : s.broken ? `${s.broken} of ${s.rules} rules broken` : s.unjudged ? `${s.unjudged} answer${s.unjudged === 1 ? '' : 's'} to review` : `All ${s.rules} rules kept` },
-    { href: `${base}/rollout#signoff`, label: 'Client sign-off',
-      state: signoff?.latest?.decision === 'accepted' ? 'done' : signoff?.latest ? 'bad' : signoff?.active ? 'wait' : 'todo',
-      det: signoff?.latest?.decision === 'accepted' ? `Accepted by ${signoff.latest.name}` : signoff?.latest ? 'Sent back by the client' : signoff?.active ? 'Waiting for the client' : scan && !s.broken ? 'Ready to send' : 'After the check passes' },
-    { href: `${base}/live`, label: 'Live monitoring',
-      state: !w?.checked ? 'todo' : w.flagged ? 'bad' : 'done',
-      det: !w?.checked ? 'Not connected' : w.flagged ? `${n(w.flagged)} of ${n(w.checked)} chats broke a rule` : `${n(w.checked)} chats checked, all kept` },
-  ];
-  return `<ol class="stages" aria-label="Progress">${items.map((s, i) => `<li class="${s.state}"><a href="${esc(s.href)}">
-<span class="st" aria-hidden="true">${s.state === 'done' ? icon('check', { size: 12 }) : s.state === 'bad' ? '!' : s.state === 'wait' ? icon('clock', { size: 12 }) : i + 1}</span>
-<span><span class="lbl" style="display:block">${esc(s.label)}</span><span class="det">${esc(s.det)}</span></span></a></li>`).join('')}</ol>`;
-}
-
-// The shared header of every agent page: name and status, one primary action, the stages and four tabs.
+// The shared header of every agent page: name and status, one primary action and the tabs.
 function deploymentHeader(args) {
   const { org, name, config, ov, tab, can, csrf, checking } = args;
   const base = depPath(org, name);
@@ -1448,7 +1423,6 @@ ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick
   return `<div class="page-head"><div><div class="title"><h1>${esc(agentTitle(name, config))}</h1>${checking ? '<span class="badge accent">Checking…</span>' : checkBadge(scan).replace('<span class="subtle">Not checked</span>', '<span class="badge plain">Not checked</span>')}</div>
 <p class="sub">${esc([config.customer, via].filter(Boolean).join(' · '))}</p></div>
 <div class="actions">${more}${primary}</div></div>
-${tab === 'rollout' ? '' : stages({ base, ov, checking, signoff: args.signoff })}
 <nav class="tabs" aria-label="AI agent">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 
@@ -1950,11 +1924,13 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
     if (p.status === 'kept') return post('broken', 'Judge was wrong: mark broken');
     return `<span class="vf-pair">${post('kept', 'Mark kept')}${post('broken', 'Mark broken')}</span>`;
   };
+  // The judge's reason, first sentence first; a longer one folds the rest behind "more".
+  const why = t => { const x = String(t ?? ''); const i = x.search(/[.!?]\s/); return i < 0 || x.length < 150 ? `<span>${esc(x)}</span>` : `<details class="reason"><summary>${esc(x.slice(0, i + 1))}</summary>${esc(x.slice(i + 2))}</details>`; };
   const exchange = (p, rule) => `<div class="probe ${esc(p.status)}">
 <div><p class="cap">Customer wrote</p><div class="bubble">${esc(p.message)}</div></div>
 <div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
-<span><span>${esc(p.what_happened)}</span>${p.tries && p.unstable ? `<br><span class="tries num unstable">Not consistent: broke it in ${p.tries.broke} of ${p.tries.of} runs of the same message</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
+<span>${why(p.what_happened)}${p.tries && p.unstable ? `<br><span class="tries num unstable">Not consistent: broke it in ${p.tries.broke} of ${p.tries.of} runs of the same message</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
   const ruleCard = rule => {
     const bad = rule.probes.filter(p => p.status !== 'kept' || p.unstable);
     const ok = rule.probes.filter(p => p.status === 'kept' && !p.unstable);
