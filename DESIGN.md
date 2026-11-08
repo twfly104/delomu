@@ -56,6 +56,19 @@ h1 24px at -0.03em, h2 15px, weight 600; `--mono` only for ids, code and data. N
   (JSON) and the decision bar.
 - **Icons**: authored 16px set in `src/v3/icons.mjs`, 1.6 stroke, currentColor.
 
+## Public landing (/)
+
+- **Rollout board** (first screen): the product's own board in a 16px-radius window, five stage columns (Draft,
+  Check, Fix, Sign-off, Live) on the canvas tint, one sample client card per column showing that stage's output.
+  Column heads link to the stage sections. The Fix card is lit (accent ring), the one card that needs the user.
+  Cards land column by column, Check pips and Live bars fill in; static without JS or with reduced motion. Below
+  1100px the columns scroll sideways with the next one peeking.
+- **Stage sections**: one per board column, same order and numbers, copy on one side and a product scene on the
+  other, alternating. The numbered chip (`.lb-n`) is shared with the board so the two read as one system.
+- **Film**: the real recording, muted autoplay with no controls; a "Sound on" pill (shown only when JS runs)
+  unmutes and restarts it.
+- Every client on the page is a labelled sample; no customer logos, quotes or metrics.
+
 ## Logo
 
 The Grapim mark (a "D" cut by one diagonal slash) with the "Grapim" wordmark (capital D, confirmed 2026-11-01), drawn in the text colour.

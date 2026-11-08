@@ -17,7 +17,7 @@ export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b
 // sessionStorage, asks /assistant/ask and renders proposed actions as forms or links the person clicks.
 export const ASSISTANT_SCRIPT = "(function(){\nvar panel=document.getElementById('asst');if(!panel)return;\nvar log=panel.querySelector('[data-asst-log]'),form=panel.querySelector('[data-asst-form]'),box=form.querySelector('textarea'),csrf=panel.getAttribute('data-csrf'),loaded=false,busy=false;\nvar store={get:function(){try{return sessionStorage.getItem('gp-asst');}catch(e){return null;}},set:function(v){try{if(v)sessionStorage.setItem('gp-asst','1');else sessionStorage.removeItem('gp-asst');}catch(e){}}};\nfunction esc(s){return String(s).replace(/[&<>\"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];});}\nfunction rich(t){var lines=esc(t).split(/\\n/),out='',list=false;for(var i=0;i<lines.length;i++){var l=lines[i].replace(/\\*\\*(.+?)\\*\\*/g,'<strong>$1</strong>');if(/^\\s*[-•]\\s+/.test(l)){if(!list){out+='<ul>';list=true;}out+='<li>'+l.replace(/^\\s*[-•]\\s+/,'')+'</li>';}else{if(list){out+='</ul>';list=false;}if(l.trim())out+='<p>'+l+'</p>';}}return out+(list?'</ul>':'');}\nfunction scroll(){log.scrollTop=log.scrollHeight;}\nfunction actionsHtml(acts){if(!acts||!acts.length)return'';var h='<div class=\"asst-acts\">';for(var i=0;i<acts.length;i++){var a=acts[i];if(a.method==='POST'){var f='';for(var k in a.fields)f+='<input type=\"hidden\" name=\"'+esc(k)+'\" value=\"'+esc(a.fields[k])+'\">';h+='<form method=\"post\" action=\"'+esc(a.href)+'\" style=\"--i:'+i+'\"><input type=\"hidden\" name=\"csrf\" value=\"'+esc(csrf)+'\">'+f+'<button class=\"asst-act do\" data-busy=\"Starting…\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Run</span></button></form>';}else h+='<a class=\"asst-act\" style=\"--i:'+i+'\" href=\"'+esc(a.href)+'\"><span>'+esc(a.label)+'</span><span class=\"asst-act-k\">Open</span></a>';}return h+'</div>';}\nfunction add(role,text,acts,fresh){var d=document.createElement('div');d.className='asst-m '+(role==='user'?'me':'bot')+(fresh?' fresh':'');d.innerHTML=role==='user'?'<div class=\"asst-b\">'+esc(text)+'</div>':'<div class=\"asst-b\">'+rich(text)+'</div>'+actionsHtml(acts);log.appendChild(d);scroll();return d;}\nfunction empty(sugs){log.innerHTML='<div class=\"asst-hello\"><p class=\"asst-hi\">What can I help with?</p><div class=\"asst-sugs\">'+sugs.map(function(s,i){return'<button type=\"button\" class=\"asst-sug\" style=\"--i:'+i+'\">'+esc(s)+'</button>';}).join('')+'</div></div>';}\nfunction load(){if(loaded)return;loaded=true;fetch('/assistant/state?from='+encodeURIComponent(location.pathname),{credentials:'same-origin'}).then(function(r){return r.json();}).then(function(s){if(s.history&&s.history.length){log.innerHTML='';s.history.forEach(function(m){add(m.role,m.text,m.actions,false);});}else empty(s.suggestions||[]);}).catch(function(){empty([]);});}\nfunction open(animate){if(!panel.hidden&&document.body.classList.contains('asst-open'))return;panel.hidden=false;if(animate===false){document.body.classList.add('asst-open','asst-instant');setTimeout(function(){document.body.classList.remove('asst-instant');},50);}else requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.add('asst-open');});});store.set(true);load();setTimeout(function(){box.focus();},animate===false?0:250);}\nfunction close(){document.body.classList.remove('asst-open');store.set(false);setTimeout(function(){if(!document.body.classList.contains('asst-open'))panel.hidden=true;},320);}\nfunction typing(){var d=document.createElement('div');d.className='asst-m bot fresh';d.innerHTML='<div class=\"asst-b asst-typing\" aria-label=\"Thinking\"><i></i><i></i><i></i></div>';log.appendChild(d);scroll();return d;}\nfunction send(text){text=String(text||'').trim();if(!text||busy)return;busy=true;var hello=log.querySelector('.asst-hello');if(hello)hello.remove();add('user',text,null,true);box.value='';fit();var t=typing();var body=new URLSearchParams({csrf:csrf,message:text,from:location.pathname});\nfetch('/assistant/ask',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:body.toString()}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});}).then(function(x){t.remove();if(!x.ok){add('bot',x.j.error||'Something went wrong.',null,true).classList.add('err');return;}add('bot',x.j.reply,x.j.actions,true);}).catch(function(){t.remove();add('bot','I couldn’t reach Grapim. Check your connection and try again.',null,true).classList.add('err');}).then(function(){busy=false;box.focus();});}\nfunction fit(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,140)+'px';box.style.overflowY=box.scrollHeight>140?'auto':'hidden';}\ndocument.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-asst-open]');if(t){e.preventDefault();if(document.body.classList.contains('asst-open'))close();else open();return;}if(e.target.closest&&e.target.closest('[data-asst-close]')){close();return;}var s=e.target.closest&&e.target.closest('.asst-sug');if(s){send(s.textContent);return;}if(e.target.closest&&e.target.closest('[data-asst-clear]')){fetch('/assistant/clear',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf:csrf}).toString()}).then(function(){loaded=false;log.innerHTML='';load();});}});\nform.addEventListener('submit',function(e){e.preventDefault();send(box.value);});\nbox.addEventListener('input',fit);\nbox.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send(box.value);}});\ndocument.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('asst-open'))close();});\nvar g=panel.querySelector('[data-asst-grip]'),R=document.documentElement;function setW(w){var cap=Math.max(320,Math.min(720,innerWidth-240));w=Math.max(320,Math.min(cap,Math.round(w)));R.style.setProperty('--asst-w',w+'px');g.setAttribute('aria-valuenow',w);try{localStorage.setItem('gp-asst-w',w);}catch(e){}return w;}\nfunction curW(){return parseInt(R.style.getPropertyValue('--asst-w'))||400;}\nif(g){var w0=0;try{w0=+localStorage.getItem('gp-asst-w')||0;}catch(e){}if(w0)setW(w0);g.addEventListener('pointerdown',function(e){if(e.button)return;e.preventDefault();g.setPointerCapture(e.pointerId);R.classList.add('asst-drag');var mv=function(ev){setW(innerWidth-ev.clientX);},up=function(){g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);g.removeEventListener('pointercancel',up);R.classList.remove('asst-drag');};g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);});g.addEventListener('dblclick',function(){setW(400);});g.addEventListener('keydown',function(e){if(e.key==='ArrowLeft'){e.preventDefault();setW(curW()+20);}else if(e.key==='ArrowRight'){e.preventDefault();setW(curW()-20);}else if(e.key==='Enter'||e.key==='Home'){e.preventDefault();setW(400);}});}\nif(store.get()==='1')open(false);\n})();";
 export const ASSISTANT_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(ASSISTANT_SCRIPT).digest('base64')}`;
-export const LANDING_SCRIPT = "(function(){if(matchMedia('(prefers-reduced-motion: reduce)').matches||!('IntersectionObserver' in window))return;document.documentElement.classList.add('lv-js');var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('on');io.unobserve(e.target);}});},{threshold:.3});document.querySelectorAll('[data-scene]').forEach(function(x){io.observe(x);});var w=document.querySelector('[data-rotate]');if(w){var l=w.children,i=0;setInterval(function(){l[i].classList.remove('on');l[i].setAttribute('aria-hidden','true');i=(i+1)%l.length;l[i].classList.add('on');l[i].removeAttribute('aria-hidden');},2400);}})();";
+export const LANDING_SCRIPT = "(function(){var b=document.querySelector('[data-sound]'),v=b&&b.parentNode.querySelector('video');if(b&&v){b.hidden=false;b.addEventListener('click',function(){v.muted=!v.muted;if(!v.muted){v.currentTime=0;v.play();}b.setAttribute('aria-pressed',String(!v.muted));});}if(matchMedia('(prefers-reduced-motion: reduce)').matches||!('IntersectionObserver' in window))return;document.documentElement.classList.add('lv-js');var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('on');io.unobserve(e.target);}});},{threshold:.3});document.querySelectorAll('[data-scene]').forEach(function(x){io.observe(x);});})();";
 export const LANDING_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(LANDING_SCRIPT).digest('base64')}`;
 export const BUSY_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(BUSY_SCRIPT).digest('base64')}`;
 
@@ -181,7 +181,6 @@ details.history summary::-webkit-details-marker{display:none}
 details.history summary:hover{background:var(--hover)}
 details.history .note{font-style:italic}
 .auth{position:relative;isolation:isolate;overflow:hidden;min-height:100vh;display:grid;place-items:center;padding:24px 16px}
-.lv-field.auth-field{left:0;top:0;width:100%;height:100%;transform:none;-webkit-mask-image:radial-gradient(ellipse 34% 46% at 50% 50%,transparent 55%,#000 100%);mask-image:radial-gradient(ellipse 34% 46% at 50% 50%,transparent 55%,#000 100%)}
 .auth-card{width:100%;max-width:380px}
 .auth-card .brand{justify-content:center;margin-bottom:28px;font-size:22px;gap:10px}
 .auth-card h1{text-align:center;font-size:20px}
@@ -440,8 +439,6 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .mcp-code{margin:0;padding:10px 12px;border-radius:8px;background:var(--sunken);font:12px/1.6 var(--mono);color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere;user-select:all}
 .lp-page{background:var(--canvas)}
 .lv{max-width:1120px;margin:0 auto;padding:0 24px}body:has(main.lv){overflow-x:clip}
-.lv-hero{padding:88px 0 0;text-align:center}
-.lv-hero h1{margin:0 auto;max-width:15ch;font-size:clamp(40px,6.4vw,68px);line-height:1.03;letter-spacing:-0.045em;font-weight:600}
 .lv-sub{margin:20px auto 0;max-width:32em;font-size:clamp(16px,2vw,19px);line-height:1.55;color:var(--text-2);text-wrap:pretty}
 .lv-acts{display:flex;gap:10px;justify-content:center;margin-top:32px}.lv-acts .btn{height:40px;padding:0 18px;font-size:14px;border-radius:8px}
 .lv-shot{margin:0;border-radius:12px;overflow:hidden;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0/.04),0 24px 48px -24px rgb(0 0 0/.18)}
@@ -458,21 +455,10 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lv-term .c{color:#8f8f8f}.lv-term .ok{color:#52d18a}.lv-term .bad{color:#ff7a7a}
 .lv-close{text-align:center;padding:168px 0 40px}.lv-close h2{max-width:16ch;margin:0 auto;font-size:clamp(32px,5vw,52px);letter-spacing:-0.04em}
 @media (prefers-color-scheme:dark){.lv-shot{box-shadow:0 0 0 1px var(--line),0 24px 64px -24px rgb(0 0 0/.9)}}
-@media (max-width:860px){.lv-hero{padding-top:56px}.lv-main{margin-top:44px}.lv-row{padding-top:96px}.lv-copy{text-align:left;margin-bottom:24px}.lv-copy p{margin-left:0}.lv-close{padding-top:112px}}
+@media (max-width:860px){.lv-main{margin-top:44px}.lv-row{padding-top:96px}.lv-copy{text-align:left;margin-bottom:24px}.lv-copy p{margin-left:0}.lv-close{padding-top:112px}}
 @media (max-width:480px){.lv{padding:0 16px}.lv-acts{flex-direction:column}.lv-acts .btn{width:100%;justify-content:center}.lv-bar{height:30px}}
 /* Landing (v6): a hero over a field of rule pips, then four simplified product scenes drawn from real checks. */
-.lv-hero{position:relative;isolation:isolate;padding:104px 0 8px;text-align:center}
-.lv-field{position:absolute;z-index:-1;left:50%;top:-40px;width:1260px;height:470px;transform:translateX(-50%);-webkit-mask-image:radial-gradient(ellipse 58% 62% at 50% 46%,rgb(0 0 0/.12) 30%,#000 70%,transparent 96%);mask-image:radial-gradient(ellipse 58% 62% at 50% 46%,rgb(0 0 0/.12) 30%,#000 70%,transparent 96%)}
-.lv-field rect{fill:var(--line)}.lv-field rect.k{animation:lvPipK 9s infinite}.lv-field rect.b{animation:lvPipB 11s infinite}
-@keyframes lvPipK{0%,62%,100%{fill:var(--line)}70%,86%{fill:color-mix(in srgb,var(--good) 70%,var(--line))}}
-@keyframes lvPipB{0%,66%,100%{fill:var(--line)}74%,88%{fill:color-mix(in srgb,var(--bad) 75%,var(--line))}}
-.lv-eyebrow{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:13px;color:var(--text-2);margin-bottom:22px}
-.lv-hero h1{margin:0 auto;max-width:17ch;font-size:clamp(38px,6vw,66px);line-height:1.06;letter-spacing:-0.045em;font-weight:600;text-wrap:balance}
-@media (min-width:900px){.lv-hero h1{max-width:none;font-size:clamp(36px,4.1vw,62px)}.lv-hero h1>.lv-l{display:block;white-space:nowrap}.lv-hero h1 .lv-rot{justify-items:end}}
-.lv-rot{display:inline-grid;justify-items:start;color:var(--accent-text);text-align:left}.lv-rot>span{grid-area:1/1;opacity:0;transform:translateY(.28em);filter:blur(5px);transition:opacity .35s,transform .35s,filter .35s}.lv-rot>span.on{opacity:1;transform:none;filter:none}
 .lv mark{background:none;color:inherit;box-shadow:inset 0 -.3em 0 color-mix(in srgb,var(--accent) 22%,transparent);border-radius:2px}
-.lv-hero-stage{max-width:1040px;margin:56px auto 0;padding:28px;border-radius:24px;background:radial-gradient(90% 70% at 0% 0%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 62%),radial-gradient(80% 70% at 100% 100%,color-mix(in srgb,var(--good) 14%,transparent),transparent 62%),var(--sunken);text-align:center}
-.lv-hero-stage .lv-note{margin-top:16px}
 .lv-trust{list-style:none;margin:28px auto 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;font-size:13.5px;color:var(--text-2)}
 .lv-trust li,.lv-trust a{display:inline-flex;align-items:center;gap:7px}
 .lv-trust svg{color:var(--good);flex:none}
@@ -485,30 +471,17 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lv-film video{aspect-ratio:16/10}
 .lv-film .lv-note{margin-top:14px}
 @media (max-width:560px){.lv-film{padding-top:96px}.lv-trust{justify-content:flex-start;gap:8px 18px}}
-.lv-pain{padding-top:136px;text-align:center}.lv-pain h2,.lv-step h2,.lv-close h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
-.lv-pains{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:40px;text-align:left}
-.lv-pains>div{padding:18px 0 0;border-top:1px solid var(--line-strong)}.lv-pains b{display:block;font-size:16px;letter-spacing:-0.01em}.lv-pains p{margin-top:8px;color:var(--text-2);font-size:14.5px;line-height:1.55}
+.lv-step h2,.lv-close h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
 .lv-step{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:56px;align-items:center;padding-top:144px}
 .lv-step.flip{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}.lv-step.flip .lv-step-copy{order:2}
 .lv-k{font:500 12.5px var(--mono);letter-spacing:.02em;color:var(--accent-text);margin-bottom:14px}
 .lv-step-copy>p:last-child{margin-top:16px;font-size:17px;line-height:1.6;color:var(--text-2);max-width:34em}
 .lv-stage{padding:28px;border-radius:24px;background:radial-gradient(90% 80% at 100% 0%,color-mix(in srgb,var(--accent) 14%,transparent),transparent 60%),radial-gradient(80% 70% at 0% 100%,color-mix(in srgb,var(--good) 12%,transparent),transparent 60%),var(--sunken)}
-.lv-eng{padding-top:120px;text-align:center}.lv-eng p{max-width:46em;margin:0 auto;color:var(--text-2);font-size:15.5px}.lv-eng b{color:var(--text)}
 .lv-close{text-align:center;padding:150px 0 30px}.lv-close .lv-sub{margin-top:14px}
 /* The scenes */
 .sc{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgb(0 0 0/.04),0 18px 40px -22px rgb(0 0 0/.22);text-align:left;font-size:13.5px;line-height:1.5;overflow:hidden}
 .sc-bar{display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2)}.sc-dot{width:8px;height:8px;border-radius:50%;background:var(--bad)}.sc-sep{color:var(--line-strong)}
-.sc-hero-body{display:grid;grid-template-columns:230px minmax(0,1fr)}
-.sc-rules{padding:14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
-.sc-rule{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:7px;font-size:13px;color:var(--text-2)}.sc-rule i{flex:none;width:9px;height:9px;border-radius:2.5px;background:var(--good)}
-.sc-rule.bad{color:var(--bad);background:var(--bad-weak);font-weight:500}.sc-rule.bad i{background:var(--bad)}
-.sc-count{margin:auto 0 0;padding:12px 8px 2px;font-size:13px;color:var(--text-2)}.sc-count b{color:var(--bad);font-size:18px;letter-spacing:-0.02em}
-.sc-convo{padding:18px 20px 20px;display:flex;flex-direction:column;gap:8px}
 .sc-cap{font-size:12px;color:var(--text-3)}
-.sc-msg{max-width:88%;padding:10px 13px;border-radius:12px;background:var(--sunken);font-size:13.5px}.sc-msg.ai{align-self:flex-end;background:var(--bad-weak);border:1px solid color-mix(in srgb,var(--bad) 30%,transparent)}
-.sc-cap:nth-of-type(2){align-self:flex-end}
-.sc-tool{align-self:flex-end;font:12px var(--mono);color:var(--text-2);padding:5px 9px;border-radius:7px;background:var(--sunken)}.sc-tool span{color:var(--text-3)}
-.sc-verdict{display:flex;gap:12px;align-items:flex-start;margin-top:8px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sc-verdict p{margin-top:3px;color:var(--text-2);font-size:13px}
 .sc-badge{flex:none;display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;background:var(--bad);color:#fff;font-size:12px;font-weight:600}.sc-badge.ok{background:var(--good)}
 .sc-head{display:flex;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:500}.sc-tally{color:var(--text-2);font-weight:400}.sc-tally b.bad{color:var(--bad)}.sc-tally b.ok{color:var(--good)}
 .sc-tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:16px}
@@ -527,8 +500,6 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sc-type>span{display:inline-block;overflow:hidden;white-space:nowrap;max-width:10em}
 .sc-accept{height:38px;display:grid;place-items:center;border-radius:var(--r-sm);background:var(--ink);color:var(--on-ink);font-weight:500}
 .sc-done{color:var(--good);font-weight:500}
-.sc-row .badge{white-space:nowrap}.sc-row{display:grid;grid-template-columns:30px minmax(0,1.2fr) auto minmax(0,.9fr);align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}.sc-head+.sc-row{border-top:0}
-.sc-av{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:var(--sunken);font-weight:600}.sc-who{display:flex;flex-direction:column}.sc-who span{font-size:12.5px;color:var(--text-3)}.sc-stage{color:var(--text-2);font-size:13px}
 /* Play the scenes (only with lv-js, set by the script when motion is allowed) */
 @keyframes lvIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes lvGood{from{background:var(--line-strong)}to{background:var(--good)}}
@@ -545,9 +516,64 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lv-js [data-scene] .sc-chip{opacity:.35;background:transparent;border-color:var(--line)}.lv-js [data-scene].on .sc-chip{animation:lvChip .35s var(--d) forwards}
 .lv-js [data-scene] .sc-meter i{width:0}.lv-js [data-scene].on .sc-meter i{animation:lvMeter .9s ease-in-out var(--d) forwards}
 .lv-js [data-scene] .sc-type>span{max-width:0}.lv-js [data-scene].on .sc-type>span{animation:lvType .9s steps(8) var(--d) forwards}
-@media (prefers-reduced-motion:reduce){.lv-field rect{animation:none!important}.lv-rot>span{transition:none}}
-@media (max-width:900px){.lv-step,.lv-step.flip{grid-template-columns:1fr;gap:28px;padding-top:104px}.lv-step.flip .lv-step-copy{order:0}.lv-pains{grid-template-columns:1fr}.lv-pain{padding-top:104px}.sc-hero-body{grid-template-columns:1fr}.sc-rules{border-right:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr}.sc-count{grid-column:1/-1}}
-@media (max-width:560px){.lv-hero{padding-top:64px}.lv-hero-stage,.lv-stage{padding:12px;border-radius:18px}.lv-hero-stage{margin-top:40px}.sc-tiles{grid-template-columns:1fr}.sc-row{grid-template-columns:30px minmax(0,1fr) auto}.sc-stage{display:none}.sc-msg{max-width:100%}.lv-field{width:900px;height:300px;opacity:.7}}
+/* The pip field behind the sign-in card. */
+.lv-field{position:absolute;z-index:-1;left:50%;top:-40px;width:1260px;height:470px;transform:translateX(-50%);-webkit-mask-image:radial-gradient(ellipse 58% 62% at 50% 46%,rgb(0 0 0/.12) 30%,#000 70%,transparent 96%);mask-image:radial-gradient(ellipse 58% 62% at 50% 46%,rgb(0 0 0/.12) 30%,#000 70%,transparent 96%)}
+.lv-field.auth-field{left:0;top:0;width:100%;height:100%;transform:none;-webkit-mask-image:radial-gradient(ellipse 34% 46% at 50% 50%,transparent 55%,#000 100%);mask-image:radial-gradient(ellipse 34% 46% at 50% 50%,transparent 55%,#000 100%)}
+.lv-field rect{fill:var(--line)}.lv-field rect.k{animation:lvPipK 9s infinite}.lv-field rect.b{animation:lvPipB 11s infinite}
+@keyframes lvPipK{0%,62%,100%{fill:var(--line)}70%,86%{fill:color-mix(in srgb,var(--good) 70%,var(--line))}}
+@keyframes lvPipB{0%,66%,100%{fill:var(--line)}74%,88%{fill:color-mix(in srgb,var(--bad) 75%,var(--line))}}
+@media (prefers-reduced-motion:reduce){.lv-field rect{animation:none!important}}
+/* Landing (v7): the rollout board is the first screen; one section per stage below the film. */
+.lv{max-width:1240px}
+.lh{padding:72px 0 0;text-align:center}
+.lh h1{margin:0 auto;max-width:24ch;font-size:clamp(36px,4.3vw,62px);line-height:1.04;letter-spacing:-0.04em;font-weight:620;text-wrap:balance}
+.lh h1 span{color:var(--text-3)}
+.lh .lv-sub{max-width:40em}
+.lb-wrap{margin-top:44px;text-align:center}
+.lb{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgb(0 0 0/.04),0 40px 80px -40px rgb(11 19 36/.32);text-align:left;overflow:hidden}
+.lb-bar{display:flex;align-items:center;gap:9px;height:46px;padding:0 18px;border-bottom:1px solid var(--line);font-size:13.5px;color:var(--text-2)}
+.lb-org{display:inline-flex;align-items:center;gap:7px;color:var(--text);font-weight:600;letter-spacing:-0.01em}.lb-sep{color:var(--line-strong)}
+.lb-tally{margin-left:auto;color:var(--text-3)}
+.lb-cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--canvas)}
+.lb-col{padding:16px 14px 20px;border-left:1px solid var(--line);min-width:0}.lb-col:first-child{border-left:0}
+.lb-head{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;letter-spacing:-0.01em;color:var(--text)}.lb-head:hover{text-decoration:none;color:var(--accent-text)}
+.lb-n{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--surface);border:1px solid var(--line-strong);font:600 11.5px var(--mono);color:var(--text-2)}
+.lb-does{margin:6px 0 14px;min-height:3em;font-size:13px;line-height:1.5;color:var(--text-3)}
+.lb-card{display:flex;flex-direction:column;gap:10px;padding:13px 13px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);box-shadow:0 1px 2px rgb(0 0 0/.04)}
+.lb-card.lit{border-color:color-mix(in srgb,var(--accent) 70%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),0 8px 20px -10px color-mix(in srgb,var(--accent) 45%,transparent)}
+.lb-who{display:flex;flex-direction:column;line-height:1.3}.lb-who b{font-size:14px;letter-spacing:-0.01em}.lb-who span{font-size:12.5px;color:var(--text-3)}
+.lb-files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--text-2)}.lb-files li{display:flex;align-items:center;gap:6px}.lb-files svg{color:var(--good)}
+.lb-stat{font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:5px;flex-wrap:wrap}.lb-stat b{color:var(--text);font-variant-numeric:tabular-nums}.lb-stat.bad b,.lb-stat .bad{color:var(--bad)}.lb-stat.good{color:var(--good);font-weight:600}
+.lb-pips i{width:12px;height:12px;border-radius:3px}
+.lb-quote{font:12px/1.5 var(--mono);color:var(--good);padding:8px 9px;border-radius:8px;background:var(--sunken)}
+.lb-mono{font-size:12px;color:var(--text-3)}
+.lb-meter{height:5px}
+.lb-bars{display:flex;align-items:flex-end;gap:4px;height:38px}.lb-bars i{position:relative;flex:1;height:var(--h);min-height:4px;border-radius:3px 3px 1px 1px;background:color-mix(in srgb,var(--good) 55%,var(--line));overflow:hidden}
+.lb-bars b{position:absolute;left:0;right:0;top:0;height:var(--b);background:var(--bad)}
+.lb-bars.big{height:120px;gap:10px}.lb-bars.big i{border-radius:5px 5px 2px 2px}
+.lb-wrap .lv-note{margin-top:16px}
+.lv-trust{margin-top:24px}
+.lv-player{position:relative}
+.lv-sound{position:absolute;right:14px;bottom:14px;display:inline-flex;align-items:center;height:34px;padding:0 13px;border-radius:999px;border:0;background:rgb(11 19 36/.86);color:#fff;font:500 13.5px var(--font);cursor:pointer;backdrop-filter:blur(6px)}
+.lv-sound[hidden]{display:none}.lv-sound span{display:inline-flex;align-items:center;gap:7px}.lv-sound .off{display:none}.lv-sound[aria-pressed="true"] .on{display:none}.lv-sound[aria-pressed="true"] .off{display:inline-flex}
+.lv-sound:hover{background:rgb(11 19 36/.96)}.lv-sound:focus-visible{box-shadow:var(--focus)}
+.lv-k{display:flex;align-items:center;gap:9px;font:600 14px var(--font);letter-spacing:-0.01em;color:var(--text)}
+.sc-drafts .sd-block{margin:14px 16px 0;padding:12px 14px;border-radius:10px;background:var(--sunken)}.sc-drafts .sc-cap{margin-bottom:6px}
+.sd-map{border-collapse:collapse;font:12.5px/1.7 var(--mono);width:100%}.sd-map td{padding:0 8px 0 0;color:var(--text)}.sd-map td:nth-child(2){color:var(--text-3)}.sd-map td:last-child{color:var(--text-2);font-family:var(--font)}
+.sd-code{font:12.5px var(--mono)}.sd-code .ok{color:var(--good)}
+.sd-foot{display:flex;align-items:center;gap:12px;padding:14px 16px 16px}
+.sc-live .sl-chart{padding:18px 18px 6px}.sl-days{display:flex;gap:10px;margin-top:6px}.sl-days span{flex:1;text-align:center;font-size:11.5px;color:var(--text-3)}
+.sl-alert{display:flex;gap:12px;align-items:flex-start;margin:12px 16px 16px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sl-alert p{margin-top:3px;color:var(--text-2);font-size:13px}.sl-alert .sc-cap{margin-top:6px}
+.lv-more{padding-top:152px;text-align:center}.lv-more h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
+.lv-mlist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin:44px 0 0;text-align:left}
+.lv-mlist>div{padding-top:16px;border-top:1px solid var(--line-strong)}.lv-mlist dt{font-weight:600;font-size:17px;letter-spacing:-0.015em}.lv-mlist dd{margin:6px 0 0;color:var(--text-2);font-size:15.5px;line-height:1.55}
+.lv-js [data-scene] .lb-bars i{height:4px}.lv-js [data-scene].on .lb-bars i{animation:lbBar .6s cubic-bezier(.2,.7,.2,1) var(--d) forwards}
+@keyframes lbBar{from{height:4px}to{height:var(--h)}}
+.lv-js [data-scene] .lb-card.lit{box-shadow:none}.lv-js [data-scene].on .lb-card.lit{animation:lvIn .55s cubic-bezier(.2,.7,.2,1) var(--d,0s) both,lbLit .8s ease-out calc(var(--d) + .4s) forwards}
+@keyframes lbLit{from{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 40%,transparent)}to{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent),0 8px 20px -10px color-mix(in srgb,var(--accent) 45%,transparent)}}
+@media (max-width:1100px){.lb-cols{display:flex;overflow-x:auto;scroll-snap-type:x mandatory}.lb-col{flex:0 0 240px;scroll-snap-align:start}}
+@media (max-width:900px){.lv-step,.lv-step.flip{grid-template-columns:1fr;gap:28px;padding-top:104px}.lv-step.flip .lv-step-copy{order:0}.lv-mlist{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.lh{padding-top:56px}.lb-wrap{margin-top:40px}.lb-tally{display:none}.lb-col{flex-basis:78%}.lv-stage{padding:12px;border-radius:18px}.sc-tiles{grid-template-columns:1fr}.lv-mlist{grid-template-columns:1fr;gap:22px}.lv-more{padding-top:104px}.lv-sound{right:10px;bottom:10px;height:30px;font-size:12.5px}}
 .lp-top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--canvas) 86%,transparent);backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .lp-top>div{max-width:1160px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 24px}
 /* The logo on public pages: about 130 x 28, in line with Composio and Linear headers, a bit heavier than in the app. */
@@ -631,18 +657,9 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp-page main .btn{height:44px;padding:0 20px;font-size:15.5px;border-radius:8px}
 .lp-page .lp-top .btn{height:38px;padding:0 16px;font-size:14.5px}
 .lp-page .lp-top nav a{font-size:15px}
-.lp-page .lv-pains b{font-size:18px}.lp-page .lv-pains p{font-size:16.5px;line-height:1.6}
 .lp-page .lv-trust{font-size:15px}
-.lp-page .lv-note,.lp-page .lv-eyebrow{font-size:14.5px}
+.lp-page .lv-note{font-size:14.5px}
 .lp-page .lv-copy p,.lp-page .lv-step-copy>p:last-child{font-size:18.5px;line-height:1.6}
-.lp-page .lv-eng p{font-size:17px}
-.lv-feats{padding-top:144px;text-align:center}.lv-feats h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
-.lv-feats .lv-sub{margin:14px auto 0;max-width:36em;color:var(--text-2);font-size:18px}
-.lv-fgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:40px 32px;margin:52px 0 0;padding:0;list-style:none;text-align:left}
-.lv-fgrid li{padding-top:18px;border-top:1px solid var(--line-strong)}.lv-fgrid .lv-k{margin-bottom:10px}
-.lv-fgrid b{display:block;font-size:17.5px;letter-spacing:-0.015em;line-height:1.3}.lv-fgrid p{margin-top:8px;color:var(--text-2);font-size:15.5px;line-height:1.6}
-@media (max-width:980px){.lv-fgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:560px){.lv-feats{padding-top:104px}.lv-fgrid{grid-template-columns:1fr;gap:28px}}
 .lp-page .lp-incl{font-size:15px}.lp-page .lp-prices .subtle{font-size:15px}.lp-page .lp-tname{font-size:16px}
 .lp-page .lp-faq summary{font-size:17px}.lp-page .lp-faq p{font-size:16px;line-height:1.65}
 .lp-page .lp-dfy p{font-size:16.5px}
@@ -711,7 +728,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 @keyframes lp-flag{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bad) 0%,transparent)}40%{box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 22%,transparent)}}
 @keyframes lp-toast{from{opacity:0;transform:translateY(14px) scale(.97);filter:blur(4px)}}
 @media (max-width:960px){.lp-win{grid-template-columns:1fr}.lp-win-main{border-right:0;border-bottom:1px solid var(--line)}.lp-toast{position:relative;right:auto;bottom:auto;width:auto;margin:16px 0 0}.lp-prices{grid-template-columns:1fr 1fr}.lp-sec{padding-top:88px}.lp-figs{grid-template-columns:1fr}.lp-figs>div{padding:24px 0 8px!important;border-left:0!important}.lp-figs>div+div{border-top:1px solid var(--line)}.lp-ch-head,.lp-feats{grid-template-columns:1fr;gap:20px}.lp-feats{margin-top:32px}.lp-comp{-webkit-mask-image:none;mask-image:none;padding-bottom:0}.lp-comp .lp-p-main{width:100%}.lp-p-float{position:relative;top:auto!important;left:auto!important;right:auto!important;width:auto!important;margin:12px 0 0}.lp-fig{height:auto;margin:12px 0 16px}.lp-chapter{margin-top:96px}.lp-statement{padding-top:96px}.lp-foot-cols{grid-template-columns:1fr 1fr}}
-@media (max-width:560px){.lp{padding:0 16px}.lp-foot{width:calc(100% - 32px)}.lp-top nav a[href="/#how"],.lp-top nav a[href="/login"]{display:none}.lp-code{font-size:11.5px}.lp-clients .st{white-space:normal}.lp-top>div{padding:12px 16px}.lp-top nav{gap:14px}.lp-hero{padding-top:48px}.lp .lede{font-size:16px}.lp-stage{margin-top:40px}.lp-stage::before{display:none}.lp-win .rulemap{grid-template-columns:1fr}.lp-chrome .path span:not(:last-child),.lp-chrome .path .sep{display:none}.lp-prices{grid-template-columns:1fr}.lp-end{margin-top:96px;padding-top:56px}.lp-feats ul{grid-template-columns:1fr}.lp-audit li{grid-template-columns:1fr auto}.lp-audit li .mono-s{display:none}.lp-clients th:nth-child(3),.lp-clients td:nth-child(3){display:none}.lp-clients th:nth-child(2),.lp-clients td:nth-child(2){display:none}}
+@media (max-width:560px){.lp{padding:0 16px}.lp-foot{width:calc(100% - 32px)}.lp-top nav a[href="/#draft"],.lp-top nav a[href="/login"]{display:none}.lp-code{font-size:11.5px}.lp-clients .st{white-space:normal}.lp-top>div{padding:12px 16px}.lp-top nav{gap:14px}.lp-hero{padding-top:48px}.lp .lede{font-size:16px}.lp-stage{margin-top:40px}.lp-stage::before{display:none}.lp-win .rulemap{grid-template-columns:1fr}.lp-chrome .path span:not(:last-child),.lp-chrome .path .sep{display:none}.lp-prices{grid-template-columns:1fr}.lp-end{margin-top:96px;padding-top:56px}.lp-feats ul{grid-template-columns:1fr}.lp-audit li{grid-template-columns:1fr auto}.lp-audit li .mono-s{display:none}.lp-clients th:nth-child(3),.lp-clients td:nth-child(3){display:none}.lp-clients th:nth-child(2),.lp-clients td:nth-child(2){display:none}}
 @keyframes rise{from{opacity:0;transform:translateY(6px)}}
 @keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.98)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 35%,transparent)}50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 0%,transparent)}}
@@ -879,14 +896,14 @@ export function signupKeyPage({ secret, email }) {
 
 
 const lpTop = (start, cta, here = '') => `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
-<nav><a href="/#how">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
+<nav><a href="/#draft">How it works</a><a href="/pricing"${here === 'pricing' ? ' aria-current="page"' : ''}>Pricing</a><a href="/login">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
 // Grapim's own accounts, shown in the public footer. Add YouTube or X here when they exist; each needs an icon path.
 const SOCIAL = [
   { label: 'LinkedIn', href: 'https://www.linkedin.com/company/grapim/', path: 'M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5ZM3 9.75h4v11.25H3V9.75Zm6.5 0h3.8v1.6h.06c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.77 2.65 4.77 6.1V21h-4v-4.93c0-1.18-.02-2.7-1.64-2.7-1.65 0-1.9 1.29-1.9 2.62V21h-4V9.75Z' },
 ];
 const socialLinks = () => `<p class="lp-social">${SOCIAL.map(x => `<a href="${x.href}" rel="noopener" aria-label="Grapim on ${x.label}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="${x.path}"/></svg></a>`).join('')}</p>`;
 const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><div><span class="lp-foot-brand">${mark(22, 'm-lpf')} Grapim</span>${socialLinks()}</div>
-<nav aria-label="Product"><span class="h">Product</span><a href="/#how">How it works</a><a href="/pricing">Pricing</a><a href="/security">Security</a></nav>
+<nav aria-label="Product"><span class="h">Product</span><a href="/#draft">How it works</a><a href="/pricing">Pricing</a><a href="/security">Security</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav>
 <nav aria-label="Legal"><span class="h">Legal</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a></nav></div>
@@ -906,49 +923,57 @@ function pipField(cls = '', cols = 44, rows = 16) {
   return `<svg class="lv-field${cls ? ` ${cls}` : ''}" aria-hidden="true" viewBox="0 0 ${cols * cell} ${rows * cell}" preserveAspectRatio="xMidYMid slice">${pips.join('')}</svg>`;
 }
 
-// The page a signed-out visitor sees at /. Each product moment is drawn live from a real recorded Grapim check
-// (src/v3/demo-portfolio, passed in as demo), simplified and animated as it scrolls into view; it claims no
-// customers, logos or numbers that do not exist. Without JavaScript or with reduced motion it shows the end state.
+// The page a signed-out visitor sees at /. The first screen is Grapim's own rollout board: one sample client in each
+// stage (Draft, Check, Fix, Sign-off, Live), each card showing what that stage produces, so a deployment lead sees the
+// whole product at a glance. Below it, the real recording and one section per stage. Check and Fix are drawn from a
+// real recorded Grapim check (src/v3/demo-portfolio, passed in as demo); every client here is a labelled sample, and
+// the page claims no customers, logos or numbers that do not exist. Without JavaScript or with reduced motion it shows
+// the end state.
 export function landingPage({ signup = false, demo = {} }) {
   const start = signup ? '/signup' : '/login';
   const cta = signup ? 'Start free' : 'Sign in';
   const bank = demo.bank, store = demo.store;
   const d = s => `style="--d:${s}s"`;
-  const field = pipField();
-  const words = ['refund', 'fraud', 'privacy', 'handoff', 'pricing'];
+  const ruleBroken = r => r.probes.some(p => p.status === 'broken');
+  const nBroken = bank ? bank.rules.filter(ruleBroken).length : 2;
+  const nRules = bank ? bank.rules.length : 8;
+  const nMsgs = bank ? bank.rules.reduce((n, r) => n + r.probes.length, 0) : 16;
+  const fixLines = String(store?.appliedInstructions ?? '').split('\n').filter(Boolean);
+  const clip = (t, n) => t.length <= n ? t : `${t.slice(0, t.lastIndexOf(' ', n))}…`;
+  const week = [[182, 0], [196, 1], [171, 0], [210, 0], [188, 2], [154, 0], [139, 1]];
+  const peak = Math.max(...week.map(w => w[0]));
+  const bars = (cls = '') => `<span class="lb-bars${cls}">${week.map(([n, b], i) => `<i style="--h:${(n / peak * 100).toFixed(0)}%;--d:${(0.9 + i * 0.06).toFixed(2)}s">${b ? `<b style="--b:${Math.max(8, b * 9)}%"></b>` : ''}</i>`).join('')}</span>`;
 
-  // Scene 1, the hero: one real exchange from the sample bank, judged against the clause it broke.
-  const rule = bank?.rules.find(r => r.id === 'fraud-freeze-and-handoff');
-  const probe = rule?.probes.find(p => p.status === 'broken');
-  const act = probe?.actions?.[0];
-  const hero = probe ? `<div class="sc sc-hero" data-scene>
-<div class="sc-bar"><span class="sc-dot"></span><span>Quillby Bank · Max</span><span class="sc-sep">/</span><span>Pre-launch check</span></div>
-<div class="sc-hero-body">
-<div class="sc-rules">${bank.rules.map((r, i) => `<div class="sc-rule a${r.probes.some(p => p.status === 'broken') ? ' bad' : ''}" ${d(0.25 + i * 0.22)}><i></i>${esc(r.title ?? r.id)}</div>`).join('')}
-<p class="sc-count a" ${d(2.2)}><b>2</b> of 8 rules broken</p></div>
-<div class="sc-convo">
-<p class="sc-cap a" ${d(0.3)}>Test message from a customer</p>
-<div class="sc-msg a" ${d(0.4)}>${esc(probe.message)}</div>
-<p class="sc-cap a" ${d(1.2)}>Max replied</p>
-<div class="sc-msg ai a" ${d(1.3)}>${esc(probe.answer)}</div>
-${act ? `<div class="sc-tool a" ${d(1.9)}><span>did</span> ${esc(act.tool)} · ${esc(act.input?.team ?? '')}</div>` : ''}
-<div class="sc-verdict a" ${d(2.5)}><span class="sc-badge">Broken</span><div><b>${esc(rule.title ?? rule.id)}</b><p>Policy: “${esc(rule.quote)}”</p><p>${esc(probe.what_happened)}</p></div></div>
-</div></div></div>` : '';
+  // The board: five stage columns, one sample client each.
+  const col = (id, n, name, does, card, t) => `<div class="lb-col" id="board-${id}"><a class="lb-head a" href="#${id}" ${d(t)}><span class="lb-n">${n}</span>${name}</a><p class="lb-does a" ${d(t + 0.05)}>${does}</p>${card}</div>`;
+  const who = (c, a) => `<span class="lb-who"><b>${esc(c)}</b><span>${esc(a)}</span></span>`;
+  const board = `<div class="lb" data-scene>
+<div class="lb-bar"><span class="lb-org">${mark(14, 'm-lb')}Brightdesk AI</span><span class="lb-sep">/</span><span>Client rollouts</span><span class="lb-tally">5 clients · 1 needs you</span></div>
+<div class="lb-cols">
+${col('draft', 1, 'Draft', 'Mapping, integration and tests from the client’s docs', `<div class="lb-card a" ${d(0.35)}>${who('Velmora Health', 'Ava · intake agent')}<ul class="lb-files"><li>${icon('check', { size: 13 })}Data mapping</li><li>${icon('check', { size: 13 })}Integration · HTTP</li><li>${icon('check', { size: 13 })}${nMsgs} test messages</li></ul></div>`, 0.1)}
+${col('check', 2, 'Check', 'Every rule tested, judged against the exact clause', `<div class="lb-card a" ${d(0.55)}>${who('Quillby Bank', 'Max · support agent')}<p class="lb-stat bad"><b>${nBroken} of ${nRules}</b> rules broken</p><span class="sc-pips lb-pips">${(bank ? bank.rules : Array.from({ length: 8 }, (_, i) => ({ probes: [{ status: i === 3 || i === 7 ? 'broken' : 'kept' }] }))).map((r, i) => `<i class="${ruleBroken(r) ? 'b' : 'k'}" ${d(0.7 + i * 0.08)}></i>`).join('')}</span></div>`, 0.2)}
+${col('fix', 3, 'Fix', 'One drafted change you approve, then the same messages again', `<div class="lb-card lit a" ${d(0.75)}>${who('Linden & Co.', 'Lia · returns agent')}<p class="lb-quote">${esc(clip((fixLines[0] ?? 'Hand refunds over $1,000 to a person').replace(/^[-•]\s*/, ''), 46))}</p><p class="lb-stat">Approved · re-checking</p><span class="sc-meter lb-meter"><i ${d(1.1)}></i></span></div>`, 0.3)}
+${col('signoff', 4, 'Sign-off', 'The client accepts from a link, no account needed', `<div class="lb-card a" ${d(0.95)}>${who('Harbor Insurance', 'Nell · claims agent')}<p class="lb-stat good">${icon('check', { size: 13 })}Accepted by R. Okafor</p><p class="lb-mono">Saved to the audit log</p></div>`, 0.4)}
+${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class="lb-card a" ${d(1.15)}>${who('Fernway Travel', 'Juno · booking agent')}${bars()}<p class="lb-stat"><b>1,240</b> checked · <span class="bad">4 flagged</span></p></div>`, 0.5)}
+</div></div>`;
 
-  // Scene 2: every rule at a glance, lighting up as each answer is judged.
-  const grid = bank ? `<div class="sc sc-grid" data-scene><div class="sc-head a" ${d(0)}><span>Quillby Bank · 16 test messages</span><span class="sc-tally"><b class="bad">2</b> broken · <b class="ok">6</b> kept</span></div>
-<div class="sc-tiles">${bank.rules.map((r, i) => { const bad = r.probes.some(p => p.status === 'broken'); return `<div class="sc-tile${bad ? ' bad' : ''}" ${d(0.3 + i * 0.18 + 0.2)}><span>${esc(r.title ?? r.id)}</span><span class="sc-pips">${r.probes.map((p, j) => `<i class="${p.status === 'broken' ? 'b' : 'k'}" ${d(0.3 + i * 0.18 + j * 0.09)}></i>`).join('')}</span></div>`; }).join('')}</div></div>` : '';
+  // Stage scenes, one per section below the film.
+  const draft = `<div class="sc sc-drafts" data-scene><div class="sc-head a" ${d(0)}><span>Velmora Health · Ava</span><span class="sc-tally">Drafted from 3 documents</span></div>
+<div class="sd-block a" ${d(0.25)}><p class="sc-cap">Data mapping</p><table class="sd-map"><tr><td>patient_id</td><td>→</td><td>member.id</td></tr><tr><td>appt.status</td><td>→</td><td>booking.state</td></tr><tr><td>consent_flag</td><td>→</td><td>policy §2: required before sharing</td></tr></table></div>
+<div class="sd-block a" ${d(0.55)}><p class="sc-cap">Integration</p><p class="sd-code">POST /agent/chat · bearer key · <span class="ok">200 OK</span></p></div>
+<div class="sd-block a" ${d(0.85)}><p class="sc-cap">Test set</p><p>${nMsgs} customer messages, two for each of ${nRules} rules, each aimed at the rule it should break</p></div>
+<div class="sd-foot a" ${d(1.15)}><span class="sc-btn">Review the drafts</span><span class="sc-cap">Nothing is used until you approve it</span></div></div>`;
 
-  // Scene 3: the approved fix and the re-check on the same messages (the sample store: 2 rules broken, then all 8 kept).
-  const fixLines = String(store?.appliedInstructions ?? '').split('\n').filter(Boolean).slice(0, 3);
+  const grid = bank ? `<div class="sc sc-grid" data-scene><div class="sc-head a" ${d(0)}><span>Quillby Bank · ${nMsgs} test messages</span><span class="sc-tally"><b class="bad">${nBroken}</b> broken · <b class="ok">${nRules - nBroken}</b> kept</span></div>
+<div class="sc-tiles">${bank.rules.map((r, i) => `<div class="sc-tile${ruleBroken(r) ? ' bad' : ''}" ${d(0.3 + i * 0.18 + 0.2)}><span>${esc(r.title ?? r.id)}</span><span class="sc-pips">${r.probes.map((p, j) => `<i class="${p.status === 'broken' ? 'b' : 'k'}" ${d(0.3 + i * 0.18 + j * 0.09)}></i>`).join('')}</span></div>`).join('')}</div></div>` : '';
+
   const fix = store ? `<div class="sc sc-fix" data-scene>
 <div class="sc-head a" ${d(0)}><span>Linden &amp; Co. · Lia</span><span class="sc-tally"><b class="bad">2</b> of 8 rules broken</span></div>
-<div class="sc-draft a" ${d(0.3)}><p class="sc-cap">Proposed fix · extra instructions</p>${fixLines.map((l, i) => `<p class="sc-line a" ${d(0.5 + i * 0.35)}>+ ${esc(l)}</p>`).join('')}</div>
+<div class="sc-draft a" ${d(0.3)}><p class="sc-cap">Proposed fix · extra instructions</p>${fixLines.slice(0, 3).map((l, i) => `<p class="sc-line a" ${d(0.5 + i * 0.35)}>+ ${esc(l)}</p>`).join('')}</div>
 <div class="sc-approve a" ${d(1.7)}><span class="sc-btn">Approve and re-check</span><span class="sc-meter"><i ${d(2.1)}></i></span></div>
 <div class="sc-after">${store.rules.map((r, i) => `<span class="sc-chip" ${d(3 + i * 0.12)}>${esc(r.title ?? r.id)}</span>`).join('')}</div>
 <p class="sc-result a" ${d(4.1)}>Same 16 messages after the fix: <b>all 8 rules kept</b></p></div>` : '';
 
-  // Scene 4: the client signs off from a link, no account.
   const sign = `<div class="sc sc-sign" data-scene><div class="sc-mark a" ${d(0)}>${mark(18, 'm-sc')}<span>Grapim</span></div>
 <p class="sc-ask a" ${d(0.15)}>Brightdesk AI asks you to accept <b>Linden &amp; Co. · Lia</b> before it goes live.</p>
 <p class="sc-okline a" ${d(0.4)}><span class="sc-badge ok">Kept</span> All 8 policy rules · 16 test messages</p>
@@ -956,48 +981,39 @@ ${act ? `<div class="sc-tool a" ${d(1.9)}><span>did</span> ${esc(act.tool)} · $
 <div class="sc-accept a" ${d(2.1)}>Accept this AI agent</div>
 <p class="sc-done a" ${d(2.6)}>✓ Accepted by Dana Lee · saved to the audit log</p></div>`;
 
-  // Scene 5: every client and where it stands.
-  const list = [['Quillby Bank', 'Max', 'bad', '2 rules broken', 'Fixing'], ['Velmora Health', 'Ava', 'accent', 'Waiting on the client', 'Sign-off sent'], ['Linden & Co.', 'Lia', 'good', 'Accepted', 'Ready to launch']];
-  const clients = `<div class="sc sc-list" data-scene><div class="sc-head a" ${d(0)}><span>Clients</span><span class="sc-tally">3 clients · 1 needs you</span></div>
-${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 0.25)}><span class="sc-av">${esc(c[0])}</span><span class="sc-who"><b>${esc(c)}</b><span>${esc(a)}</span></span><span class="badge ${cls}">${esc(st)}</span><span class="sc-stage">${esc(stage)}</span></div>`).join('')}</div>`;
+  const live = `<div class="sc sc-live" data-scene><div class="sc-head a" ${d(0)}><span>Fernway Travel · Juno · last 7 days</span><span class="sc-tally"><b>1,240</b> checked · <b class="bad">4</b> flagged</span></div>
+<div class="sl-chart a" ${d(0.2)}>${bars(' big')}<span class="sl-days">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(x => `<span>${x}</span>`).join('')}</span></div>
+<div class="sl-alert a" ${d(1.4)}><span class="sc-badge">Flagged</span><div><b>Bereavement goes to a person</b><p>Customer: “My mother passed away, I need to cancel her flight.” Juno asked for the death certificate and tried to rebook it instead of handing off.</p><p class="sc-cap">Sent to #agent-alerts in Slack · personal details removed</p></div></div></div>`;
 
-  const step = (n, id, title, text, scene, flip) => `<section class="lv-step${flip ? ' flip' : ''}"${id ? ` id="${id}"` : ''}><div class="lv-step-copy"><p class="lv-k">${n}</p><h2>${title}</h2><p>${text}</p></div><div class="lv-stage">${scene}</div></section>`;
+  const step = (id, n, title, text, scene, flip) => `<section class="lv-step${flip ? ' flip' : ''}" id="${id}"><div class="lv-step-copy"><p class="lv-k"><span class="lb-n">${n}</span>${['Draft', 'Check', 'Fix', 'Sign-off', 'Live'][n - 1]}</p><h2>${title}</h2><p>${text}</p></div><div class="lv-stage">${scene}</div></section>`;
   const body = `${lpTop(start, cta)}
 <main class="lv">
-<section class="lv-hero">${field}
-<p class="lv-eyebrow">For teams that deploy AI agents to enterprise clients</p>
-<h1><span class="lv-l">Prove your AI agent follows the client’s</span> <span class="lv-l"><span class="lv-rot" data-rotate>${words.map((w, i) => `<span${i ? ' aria-hidden="true"' : ' class="on"'}>${esc(w)}</span>`).join('')}</span> rules before launch</span></h1>
-<p class="lv-sub">Grapim deploys your AI agent to each new client. It drafts the data mapping, the integration and the tests, finds the rules your agent breaks, drafts the fix, and hands you the client’s signed proof.</p>
+<section class="lh">
+<h1>Deploy your AI agent to every new client. <span>Hand them signed proof.</span></h1>
+<p class="lv-sub">Grapim drafts each client’s integration and tests, finds the rules your agent breaks, drafts the fix, gets the client’s sign-off from a link, and checks every conversation after launch.</p>
 <div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout, free</a></div>
 </section>
-<div class="lv-hero-stage">${hero}<p class="lv-note">A real check on Grapim’s sample bank agent.</p></div>
+<section class="lb-wrap" aria-label="A rollout board with one sample client at each stage">${board}<p class="lv-note">Sample clients on Grapim’s demo workspace. Every card is a Grapim screen in miniature.</p></section>
 <ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}SOC 2 in preparation</a></li></ul>
-<section class="lv-pain"><h2>Every new client starts the same way.</h2><div class="lv-pains">
-<div><b>Weeks of hand-testing</b><p>Your forward-deployed engineers read the client’s policies and try the agent by hand, rule by rule.</p></div>
-<div><b>A legal team that wants proof</b><p>The client will not go live on “we tested it”. They want to see what was tested and what changed.</p></div>
-<div><b>More clients, more engineers</b><p>Every rollout starts from zero, so headcount grows with every client you sign.</p></div></div></section>
 <section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
-<figure class="lv-shot"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds two broken rules, Grapim drafts fixes, the same messages run again until all eight rules are kept, and the bank signs off from a link"></video></figure>
+<figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds two broken rules, Grapim drafts fixes, the same messages run again until all eight rules are kept, and the bank signs off from a link"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false"><span class="on">${icon('sound', { size: 15 })}Sound on</span><span class="off">${icon('muted', { size: 15 })}Mute</span></button></figure>
 <p class="lv-note">A screen recording of Grapim with the real model on a sample client. Waiting is sped up and labeled.</p></section>
-${step('1 · Find', 'how', 'Find every rule it <mark>breaks</mark>.', 'Grapim turns the client’s policy into the customer messages most likely to break it, sends them to your agent, and judges what it says and what it does.', grid)}
-${step('2 · Fix', '', 'Fix it, then <mark>check again</mark>.', 'One change to your agent’s instructions for the broken rules. You approve it; the same messages run again, so you see the fix worked.', fix, true)}
-${step('3 · Sign off', '', 'The client signs off <mark>from a link</mark>.', 'No account to create. They read the result and accept, and the decision goes into the audit log.', sign)}
-${step('4 · Every client', '', 'One click per <mark>new client</mark>.', 'Run the whole rollout in one click: mapping, integration, tests, check, fix. Then see which client needs you, who is waiting to sign, and who is ready to launch.', clients, true)}
-<section class="lv-feats" id="features"><h2>Everything one rollout needs.</h2><p class="lv-sub">From the client’s first document to the day after launch, in one workspace per client.</p>
-<ul class="lv-fgrid">
-<li><p class="lv-k">Before</p><b>Drafts from the client’s docs</b><p>The data mapping, the integration and the test set, drafted from the client’s policies and API docs.</p></li>
-<li><p class="lv-k">Before</p><b>Learns from recorded traffic</b><p>Upload a browser recording of the client’s system. Grapim keeps the shape of each API call, never the values.</p></li>
-<li><p class="lv-k">Check</p><b>Every rule, tested</b><p>Messages written to break each rule. Every reply and every action is judged against the exact clause.</p></li>
-<li><p class="lv-k">Check</p><b>Fixes you approve</b><p>One drafted change for the broken rules. Nothing applies until you approve it, then the same messages run again.</p></li>
-<li><p class="lv-k">Launch</p><b>Client sign-off</b><p>A link the client opens without an account. It expires in 30 days and you can revoke it.</p></li>
-<li><p class="lv-k">Launch</p><b>Evidence for legal</b><p>A tamper-evident audit log of every step, and a printable evidence pack for the client’s legal team.</p></li>
-<li><p class="lv-k">After</p><b>Live monitoring</b><p>Real conversations checked after launch, personal data removed first. Broken rules raise an alert in Slack.</p></li>
-<li><p class="lv-k">After</p><b>Guard API and MCP</b><p>Check a reply or action before the customer sees it, from your code, Claude Code or Cursor.</p></li>
-</ul></section>
+${step('draft', 1, 'The client’s docs in, <mark>a working rollout out</mark>.', 'Grapim reads the client’s policies and API docs, or a browser recording of their system, and drafts the data mapping, the integration and the test set. You approve each one.', draft)}
+${step('check', 2, 'Every rule, tested <mark>before the client sees it</mark>.', 'Customer messages written to break each rule go to your agent. Grapim judges what it says and what it does against the exact clause.', grid, true)}
+${step('fix', 3, 'One fix, then <mark>the same test again</mark>.', 'Grapim drafts one change to your agent’s instructions for the broken rules. Nothing applies until you approve it; then the same messages run again, so you see it worked.', fix)}
+${step('signoff', 4, 'The client signs off <mark>from a link</mark>.', 'No account to create. The client reads the result and accepts. Their name goes into a tamper-evident audit log, and the evidence pack is ready for their legal team.', sign, true)}
+${step('live', 5, 'After launch, <mark>every conversation checked</mark>.', 'Real conversations are checked against the same rules, personal data removed first. A broken rule raises an alert in Slack, and a guard API can check a reply or action before the customer sees it.', live)}
+<section class="lv-more"><h2>Built for the team that runs every rollout.</h2>
+<dl class="lv-mlist">
+<div><dt>One board for every client</dt><dd>See who needs you, who is waiting to sign and who is live.</dd></div>
+<div><dt>A playbook that compounds</dt><dd>Each rollout starts from the earlier ones, with each client’s consent.</dd></div>
+<div><dt>Guard API and MCP</dt><dd>Check replies and actions from your code, Claude Code or Cursor.</dd></div>
+<div><dt>Rollout metrics</dt><dd>Engineer hours and days to launch, per client.</dd></div>
+</dl></section>
 <section class="lv-close"><h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Try it on three sample clients in a minute, or let us run your first client’s rollout for free.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout</a></div></section>
 </main>
 ${lpFoot()}`;
-  return doc('Grapim: prove your AI agent follows each client’s rules', body, 'lp-page');
+  return doc('Grapim: deploy your AI agent to every client, with signed proof', body, 'lp-page');
 }
 
 // The public pricing page, built from the plan table in billing.mjs so it never disagrees with what is charged.

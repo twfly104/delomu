@@ -22,6 +22,8 @@ const PATHS = {
   building: '<path d="M3 14V3a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v11"/><path d="M10 6.5h2a1 1 0 0 1 1 1V14"/><path d="M2 14h12M5.5 5h2M5.5 8h2M5.5 11h2"/>',
   inbox: '<path d="M2 9.2 3.8 3.6a1 1 0 0 1 .9-.6h6.6a1 1 0 0 1 .9.6L14 9.2V13a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1Z"/><path d="M2 9.2h3.4l1 1.6h3.2l1-1.6H14"/>',
   card: '<rect x="1.8" y="3.5" width="12.4" height="9" rx="1.5"/><path d="M1.8 6.5h12.4M4.5 10h2.5"/>',
+  sound: '<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5Z"/><path d="M10.6 5.6a3.2 3.2 0 0 1 0 4.8M12.4 3.8a5.6 5.6 0 0 1 0 8.4"/>',
+  muted: '<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5Z"/><path d="m10.5 6.2 3.4 3.6M13.9 6.2l-3.4 3.6"/>',
   settings: '<path d="M2.5 4.5h7M12 4.5h1.5M2.5 11.5H4M6.5 11.5h7"/><circle cx="10.5" cy="4.5" r="1.5"/><circle cx="5" cy="11.5" r="1.5"/>',
 };
 
