@@ -566,7 +566,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sd-map{border-collapse:collapse;font:12.5px/1.7 var(--mono);width:100%}.sd-map td{padding:0 8px 0 0;color:var(--text)}.sd-map td:nth-child(2){color:var(--text-3)}.sd-map td:last-child{color:var(--text-2);font-family:var(--font)}
 .sd-code{font:12.5px var(--mono)}.sd-code .ok{color:var(--good)}
 .sd-foot{display:flex;align-items:center;gap:12px;padding:14px 16px 16px}
-.lv-real .ro-real{padding:16px 16px 0}.lv-real .ro-real h2{font-size:15px}.lv-real .ro-real .muted{margin-top:2px;font-size:13px}.lv-real .stages.six{margin:14px 16px 16px;border-radius:10px}.lv-real .stages a{cursor:default}.lv-real .scan-head{padding:18px 16px}.lv-real .verdict{font-size:26px}.lv-real .rulemap{grid-template-columns:repeat(2,minmax(0,1fr))}.lv-real .days{height:150px}.lv-real .sl-alert .badge{flex:none}
+.lv-real .ro-real{padding:16px 16px 0}.lv-real .ro-real h2{font-size:15px}.lv-real .ro-real .muted{margin-top:2px;font-size:13px}.lv-real .stages.six{margin:14px 16px 16px;border-radius:10px}.lv-real .stages a{cursor:default}.lv-real .scan-head{padding:18px 16px}.lv-real .verdict{font-size:26px}.lv-real .rulemap{grid-template-columns:repeat(2,minmax(0,1fr))}.lv-real .days{height:150px}.lv-real .days .col i{background:color-mix(in srgb,var(--good) 55%,var(--line))}.lv-real .days .col i.f{background:var(--bad)}.lv-real .fixit{border:0;border-radius:0;border-bottom:1px solid var(--line)}.lv-real .fixit h2{font-size:15px}.lv-real .fixit .panel-body{flex-direction:column;align-items:stretch}.lv-real .fixit .panel-body>div{min-width:0}.lv-real .sl-alert .badge{flex:none}
 .sc-live .sl-chart{padding:18px 18px 6px}.sl-days{display:flex;gap:10px;margin-top:6px}.sl-days span{flex:1;text-align:center;font-size:11.5px;color:var(--text-3)}
 .sl-alert{display:flex;gap:12px;align-items:flex-start;margin:12px 16px 16px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sl-alert p{margin-top:3px;color:var(--text-2);font-size:13px}.sl-alert .sc-cap{margin-top:6px}
 .lv-faq{padding-top:152px;text-align:center}.lv-faq h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600}.lv-faq .lp-faq{margin:36px auto 0;text-align:left}
@@ -586,6 +586,8 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp-top .brand{gap:9px;padding:0;font-size:22px;font-weight:650;letter-spacing:-0.05em}.lp-foot .lp-foot-brand{gap:9px;align-items:center;font-size:19px;letter-spacing:-0.045em}
 @media (max-width:560px){.lp-top .brand{font-size:20px}.lp-top .brand .logo{width:25px;height:25px}}
 .lp-top nav{display:flex;gap:20px;align-items:center;font-size:14px}
+.lp-note{display:flex;justify-content:center;align-items:center;gap:8px;height:36px;padding:0 16px;background:var(--ink);color:var(--on-ink);font-size:13.5px;font-weight:500}.lp-note:hover{text-decoration:none}.lp-note-dot{width:7px;height:7px;border-radius:50%;background:var(--good)}.lp-note .go{opacity:.7;margin-left:4px}.lp-note:hover .go{opacity:1}
+@media (max-width:420px){.lp-note{font-size:12.5px}}
 .dev-code{margin-top:16px;max-width:880px}
 @media (max-width:860px){.lp-top nav .wide-only{display:none}}@media (max-width:420px){.lp-top nav .hide-xs{display:none}}.lp-top nav a:not(.btn){color:var(--text-2)}.lp-top nav a:not(.btn):hover{color:var(--text);text-decoration:none}
 .lp{max-width:1160px;margin:0 auto;padding:0 24px}
@@ -906,7 +908,7 @@ export function signupKeyPage({ secret, email }) {
 // The public header: links only to pages that stand on their own. On phones the extra links move to the footer.
 const lpTop = (start, cta, here = '') => {
   const link = (href, label, key, cls = '') => `<a href="${href}"${cls ? ` class="${cls}"` : ''}${here === key ? ' aria-current="page"' : ''}>${label}</a>`;
-  return `<header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
+  return `<a class="lp-note" href="/pricing#dfy-h"><span class="lp-note-dot"></span>Design partners: first cohort, 5 spots<span class="go">Apply →</span></a><header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
 <nav>${link('/integrations', 'Integrations', 'integrations', 'wide-only')}${link('/developers', 'Developers', 'developers', 'wide-only')}${link('/security', 'Security', 'security', 'wide-only')}${link('/pricing', 'Pricing', 'pricing')}<a href="/login" class="hide-xs">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
 };
 // Grapim's own accounts, shown in the public footer. Add YouTube or X here when they exist; each needs an icon path.
@@ -993,12 +995,11 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
   const grid = bank ? `<div class="sc lv-real" data-scene><div class="scan-head a" ${d(0)}><div><p class="verdict bad num"><b>${nBroken}</b> <span class="of">of ${nRules}</span> policy rules broken</p><p class="meta num">Checked with ${nMsgs} test messages</p></div></div>
 <div class="rulemap">${bank.rules.map((r, i) => `<span class="rt ${ruleBroken(r) ? 'broken' : 'kept'} a" ${d(0.3 + i * 0.12)}><span class="t">${esc(r.title ?? r.id)}</span><span class="c"><span class="cl">${esc(cl(r.clause))}</span><span class="pips">${r.probes.map(p => `<i class="${esc(p.status)}"></i>`).join('')}</span></span></span>`).join('')}</div></div>` : '';
 
-  const fix = store ? `<div class="sc sc-fix" data-scene>
-<div class="sc-head a" ${d(0)}><span>Linden &amp; Co. · Lia</span><span class="sc-tally"><b class="bad">2</b> of 8 rules broken</span></div>
-<div class="sc-draft a" ${d(0.3)}><p class="sc-cap">Proposed fix · extra instructions</p>${fixLines.slice(0, 1).map((l, i) => `<p class="sc-line a" ${d(0.5 + i * 0.35)}>+ ${esc(l)}</p>`).join('')}</div>
-<div class="sc-approve a" ${d(1.7)}><span class="sc-btn">Approve and re-check</span><span class="sc-meter"><i ${d(2.1)}></i></span></div>
-<div class="sc-after">${store.rules.map((r, i) => `<span class="sc-chip" ${d(3 + i * 0.12)}>${esc(r.title ?? r.id)}</span>`).join('')}</div>
-<p class="sc-result a" ${d(4.1)}>Same 16 messages after the fix: <b>all 8 rules kept</b></p></div>` : '';
+  const fix = store ? `<div class="sc lv-real" data-scene><section class="panel fixit"><div class="panel-body stack a" ${d(0)} style="gap:12px">
+<div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">One change for the 2 broken rules.</p></div>
+<label class="field" style="margin:0"><span>Extra instructions for your AI</span><textarea readonly tabindex="-1" rows="3" style="min-height:86px;font:13px/1.55 var(--font);resize:none">${esc(fixLines.slice(0, 2).join('\n'))}</textarea></label>
+<div><span class="btn primary">${icon('check')}Approve, apply and re-check</span></div></div></section>
+<div class="scan-head a" ${d(0.9)}><div><p class="verdict good num"><b>All 8</b> policy rules kept</p><p class="meta num" style="color:var(--text)"><span class="strong">After the fix:</span> 2 → 0 rules broken, on the same 16 messages.</p></div></div></div>` : '';
 
   const sign = `<div class="sc sc-sign" data-scene><div class="sc-mark a" ${d(0)}>${mark(18, 'm-sc')}<span>Grapim</span></div>
 <p class="sc-ask a" ${d(0.15)}>Your company asks the client to accept <b>Linden &amp; Co. · Lia</b> before it goes live.</p>
