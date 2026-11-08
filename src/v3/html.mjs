@@ -564,6 +564,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sd-map{border-collapse:collapse;font:12.5px/1.7 var(--mono);width:100%}.sd-map td{padding:0 8px 0 0;color:var(--text)}.sd-map td:nth-child(2){color:var(--text-3)}.sd-map td:last-child{color:var(--text-2);font-family:var(--font)}
 .sd-code{font:12.5px var(--mono)}.sd-code .ok{color:var(--good)}
 .sd-foot{display:flex;align-items:center;gap:12px;padding:14px 16px 16px}
+.lv-real .ro-real{padding:16px 16px 0}.lv-real .ro-real h2{font-size:15px}.lv-real .ro-real .muted{margin-top:2px;font-size:13px}.lv-real .stages.six{margin:14px 16px 16px;border-radius:10px}.lv-real .stages a{cursor:default}.lv-real .scan-head{padding:18px 16px}.lv-real .verdict{font-size:26px}.lv-real .rulemap{grid-template-columns:repeat(2,minmax(0,1fr))}.lv-real .days{height:150px}.lv-real .sl-alert .badge{flex:none}
 .sc-live .sl-chart{padding:18px 18px 6px}.sl-days{display:flex;gap:10px;margin-top:6px}.sl-days span{flex:1;text-align:center;font-size:11.5px;color:var(--text-3)}
 .sl-alert{display:flex;gap:12px;align-items:flex-start;margin:12px 16px 16px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sl-alert p{margin-top:3px;color:var(--text-2);font-size:13px}.sl-alert .sc-cap{margin-top:6px}
 .lv-faq{padding-top:152px;text-align:center}.lv-faq h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600}.lv-faq .lp-faq{margin:36px auto 0;text-align:left}
@@ -976,14 +977,13 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 </div></div>`;
 
   // Stage scenes, one per section below the film.
-  const draft = `<div class="sc sc-drafts" data-scene><div class="sc-head a" ${d(0)}><span>Velmora Health · Ava</span><span class="sc-tally">Drafted from 3 documents</span></div>
-<div class="sd-block a" ${d(0.25)}><p class="sc-cap">Data mapping</p><table class="sd-map"><tr><td>patient_id</td><td>→</td><td>member.id</td></tr><tr><td>appt.status</td><td>→</td><td>booking.state</td></tr><tr><td>consent_flag</td><td>→</td><td>policy §2: required before sharing</td></tr></table></div>
-<div class="sd-block a" ${d(0.55)}><p class="sc-cap">Integration</p><p class="sd-code">POST /agent/chat · bearer key · <span class="ok">200 OK</span></p></div>
-<div class="sd-block a" ${d(0.85)}><p class="sc-cap">Test set</p><p>${nMsgs} messages · 2 per rule</p></div>
-<div class="sd-foot a" ${d(1.15)}><span class="sc-btn">Review the drafts</span></div></div>`;
+  // The scenes below are the product's own components (same markup and CSS as the app), filled with sample data.
+  const steps = [['done', 'Data mapping', '3 fields mapped'], ['done', 'Integration', 'HTTP endpoint'], ['done', 'Test set', `${nMsgs} messages`], ['wait', 'Test and fix', 'Waiting for your review'], ['', 'Launch report', 'Not written'], ['', 'Monitoring', 'Off']];
+  const draft = `<div class="sc lv-real" data-scene><div class="ro-real a" ${d(0)}><h2>Rollout</h2><p class="muted">3 of 6 steps done</p></div>
+<ol class="stages six a" ${d(0.2)}>${steps.map(([st, l, det], i) => `<li class="${st}"><a><span class="st">${st === 'done' ? icon('check') : i + 1}</span><span><span class="lbl">${l}</span><span class="det">${det}</span></span></a></li>`).join('')}</ol></div>`;
 
-  const grid = bank ? `<div class="sc sc-grid" data-scene><div class="sc-head a" ${d(0)}><span>Quillby Bank · ${nMsgs} test messages</span><span class="sc-tally"><b class="bad">${nBroken}</b> broken · <b class="ok">${nRules - nBroken}</b> kept</span></div>
-<div class="sc-tiles">${bank.rules.map((r, i) => `<div class="sc-tile${ruleBroken(r) ? ' bad' : ''}" ${d(0.3 + i * 0.18 + 0.2)}><span>${esc(r.title ?? r.id)}</span><span class="sc-pips">${r.probes.map((p, j) => `<i class="${p.status === 'broken' ? 'b' : 'k'}" ${d(0.3 + i * 0.18 + j * 0.09)}></i>`).join('')}</span></div>`).join('')}</div></div>` : '';
+  const grid = bank ? `<div class="sc lv-real" data-scene><div class="scan-head a" ${d(0)}><div><p class="verdict bad num"><b>${nBroken}</b> <span class="of">of ${nRules}</span> policy rules broken</p><p class="meta num">Checked with ${nMsgs} test messages</p></div></div>
+<div class="rulemap">${bank.rules.map((r, i) => `<span class="rt ${ruleBroken(r) ? 'broken' : 'kept'} a" ${d(0.3 + i * 0.12)}><span class="t">${esc(r.title ?? r.id)}</span><span class="c"><span class="cl">${esc(cl(r.clause))}</span><span class="pips">${r.probes.map(p => `<i class="${esc(p.status)}"></i>`).join('')}</span></span></span>`).join('')}</div></div>` : '';
 
   const fix = store ? `<div class="sc sc-fix" data-scene>
 <div class="sc-head a" ${d(0)}><span>Linden &amp; Co. · Lia</span><span class="sc-tally"><b class="bad">2</b> of 8 rules broken</span></div>
@@ -999,10 +999,10 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 <div class="sc-accept a" ${d(2.1)}>Accept this AI agent</div>
 <p class="sc-done a" ${d(2.6)}>✓ Accepted by Dana Lee · saved to the audit log</p></div>`;
 
-  const live = `<div class="sc sc-live" data-scene><div class="sc-head a" ${d(0)}><span>Fernway Travel · Juno · last 7 days</span><span class="sc-tally"><b>1,240</b> checked · <b class="bad">4</b> flagged</span></div>
-<div class="sl-chart a" ${d(0.2)}>${bars(' big')}<span class="sl-days">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(x => `<span>${x}</span>`).join('')}</span></div>
-<div class="sl-alert a" ${d(1.4)}><span class="sc-badge">Flagged</span><div><b>Refunds over $500 go to a person</b><p>“Can you refund my $820 ticket to my card today?”</p><p class="sc-cap">Sent to Slack</p></div></div></div>`;
-
+  const days = week.map(([checked, flagged], i) => ({ day: `2026-11-0${i + 2}`, checked, flagged }));
+  const live = `<div class="sc lv-real" data-scene><div class="sc-head a" ${d(0)}><span>Fernway Travel · last 7 days</span><span class="sc-tally"><b>1,240</b> checked · <b class="bad">4</b> broke a rule</span></div>
+<div class="a" ${d(0.2)}>${dayChart(days)}</div>
+<div class="sl-alert a" ${d(0.8)}><span class="badge bad">Broke a rule</span><div><b>Refunds over $500 go to a person</b><p>“Can you refund my $820 ticket to my card today?”</p><p class="sc-cap">Sent to Slack</p></div></div></div>`;
   const step = (id, n, title, text, scene, flip) => `<section class="lv-step${flip ? ' flip' : ''}" id="${id}"><div class="lv-step-copy"><p class="lv-k"><span class="lb-n">${n}</span>${['Draft', 'Check', 'Fix', 'Sign-off', 'Live'][n - 1]}</p><h2>${title}</h2><p>${text}</p></div><div class="lv-stage">${scene}</div></section>`;
   const body = `${lpTop(start, cta)}
 <main class="lv">
