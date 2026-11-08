@@ -636,6 +636,13 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp-page .lv-note,.lp-page .lv-eyebrow{font-size:14.5px}
 .lp-page .lv-copy p,.lp-page .lv-step-copy>p:last-child{font-size:18.5px;line-height:1.6}
 .lp-page .lv-eng p{font-size:17px}
+.lv-feats{padding-top:144px;text-align:center}.lv-feats h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
+.lv-feats .lv-sub{margin:14px auto 0;max-width:36em;color:var(--text-2);font-size:18px}
+.lv-fgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:40px 32px;margin:52px 0 0;padding:0;list-style:none;text-align:left}
+.lv-fgrid li{padding-top:18px;border-top:1px solid var(--line-strong)}.lv-fgrid .lv-k{margin-bottom:10px}
+.lv-fgrid b{display:block;font-size:17.5px;letter-spacing:-0.015em;line-height:1.3}.lv-fgrid p{margin-top:8px;color:var(--text-2);font-size:15.5px;line-height:1.6}
+@media (max-width:980px){.lv-fgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.lv-feats{padding-top:104px}.lv-fgrid{grid-template-columns:1fr;gap:28px}}
 .lp-page .lp-incl{font-size:15px}.lp-page .lp-prices .subtle{font-size:15px}.lp-page .lp-tname{font-size:16px}
 .lp-page .lp-faq summary{font-size:17px}.lp-page .lp-faq p{font-size:16px;line-height:1.65}
 .lp-page .lp-dfy p{font-size:16.5px}
@@ -970,13 +977,23 @@ ${list.map(([c, a, cls, st, stage], i) => `<div class="sc-row a" ${d(0.25 + i * 
 <div><b>A legal team that wants proof</b><p>The client will not go live on “we tested it”. They want to see what was tested and what changed.</p></div>
 <div><b>More clients, more engineers</b><p>Every rollout starts from zero, so headcount grows with every client you sign.</p></div></div></section>
 <section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
-<figure class="lv-shot"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline controls preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds two broken rules, Grapim drafts fixes, the same messages run again until all eight rules are kept, and the bank signs off from a link"></video></figure>
+<figure class="lv-shot"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds two broken rules, Grapim drafts fixes, the same messages run again until all eight rules are kept, and the bank signs off from a link"></video></figure>
 <p class="lv-note">A screen recording of Grapim with the real model on a sample client. Waiting is sped up and labeled.</p></section>
 ${step('1 · Find', 'how', 'Find every rule it <mark>breaks</mark>.', 'Grapim turns the client’s policy into the customer messages most likely to break it, sends them to your agent, and judges what it says and what it does.', grid)}
 ${step('2 · Fix', '', 'Fix it, then <mark>check again</mark>.', 'One change to your agent’s instructions for the broken rules. You approve it; the same messages run again, so you see the fix worked.', fix, true)}
 ${step('3 · Sign off', '', 'The client signs off <mark>from a link</mark>.', 'No account to create. They read the result and accept, and the decision goes into the audit log.', sign)}
 ${step('4 · Every client', '', 'One click per <mark>new client</mark>.', 'Run the whole rollout in one click: mapping, integration, tests, check, fix. Then see which client needs you, who is waiting to sign, and who is ready to launch.', clients, true)}
-<section class="lv-eng"><p><b>For your engineers:</b> an API, a guard that checks each reply before the customer sees it, and an MCP server for Claude Code and Cursor.</p></section>
+<section class="lv-feats" id="features"><h2>Everything one rollout needs.</h2><p class="lv-sub">From the client’s first document to the day after launch, in one workspace per client.</p>
+<ul class="lv-fgrid">
+<li><p class="lv-k">Before</p><b>Drafts from the client’s docs</b><p>The data mapping, the integration and the test set, drafted from the client’s policies and API docs.</p></li>
+<li><p class="lv-k">Before</p><b>Learns from recorded traffic</b><p>Upload a browser recording of the client’s system. Grapim keeps the shape of each API call, never the values.</p></li>
+<li><p class="lv-k">Check</p><b>Every rule, tested</b><p>Messages written to break each rule. Every reply and every action is judged against the exact clause.</p></li>
+<li><p class="lv-k">Check</p><b>Fixes you approve</b><p>One drafted change for the broken rules. Nothing applies until you approve it, then the same messages run again.</p></li>
+<li><p class="lv-k">Launch</p><b>Client sign-off</b><p>A link the client opens without an account. It expires in 30 days and you can revoke it.</p></li>
+<li><p class="lv-k">Launch</p><b>Evidence for legal</b><p>A tamper-evident audit log of every step, and a printable evidence pack for the client’s legal team.</p></li>
+<li><p class="lv-k">After</p><b>Live monitoring</b><p>Real conversations checked after launch, personal data removed first. Broken rules raise an alert in Slack.</p></li>
+<li><p class="lv-k">After</p><b>Guard API and MCP</b><p>Check a reply or action before the customer sees it, from your code, Claude Code or Cursor.</p></li>
+</ul></section>
 <section class="lv-close"><h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Try it on three sample clients in a minute, or let us run your first client’s rollout for free.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout</a></div></section>
 </main>
 ${lpFoot()}`;
