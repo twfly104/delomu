@@ -264,7 +264,7 @@ pre.snippet{margin:0;padding:12px;border-radius:var(--r-sm);background:var(--sun
 details.menu{position:relative}.content>.page-head{position:relative;z-index:5}details.menu>summary{list-style:none}details.menu>summary::-webkit-details-marker{display:none}
 details.menu[open]>summary{background:var(--hover)}
 .menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:280px;padding:6px;display:grid;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 12px 32px rgb(16 16 24/.14),0 2px 6px rgb(16 16 24/.06)}
-.menu-pop form{margin:0}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
+.menu-pop form{margin:0}.setup{border-top:1px solid var(--line)}.setup-panel .panel-head+.setup{border-top:0}.setup>summary{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;list-style:none;font-weight:500}.setup>summary::-webkit-details-marker{display:none}.setup>summary::after{content:"+";margin-left:auto;color:var(--text-3);font-size:18px;line-height:1}.setup[open]>summary::after{content:"−"}.setup-body{padding:0 16px 16px}.add-pop{padding:14px;min-width:320px}.agent-pick{padding:8px 8px 6px;border-top:1px solid var(--line);margin-top:2px!important}.agent-pick:first-child{border-top:0}
 .agent-pick label{display:block;font-size:12px;margin-bottom:6px}.row-inline{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:flex-end}.row-inline select{flex:1;min-width:0}
 .conn{display:none}
 .more-opts{margin:4px -16px 0;padding:0 16px}.more-opts>summary{color:var(--text-2)}
@@ -1344,13 +1344,13 @@ ${anyHours ? `<td class="hide-sm num">${fmtH(hours(ds))}</td>` : ''}
 <div><p class="v num">${live}</p><p class="k">Live</p></div></div>` : '';
   return layout({ title: 'Clients', user, csrf, nav: { ...nav, org, active: 'clients' }, crumbs: [['Clients']], body: `
 <div class="page-head"><div><h1>Clients</h1><p class="sub">${esc(org.name)} · ${clients.length} client${clients.length === 1 ? '' : 's'}</p></div>
-<div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Rollout metrics</a></div></div>
+<div class="actions"><a class="btn" href="${esc(orgPath(org))}/metrics">${icon('pulse')}Rollout metrics</a>${canManage && clients.length ? `<details class="menu"${error || values.name ? ' open' : ''}><summary class="btn primary">${icon('plus')}Add client</summary><div class="menu-pop add-pop"><form method="post" action="${esc(orgPath(org))}/clients" class="stack" style="gap:10px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}"><label class="field" style="margin:0"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="The client’s company name"></label><button class="btn primary" data-busy="Adding…">Add client</button></form></div></details>` : ''}</div></div>
 ${keyPanel(signinKey)}${notice(msg, 'good')}${notice(error)}
 <section class="panel">${stats}${clients.length ? `<div class="scroll"><table><thead><tr><th>Client</th><th>Status</th><th class="hide-sm">Stage</th>${anyHours ? '<th class="hide-sm">Engineer hours</th>' : ''}<th class="hide-sm">Last checked</th></tr></thead><tbody>
 ${rows}
 </tbody></table></div>` : `<div class="emptystate"><span class="strong">No clients yet</span>See a week of rollouts first: a bank that broke a rule, a telehealth client waiting to sign off, and a store that accepted.${canManage ? `<form method="post" action="${esc(orgPath(org))}/clients/demo" style="margin-top:12px"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Setting up…">Open the demo: 3 sample clients</button></form>
 <details class="alt-sample"><summary>Or start one sample client from scratch</summary><form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Open a sample client</button></form></details>` : ''}</div>`}</section>
-${add}
+${clients.length ? '' : add}
 ${own.length ? `<section class="panel"><div class="panel-head"><h2>Your own AI agents</h2></div>${agentsTable(own, { now })}</section>` : ''}` });
 }
 
@@ -2042,21 +2042,21 @@ ${dayChart(live.days)}${bars}</section>`;
   const sample = JSON.stringify(scan.rules.flatMap(r => r.probes).map(p => String(p.message ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean).sort((x, y) => x.length - y.length)[0] ?? 'Where is my order?').replace(/'/g, '’');
   const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $GRAPIM_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": ${sample}, "answer": "…", "id": "ticket-123"}'`;
   const guardCurl = `curl -X POST ${apiBase}/guard \\\n  -H "Authorization: Bearer $GRAPIM_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": ${sample}, "reply": "…"}'`;
-  const connect = `<section class="panel"><div class="panel-head"><h2>Connect the help desk</h2></div><div class="panel-body">
+  const connect = `<details class="setup"${recent.length ? '' : ' open'}><summary>Connect the help desk</summary><div class="setup-body">
 <p class="muted" style="margin:0">Send finished conversations from Intercom, Zendesk or your code. Personal data is removed first.</p>
 <details class="api-snip"><summary>Connect with the API</summary><pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p>
 <p class="muted" style="margin:14px 0 10px">Or check each reply <span class="strong">before</span> the customer sees it, and send <code>safeReply</code> when the decision is <code>rewrite</code>:</p>
-<pre class="snippet">${esc(guardCurl)}</pre><p class="subtle" style="margin-top:8px">Needs the <code>guard:check</code> scope. Returns <code>allow</code>, <code>block</code> or <code>rewrite</code>; if the check cannot run it returns <code>allow</code> with <code>unjudged: true</code>.</p></details></div></section>`;
+<pre class="snippet">${esc(guardCurl)}</pre><p class="subtle" style="margin-top:8px">Needs the <code>guard:check</code> scope. Returns <code>allow</code>, <code>block</code> or <code>rewrite</code>; if the check cannot run it returns <code>allow</code> with <code>unjudged: true</code>.</p></details></div></details>`;
   const area = (field, label, h) => `<label class="field"><span>${label}</span><textarea name="${field}" required maxlength="4000" style="min-height:${h}px;font:14px/1.5 var(--font)">${esc(draft?.[field] ?? '')}</textarea></label>`;
-  const check = can.live ? `<section class="panel"><div class="panel-head"><h2>Check one conversation</h2></div><form method="post" action="${esc(base)}/live/check" class="panel-body stack" style="gap:10px" novalidate>
+  const check = can.live ? `<details class="setup"><summary>Check one conversation</summary><form method="post" action="${esc(base)}/live/check" class="setup-body stack" style="gap:10px" novalidate>
 <input type="hidden" name="csrf" value="${esc(csrf)}">${area('message', 'Customer message', 64)}${area('answer', 'The AI’s answer', 88)}
-<div><button class="btn" data-busy="Checking…">${icon('pulse')}Check against the rules</button></div></form></section>` : '';
-  const alerts = can.write ? `<section class="panel"><div class="panel-head"><h2>Alerts</h2>${settings.webhook ? '<span class="badge good">On</span>' : '<span class="badge plain">Off</span>'}</div>
-<form method="post" action="${esc(base)}/live/settings" class="panel-body stack" style="gap:10px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
+<div><button class="btn" data-busy="Checking…">${icon('pulse')}Check against the rules</button></div></form></details>` : '';
+  const alerts = can.write ? `<details class="setup"><summary>Slack alerts ${settings.webhook ? '<span class="badge good">On</span>' : '<span class="badge plain">Off</span>'}</summary>
+<form method="post" action="${esc(base)}/live/settings" class="setup-body stack" style="gap:10px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Slack or Teams webhook</span><input type="url" name="webhook" value="${esc(settings.webhook)}" placeholder="https://hooks.slack.com/services/…"><p class="hint">Posts when a high-risk rule breaks.</p></label>
-<div><button class="btn">Save</button></div></form></section>` : '';
+<div><button class="btn">Save</button></div></form></details>` : '';
   return shell(`<div class="grid-2"><div class="stack">${stats}${feed}</div>
-<div class="stack">${connect}${check}${alerts}</div></div>`);
+<section class="panel setup-panel"><div class="panel-head"><h2>Set up</h2></div>${connect}${check}${alerts}</section></div>`);
 }
 
 const usd = n => `$${Number(n).toLocaleString('en-US')}`;
