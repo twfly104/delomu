@@ -488,7 +488,7 @@ function routes(ctx) {
     const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
     const { cases, inputs } = sampleFiles();
     const config = {
-      customer: realBot ? 'Tallyfox (sample, real AI)' : 'Tallyfox (sample)', name, target: { type: 'http', url: `${origin}/demo/support-bot`, body: { message: '{{input}}' }, output: 'reply' },
+      customer: 'Tallyfox (sample)', name, target: { type: 'http', url: `${origin}/demo/support-bot`, body: { message: '{{input}}' }, output: 'reply' },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Accept at a 90% pass rate', reason: 'Sample customer.' }],
     };
     registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config, cases }, { actor: principal.actor, policy: ctx.policy }, ctx.now());
@@ -511,7 +511,7 @@ function routes(ctx) {
     for (let n = 2; taken.has(name); n++) name = `${stem}-${n}`;
     const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
     const config = {
-      customer: realBot ? `${client} (sample, real AI)` : `${client} (sample)`, name, agentKind: 'support',
+      customer: `${client} (sample)`, name, agentKind: 'support',
       title: `${client} · ${{ bank: 'Max', health: 'Ava' }[industry] ?? 'Lia'}`,
       target: { type: 'http', url: `${origin}${ind ? `/demo/agent/${industry}` : '/demo/store-agent'}`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions' },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Client sign-off required before launch', reason: 'Sample client.' }],

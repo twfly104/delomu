@@ -909,7 +909,7 @@ const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><div><sp
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav>
 <nav aria-label="Legal"><span class="h">Legal</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a></nav></div>
-<p class="subtle">Results shown are from Grapim’s made-up sample clients, not from customers.</p></footer>`;
+</footer>`;
 
 // A field of rule pips, a few lighting up green (kept) or red (broken) as if being checked: behind the landing
 // hero and the sign-in pages. Seeded, so it is the same on every load. cls adds a class for where it sits.
@@ -1333,7 +1333,7 @@ ${anyHours ? `<td class="hide-sm num">${fmtH(hours(ds))}</td>` : ''}
 <td class="hide-sm subtle nowrap">${last(ds) ? esc(ago(last(ds), now)) : '—'}</td></tr>`).join('\n');
   const add = canManage ? `<form method="post" action="${esc(orgPath(org))}/clients" class="panel" style="max-width:720px" novalidate><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}">
-<h2 style="margin:0 0 4px">Add a client</h2><p class="subtle" style="margin:0 0 12px">Each client gets its own workspace, kept apart from every other client.</p>
+<h2 style="margin:0 0 4px">Add a client</h2>
 <label class="field"><span>Client name</span><input type="text" name="name" required maxlength="60" value="${esc(values.name ?? '')}" placeholder="The client’s company name"></label>
 <button class="btn primary" data-busy="Adding…">${icon('plus')}Add client</button></div></form>${clients.length ? `<details class="alt-sample" style="max-width:720px"><summary>Or add a sample client to try Grapim</summary><form method="post" action="${esc(orgPath(org))}/clients/sample" class="sample-form"><input type="hidden" name="csrf" value="${esc(csrf)}"><select name="industry" aria-label="Sample client's industry" class="sample-pick"><option value="store">Online store · refunds, orders</option><option value="bank">Digital bank · identity, fraud, advice</option><option value="health">Telehealth · emergencies, privacy, medicines</option></select><button class="btn ghost" data-busy="Setting up…">Add a sample client</button></form></details>` : ''}` : '';
   const stats = clients.length ? `<div class="stats"><div><p class="v num">${clients.length}</p><p class="k">Clients · ${agents} AI agent${agents === 1 ? '' : 's'}</p></div>
@@ -1687,14 +1687,14 @@ export function rolloutPage(args) {
   const review = ov.pending.length && can.write ? `<a class="btn primary" href="${esc(base)}/drafts">${icon('inbox')}Review ${ov.pending.length} draft${ov.pending.length === 1 ? '' : 's'}</a>` : '';
   const action = review ? `${review}${start.replace('btn primary', 'btn')}` : start;
   const body = `<section class="panel ro-main"><div class="panel-body">
-<div class="ro-head"><div><h2>${esc(args.config?.customer ? `Rollout for ${args.config.customer}` : 'Rollout')}</h2>
+<div class="ro-head"><div><h2>Rollout</h2>
 <p class="subtle num">${done} of ${ov.steps.length} steps done · <span class="strong" style="color:var(--text)">Next:</span> ${esc(ov.next.text)}</p></div>
 <div class="actions">${action}</div></div>
 ${track}
-<p class="hint" style="margin:12px 0 0">Grapim drafts the data mapping, the integration and the tests, runs the check, drafts the fix and readies the client’s sign-off. Nothing goes live until you approve it.</p></div>
+</div>
 ${job}</section>
 ${ov.scans[0] ? signoffPanel({ base, csrf, can, signoff, scan: ov.scans[0] }) : ''}
-<details class="ro-more" id="more"${args.flash || args.error ? ' open' : ''}><summary>Connector, playbook, monitoring, hours and revenue</summary>
+<details class="ro-more" id="more"${args.flash || args.error ? ' open' : ''}><summary>More settings</summary>
 ${connectorPanel({ base, csrf, can, connector: args.connector, recording: args.recording })}${playbookPanel({ base, csrf, can, playbook })}${monitorPanel({ base, csrf, can, monitor })}
 ${can.write ? `<form method="post" action="${esc(base)}/hours" class="panel" novalidate><div class="panel-head"><h2>Log engineer hours</h2></div><div class="panel-body">
 <input type="hidden" name="csrf" value="${esc(csrf)}"><div class="row-inline">
@@ -1951,19 +1951,17 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
     return `<span class="vf-pair">${post('kept', 'Mark kept')}${post('broken', 'Mark broken')}</span>`;
   };
   const exchange = (p, rule) => `<div class="probe ${esc(p.status)}">
-<div><p class="cap">Customer wrote <span class="tactic">${esc(p.tactic)}</span></p><div class="bubble">${esc(p.message)}</div></div>
+<div><p class="cap">Customer wrote</p><div class="bubble">${esc(p.message)}</div></div>
 <div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
-<span><span>${esc(p.what_happened)}</span>${p.tries && p.unstable ? `<br><span class="tries num unstable">Not consistent: broke it in ${p.tries.broke} of ${p.tries.of} runs of the same message</span>` : ''}${p.fix ? `<br><span class="fix"><span class="strong">Fix</span> ${esc(p.fix)}</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
+<span><span>${esc(p.what_happened)}</span>${p.tries && p.unstable ? `<br><span class="tries num unstable">Not consistent: broke it in ${p.tries.broke} of ${p.tries.of} runs of the same message</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
   const ruleCard = rule => {
     const bad = rule.probes.filter(p => p.status !== 'kept' || p.unstable);
     const ok = rule.probes.filter(p => p.status === 'kept' && !p.unstable);
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
     return `<section class="panel" id="r-${esc(rule.id)}"><div class="rule-head">
 <div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(ruleTitle(rule))}</h3></div>
-<p class="rule-text">${esc(rule.rule)}</p>
-<p class="clause"><cite>${esc(cl(rule.clause))}</cite>“${esc(rule.quote)}”</p>
-<p class="harm"><b>Risk with a real customer:</b> ${esc(rule.harm)}</p></div>
+<p class="clause"><cite>${esc(cl(rule.clause))}</cite>“${esc(rule.quote)}”</p></div>
 <div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">${bad.some(p => p.status === 'broken') ? `${bad.filter(p => p.status === 'broken').length} of ${rule.probes.length} messages broke it` : `${bad.length} of ${rule.probes.length} need review`}</span></div></div>
 ${bad.map(p => exchange(p, rule)).join('')}
 ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(p => exchange(p, rule)).join('')}</details>` : ''}</section>`;
@@ -1982,7 +1980,7 @@ ${applied && can.write ? `<form method="post" action="${esc(base)}/fix/revert" s
   const target = args.fixTarget ?? { canApply: false };
   const fixPanel = !broken.length || !can.write ? '' : !fix || fix.status !== 'proposed'
     ? `<section class="panel fixit"><div class="panel-body"><div><h2>Fix it</h2>
-<p class="muted" style="margin-top:4px">One change to your AI\u2019s instructions for the ${broken.length} broken rule${broken.length === 1 ? '' : 's'}. You approve it first; then the same messages run again.</p></div>
+<p class="muted" style="margin-top:4px">One change for the ${broken.length} broken rule${broken.length === 1 ? '' : 's'}. Nothing applies until you approve it.</p></div>
 <form method="post" action="${esc(base)}/fix/draft"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Drafting… about 20 s">Draft a fix</button></form></div></section>`
     : `<section class="panel fixit"><form method="post" action="${esc(base)}/fix/approve" class="panel-body stack" style="gap:12px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p></div>
@@ -2002,13 +2000,13 @@ ${gaps(fix.gaps)}
   return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
 <p class="meta num">Checked ${esc(ago(scan.createdAt, now))} with ${s.probes} test messages${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''}</p>
-${compare}<p class="subtle" style="margin-top:4px;font-size:12.5px">Read from ${scan.documents.map(d => esc(d)).join(', ')} · judged by ${esc(scan.model)}</p></div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
+${compare}</div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span><span class="strong">${esc(ruleTitle(r))}</span> <span class="muted">${esc(r.rule)}</span></span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
 }
 
 // The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.
@@ -2067,7 +2065,7 @@ ${dayChart(live.days)}${bars}</section>`;
   const curl = `curl -X POST ${apiBase}/conversations \\\n  -H "Authorization: Bearer $GRAPIM_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": ${sample}, "answer": "…", "id": "ticket-123"}'`;
   const guardCurl = `curl -X POST ${apiBase}/guard \\\n  -H "Authorization: Bearer $GRAPIM_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d '{"message": ${sample}, "reply": "…"}'`;
   const connect = `<section class="panel"><div class="panel-head"><h2>Connect the help desk</h2></div><div class="panel-body">
-<p class="muted" style="margin:0">Send each finished conversation from Intercom, Zendesk or your own code. Emails, phone numbers, card numbers and keys are removed before anything is stored or judged.</p>
+<p class="muted" style="margin:0">Send finished conversations from Intercom, Zendesk or your code. Personal data is removed first.</p>
 <details class="api-snip"><summary>Connect with the API</summary><pre class="snippet">${esc(curl)}</pre><p class="subtle" style="margin-top:8px">Use an API key with the <code>conversations:write</code> scope. Each check counts toward the plan’s live conversations.</p>
 <p class="muted" style="margin:14px 0 10px">Or check each reply <span class="strong">before</span> the customer sees it, and send <code>safeReply</code> when the decision is <code>rewrite</code>:</p>
 <pre class="snippet">${esc(guardCurl)}</pre><p class="subtle" style="margin-top:8px">Needs the <code>guard:check</code> scope. Returns <code>allow</code>, <code>block</code> or <code>rewrite</code>; if the check cannot run it returns <code>allow</code> with <code>unjudged: true</code>.</p></details></div></section>`;
@@ -2077,7 +2075,7 @@ ${dayChart(live.days)}${bars}</section>`;
 <div><button class="btn" data-busy="Checking…">${icon('pulse')}Check against the rules</button></div></form></section>` : '';
   const alerts = can.write ? `<section class="panel"><div class="panel-head"><h2>Alerts</h2>${settings.webhook ? '<span class="badge good">On</span>' : '<span class="badge plain">Off</span>'}</div>
 <form method="post" action="${esc(base)}/live/settings" class="panel-body stack" style="gap:10px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
-<label class="field"><span>Slack or Teams webhook</span><input type="url" name="webhook" value="${esc(settings.webhook)}" placeholder="https://hooks.slack.com/services/…"><p class="hint">Posts when a high-risk rule breaks, at most once an hour per rule.</p></label>
+<label class="field"><span>Slack or Teams webhook</span><input type="url" name="webhook" value="${esc(settings.webhook)}" placeholder="https://hooks.slack.com/services/…"><p class="hint">Posts when a high-risk rule breaks.</p></label>
 <div><button class="btn">Save</button></div></form></section>` : '';
   return shell(`<div class="grid-2"><div class="stack">${stats}${feed}</div>
 <div class="stack">${connect}${check}${alerts}</div></div>`);
