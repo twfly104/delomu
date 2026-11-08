@@ -171,6 +171,17 @@ const MIGRATIONS = [
      expires_at TEXT NOT NULL,
      used_at TEXT
    );`,
+  // Design partner applications from the public /design-partners page (src/v3/partners.mjs).
+  `CREATE TABLE partner_applications (
+     id TEXT PRIMARY KEY,
+     name TEXT NOT NULL,
+     email TEXT NOT NULL,
+     company TEXT NOT NULL,
+     website TEXT NOT NULL DEFAULT '',
+     timing TEXT NOT NULL,
+     note TEXT NOT NULL DEFAULT '',
+     created_at TEXT NOT NULL
+   );`,
 ];
 
 export function openDb(dataDir) {

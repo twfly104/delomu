@@ -45,13 +45,14 @@ const LANDING_DEMO = { bank: demoScan('bank'), store: demoScan('store') };
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, integrationsPage, developersPage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, integrationsPage, developersPage, designPartnersPage, applicationsPage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
 import { principalAllows, roleIn } from './rbac.mjs';
 import { createLoginLink, sendLoginEmail, useLoginLink } from './email-login.mjs';
+import { readApplication, saveApplication, notifyApplication, listApplications, isOperator } from './partners.mjs';
 import { createSession, deleteSession, getSession, randomToken, sameSecret, SESSION_COOKIE, SESSION_TTL_MS } from './sessions.mjs';
 import { OidcError } from './oidc.mjs';
 import { finishLogin, getOidcConfig, LOGIN_TTL_MS, startLogin, STATE_COOKIE } from './sso.mjs';
@@ -370,6 +371,27 @@ function routes(ctx) {
   r.add('GET', '/pricing', () => html(pricingPage({ signup: signupOpen, plans: PLAN_LIST })), { public: true });
   r.add('GET', '/security', () => html(securityPage({ signup: signupOpen })), { public: true });
   r.add('GET', '/integrations', () => html(integrationsPage({ signup: signupOpen })), { public: true });
+  // Design partner applications: stored first, then the operator is told (src/v3/partners.mjs).
+  const applyLimit = createRateLimiter({ capacity: 5, refillPerSec: 1 / 600 });
+  r.add('GET', '/design-partners', ({ req }) => {
+    const token = randomToken();
+    return html(designPartnersPage({ signup: signupOpen, csrf: token }), 200, [cookie(LOGIN_CSRF_COOKIE, token, { maxAge: 3600, secure: ctx.secureCookies(req) })]);
+  }, { public: true });
+  r.add('POST', '/design-partners', async ({ req }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(parseCookies(req.headers.cookie)[LOGIN_CSRF_COOKIE] ?? '', form);
+    const { values, error } = readApplication(form);
+    const again = (msg, status = 400) => html(designPartnersPage({ signup: signupOpen, csrf: form.csrf, values, error: msg }), status);
+    if (!applyLimit(ctx.clientIp(req)).ok) return again('Too many applications from this network. Try again later.', 429);
+    if (error) return again(error);
+    saveApplication(db, values, ctx.now());
+    await notifyApplication(ctx, values);
+    return html(designPartnersPage({ signup: signupOpen, sent: values.name.split(' ')[0] }));
+  }, { public: true });
+  r.add('GET', '/operator/applications', ({ principal }) => {
+    if (!principal || !isOperator(ctx.env, principal.email)) throw notFound('page');
+    return html(applicationsPage({ rows: listApplications(db) }));
+  }, { public: true });
   r.add('GET', '/developers', () => html(developersPage({ signup: signupOpen })), { public: true });
   r.add('GET', '/privacy', () => html(privacyPage({ signup: signupOpen })), { public: true });
   r.add('GET', '/terms', () => html(termsPage({ signup: signupOpen })), { public: true });

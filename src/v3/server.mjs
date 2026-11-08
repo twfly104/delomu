@@ -99,6 +99,7 @@ export function createServer({
     sendEmail,
     now,
     log,
+    fetch,
     oidc: createOidcClient({ fetch }),
     billing,
     rateLimit: createRateLimiter(rateLimit),

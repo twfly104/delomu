@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { esc } from '../report.mjs';
 import { TOKENS } from '../theme.mjs';
 import { icon } from './icons.mjs';
+import { COHORT_SIZE, TIMING } from './partners.mjs';
 import { draftCard, reviewedRow } from './drafts-view.mjs';
 import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
@@ -589,6 +590,17 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lp-note{display:flex;justify-content:center;align-items:center;gap:8px;height:36px;padding:0 16px;background:var(--ink);color:var(--on-ink);font-size:13.5px;font-weight:500}.lp-note:hover{text-decoration:none}.lp-note-dot{width:7px;height:7px;border-radius:50%;background:var(--good)}.lp-note .go{opacity:.7;margin-left:4px}.lp-note:hover .go{opacity:1}
 @media (max-width:420px){.lp-note{font-size:12.5px}}
 .dev-code{margin-top:16px;max-width:880px}
+.lp.dp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:72px;align-items:start;padding-top:72px;padding-bottom:40px}
+.lp .dp-copy h1{margin:16px 0 0;max-width:none;text-align:left;font-size:clamp(36px,4.6vw,56px)}.dp-copy .lede{margin:16px 0 0;text-align:left;max-width:34em}
+.lp .dp-copy h2{margin:40px 0 0;max-width:none;font-size:15px;line-height:1.4;font-weight:600;color:var(--text-3);letter-spacing:0}.dp .tag{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:999px;background:var(--accent-weak);color:var(--accent-text);font-size:13px;font-weight:500}.dp-form textarea{font:15px/1.5 var(--font);resize:vertical}
+.dp-list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:16px}.dp-list li{display:flex;gap:12px}.dp-list svg{flex:none;margin-top:3px;color:var(--good)}
+.dp-list b{display:block;font-size:17px;letter-spacing:-0.01em}.dp-list span{color:var(--text-2);font-size:15.5px;line-height:1.55}
+.dp-ask{margin:14px 0 0;padding-left:20px;color:var(--text-2);font-size:16px;line-height:1.9}
+.dp-card{padding:28px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 30px 60px -36px rgb(11 19 36/.3)}
+.dp-form{display:grid;gap:14px}.dp-form .field{margin:0}.dp-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dp-done{text-align:center;padding:24px 8px}.dp-done svg{color:var(--good)}.dp-done h2{margin:12px 0 8px;font-size:24px}.dp-done p{color:var(--text-2);margin-bottom:20px}
+@media (max-width:900px){.lp.dp{grid-template-columns:1fr;gap:40px;padding-top:40px}}
+@media (max-width:480px){.dp-two{grid-template-columns:1fr}.dp-card{padding:20px}}
 @media (max-width:860px){.lp-top nav .wide-only{display:none}}@media (max-width:420px){.lp-top nav .hide-xs{display:none}}.lp-top nav a:not(.btn){color:var(--text-2)}.lp-top nav a:not(.btn):hover{color:var(--text);text-decoration:none}
 .lp{max-width:1160px;margin:0 auto;padding:0 24px}
 .lp h1{font-size:clamp(36px,5.6vw,68px);line-height:1.02;letter-spacing:-0.038em;font-weight:620;max-width:15ch;margin:0 auto;text-wrap:balance}
@@ -908,7 +920,7 @@ export function signupKeyPage({ secret, email }) {
 // The public header: links only to pages that stand on their own. On phones the extra links move to the footer.
 const lpTop = (start, cta, here = '') => {
   const link = (href, label, key, cls = '') => `<a href="${href}"${cls ? ` class="${cls}"` : ''}${here === key ? ' aria-current="page"' : ''}>${label}</a>`;
-  return `<a class="lp-note" href="/pricing#dfy-h"><span class="lp-note-dot"></span>Design partners: first cohort, 5 spots<span class="go">Apply →</span></a><header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
+  return `<a class="lp-note" href="/design-partners"><span class="lp-note-dot"></span>Design partners: first cohort, 5 spots<span class="go">Apply →</span></a><header class="lp-top"><div><a class="brand" href="/" aria-label="Grapim home">${mark(28, 'm-lp')}<span>Grapim</span></a>
 <nav>${link('/integrations', 'Integrations', 'integrations', 'wide-only')}${link('/developers', 'Developers', 'developers', 'wide-only')}${link('/security', 'Security', 'security', 'wide-only')}${link('/pricing', 'Pricing', 'pricing')}<a href="/login" class="hide-xs">Sign in</a><a class="btn primary" href="${start}">${cta}</a></nav></div></header>`;
 };
 // Grapim's own accounts, shown in the public footer. Add YouTube or X here when they exist; each needs an icon path.
@@ -917,7 +929,7 @@ const SOCIAL = [
 ];
 const socialLinks = () => `<p class="lp-social">${SOCIAL.map(x => `<a href="${x.href}" rel="noopener" aria-label="Grapim on ${x.label}"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="${x.path}"/></svg></a>`).join('')}</p>`;
 const lpFoot = () => `<footer class="lp-foot"><div class="lp-foot-cols"><div><span class="lp-foot-brand">${mark(22, 'm-lpf')} Grapim</span>${socialLinks()}</div>
-<nav aria-label="Product"><span class="h">Product</span><a href="/#draft">How it works</a><a href="/integrations">Integrations</a><a href="/developers">Guard API and MCP</a><a href="/pricing">Pricing</a></nav>
+<nav aria-label="Product"><span class="h">Product</span><a href="/#draft">How it works</a><a href="/integrations">Integrations</a><a href="/developers">Guard API and MCP</a><a href="/pricing">Pricing</a><a href="/design-partners">Design partners</a></nav>
 <nav aria-label="For"><span class="h">For</span><a href="/signup">AI vendors</a><a href="/signup">Teams running an AI agent</a></nav>
 <nav aria-label="Account"><span class="h">Account</span><a href="/signup">Start free</a><a href="/login">Sign in</a></nav>
 <nav aria-label="Legal"><span class="h">Legal</span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/security">Security</a></nav></div>
@@ -952,7 +964,7 @@ function homeFaq(plans = {}) {
     ['Does Grapim change my agent on its own?', 'No. Every draft and every fix waits for a person to approve it.'],
     ['Do my clients need an account?', 'No. A client reads the result and signs off from a link that expires after 30 days and can be revoked.'],
     ['Is my clients’ data used to train models?', 'No. Each client’s data is kept apart, and personal details are removed from live conversations before anything is stored.'],
-    ['What is a design partner?', 'One of five AI vendors in our first cohort who get one client rollout done by us within 48 hours and the Vendor plan free for 90 days, in return for a weekly 30-minute call and honest feedback. <a href="/pricing#dfy-h">Apply for a spot</a>.'],
+    ['What is a design partner?', 'One of five AI vendors in our first cohort who get one client rollout done by us within 48 hours and the Vendor plan free for 90 days, in return for a weekly 30-minute call and honest feedback. <a href="/design-partners">Apply for a spot</a>.'],
     ['How much does it cost?', `Free to start. Team is ${usd(team.monthlyUsd ?? 499)} a month for a company running its own agent; Vendor is ${usd(vendor.monthlyUsd ?? 1500)} a month for ${vendor.includedActiveDeployments ?? 5} client workspaces. <a href="/pricing">See pricing</a>.`],
     ['What is a check?', 'One run of the policy check on one AI agent: Grapim writes the test messages from the policy, sends them to the agent and judges every answer and action. Re-checks after an approved fix count as checks.'],
     ['What happens at a limit?', `On Free (${free.scansPerMonth ?? 3} checks a month), Grapim stops at the limit, says which one, and keeps your results. On Team and Vendor, extra agents or clients are billed at the price shown.`],
@@ -1018,7 +1030,7 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 <section class="lh">${pipField('lh-field')}
 <h1>Deploy your AI agent to every new client. <span>Hand them signed proof.</span></h1>
 <p class="lv-sub">Draft, test, fix, sign off and monitor every client rollout in one place.</p>
-<div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">Become a design partner</a></div>
+<div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div>
 </section>
 <section class="lb-wrap" aria-label="A rollout board with one sample client at each stage">${board}<p class="lv-note">Sample clients. Real Grapim screens.</p></section>
 <ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}SOC 2 in preparation</a></li></ul>
@@ -1038,7 +1050,7 @@ ${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation chec
 <div><dt>Rollout metrics</dt><dd>Hours and days per client.</dd></div>
 </dl></section>
 <section class="lv-faq" id="faq"><h2>Questions</h2><div class="lp-faq">${homeFaq(plans)}</div></section>
-<section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Five design partner spots in our first cohort.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">Become a design partner</a></div></section>
+<section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Five design partner spots in our first cohort.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div></section>
 </main>
 ${lpFoot()}`;
   return doc('Grapim: deploy your AI agent to every client, with signed proof', body, 'lp-page');
@@ -1074,7 +1086,7 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
 <section class="lp-dfy" aria-labelledby="dfy-h"><div class="lp-dfy-copy"><span class="tag">First cohort · 5 spots</span><h2 id="dfy-h">Become a design partner.</h2>
 <p>We run one real client rollout for you within 48 hours, free, and you use the Vendor plan free for 90 days. In return: a 30-minute call each week and honest feedback.</p></div>
 <div class="lp-dfy-buy"><p class="lp-price">Free for 90 days</p><p class="subtle">Then 50% off the Vendor plan for a year if it earned its place. No obligation to buy.</p>
-<p class="lp-tier-act"><a class="btn primary" href="https://www.linkedin.com/in/alexanderko104/" rel="noopener">Apply for a spot</a></p></div></section>
+<p class="lp-tier-act"><a class="btn primary" href="/design-partners">Apply for a spot</a></p></div></section>
 <section class="lp-end"><h2>Run your first check in two minutes</h2>
 <p>Start on a sample agent. No card needed.</p>
 <div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/">See how it works</a></div></section>
@@ -1127,7 +1139,7 @@ function factPage({ signup, here, title, lede, sections, end }) {
 <main class="lp">
 <section class="lp-hero lp-hero-sm"><h1>${title}</h1><p class="lede">${lede}</p></section>
 ${sections.map(([h, html]) => `<section class="lp-sec"><h2>${h}</h2>${html}</section>`).join('\n')}
-<section class="lp-end"><h2>${end}</h2><div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">Become a design partner</a></div></section>
+<section class="lp-end"><h2>${end}</h2><div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div></section>
 </main>
 ${lpFoot()}`;
   return doc(title, body, 'lp-page');
@@ -1175,6 +1187,50 @@ export function developersPage({ signup = false }) {
       ['MCP for Claude Code and Cursor', `<p class="sec-p">List agents, run a check, read the broken rules, draft a fix and approve drafts, without leaving your editor. A person still approves every change.</p>${code('claude mcp add --transport http grapim https://grapim.com/mcp --header "Authorization: Bearer YOUR_KEY"')}`],
       ['Keys and scopes', `<p class="sec-p">API keys are scoped (for example <code>guard:check</code> or <code>conversations:write</code>), stored only as hashes, and every call is written to the audit log.</p>`],
     ] });
+}
+
+// The design partner page: what a partner gets and gives on the left, the application on the right (the frame
+// Linear and Vercel use for talking to sales), and the same page thanks them after they apply.
+export function designPartnersPage({ signup = false, csrf = '', values = {}, error = '', sent = null }) {
+  const start = signup ? '/signup' : '/login';
+  const cta = signup ? 'Start free' : 'Sign in';
+  const get = [['One client rollout, done by us', 'Send one new client’s policies and access to your agent. Within 48 hours you get the broken rules, the exact conversations, a fix to approve and the client’s sign-off page.'],
+    ['The Vendor plan, free for 90 days', 'Run your other client rollouts in Grapim yourself.'],
+    ['50% off the first year', 'If it earned its place. No obligation to buy.']];
+  const ask = ['A client going live soon', 'A 30-minute call each week for 6 weeks', 'Honest feedback, including what is missing'];
+  const opt = (k, l) => `<option value="${k}"${values.timing === k ? ' selected' : ''}>${l}</option>`;
+  const form = sent
+    ? `<div class="dp-done">${icon('check', { size: 22 })}<h2>Thanks, ${esc(sent)}.</h2><p>Alexander will reply within one business day to set up your first rollout.</p><a class="btn" href="/">Back to Grapim</a></div>`
+    : `<form method="post" action="/design-partners" class="dp-form" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
+${error ? `<div class="notice">${icon('alert')}<span>${esc(error)}</span></div>` : ''}
+<label class="field"><span>Full name</span><input type="text" name="name" required maxlength="80" autocomplete="name" value="${esc(values.name ?? '')}"></label>
+<label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(values.email ?? '')}" placeholder="you@company.com"></label>
+<div class="dp-two"><label class="field"><span>Company</span><input type="text" name="company" required maxlength="80" autocomplete="organization" value="${esc(values.company ?? '')}"></label>
+<label class="field"><span>Website <span class="subtle">(optional)</span></span><input type="text" name="website" maxlength="200" value="${esc(values.website ?? '')}" placeholder="company.com"></label></div>
+<label class="field"><span>When does your next client go live?</span><select name="timing" required><option value="">Choose one</option>${TIMING.map(([k, l]) => opt(k, l)).join('')}</select></label>
+<label class="field"><span>Tell us about that rollout <span class="subtle">(optional)</span></span><textarea name="note" maxlength="2000" rows="4" placeholder="The client, what your agent does for them, what their team needs to sign off">${esc(values.note ?? '')}</textarea></label>
+<button class="btn primary block" data-busy="Sending…">Apply for a spot</button>
+<p class="hint" style="margin:10px 0 0;text-align:center">We use these details only to reply. <a href="/privacy">Privacy Policy</a></p></form>`;
+  const body = `${lpTop(start, cta)}
+<main class="lp dp">
+<section class="dp-copy"><span class="tag">First cohort · ${COHORT_SIZE} spots</span><h1>Become a design partner.</h1>
+<p class="lede">We run your next client’s rollout with you, and you help shape Grapim.</p>
+<h2>You get</h2><ul class="dp-list">${get.map(([t, d]) => `<li>${icon('check', { size: 16 })}<span><b>${t}</b>${d}</span></li>`).join('')}</ul>
+<h2>We ask</h2><ul class="dp-ask">${ask.map(t => `<li>${t}</li>`).join('')}</ul></section>
+<section class="dp-card">${form}</section>
+</main>
+${lpFoot()}`;
+  return doc('Design partners', body, 'lp-page');
+}
+
+// The operator's list of applications (only for emails in GRAPIM_OPERATOR_EMAILS).
+export function applicationsPage({ rows }) {
+  const when = Object.fromEntries(TIMING);
+  const body = `<main class="lp"><section class="lp-hero lp-hero-sm" style="text-align:left"><h1 style="margin:0">Design partner applications</h1><p class="lede" style="margin-left:0">${rows.length} so far.</p></section>
+<div class="scroll sec-table" style="max-width:none"><table><thead><tr><th>When</th><th>Name</th><th>Company</th><th>Next client</th><th>Note</th></tr></thead><tbody>
+${rows.map(r => `<tr><td class="nowrap subtle">${esc(r.created_at.slice(0, 16).replace('T', ' '))}</td><td><span class="strong">${esc(r.name)}</span><br><a href="mailto:${esc(r.email)}">${esc(r.email)}</a></td><td>${esc(r.company)}${r.website ? `<br><a href="${esc(r.website)}" rel="noopener">${esc(r.website)}</a>` : ''}</td><td>${esc(when[r.timing] ?? r.timing)}</td><td style="max-width:420px">${esc(r.note)}</td></tr>`).join('') || '<tr><td colspan="5" class="subtle">No applications yet.</td></tr>'}
+</tbody></table></div></main>`;
+  return doc('Applications', body, 'lp-page');
 }
 
 // Legal pages: plain statements of what the code does today (see docs/security.md), in short numbered sections.
