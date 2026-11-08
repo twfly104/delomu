@@ -525,7 +525,10 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 @media (prefers-reduced-motion:reduce){.lv-field rect{animation:none!important}}
 /* Landing (v7): the rollout board is the first screen; one section per stage below the film. */
 .lv{max-width:1240px}
-.lh{padding:72px 0 0;text-align:center}
+.lh{position:relative;isolation:isolate;padding:72px 0 0;text-align:center}
+.lh-field{top:-72px;height:560px;width:1500px}.lh-field rect{fill:color-mix(in srgb,var(--line-strong) 80%,var(--line))}.lh-field.close{top:auto;bottom:-40px;height:420px}
+.lv-close{position:relative;isolation:isolate}
+.lb-wrap{position:relative;isolation:isolate}.lb-wrap::before{content:"";position:absolute;z-index:-1;left:2%;right:2%;top:-40px;bottom:-20px;border-radius:50%;background:radial-gradient(60% 70% at 28% 45%,color-mix(in srgb,var(--accent) 32%,transparent),transparent 70%),radial-gradient(55% 65% at 76% 60%,color-mix(in srgb,var(--good) 26%,transparent),transparent 70%);filter:blur(56px)}
 .lh h1{margin:0 auto;max-width:24ch;font-size:clamp(36px,4.3vw,62px);line-height:1.04;letter-spacing:-0.04em;font-weight:620;text-wrap:balance}
 .lh h1 span{color:var(--text-3)}
 .lh .lv-sub{max-width:40em}
@@ -985,7 +988,7 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
   const step = (id, n, title, text, scene, flip) => `<section class="lv-step${flip ? ' flip' : ''}" id="${id}"><div class="lv-step-copy"><p class="lv-k"><span class="lb-n">${n}</span>${['Draft', 'Check', 'Fix', 'Sign-off', 'Live'][n - 1]}</p><h2>${title}</h2><p>${text}</p></div><div class="lv-stage">${scene}</div></section>`;
   const body = `${lpTop(start, cta)}
 <main class="lv">
-<section class="lh">
+<section class="lh">${pipField('lh-field')}
 <h1>Deploy your AI agent to every new client. <span>Hand them signed proof.</span></h1>
 <p class="lv-sub">Draft, test, fix, sign off and monitor every client rollout in one place.</p>
 <div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout, free</a></div>
@@ -1007,7 +1010,7 @@ ${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation chec
 <div><dt>Guard API and MCP</dt><dd>From your code or Cursor.</dd></div>
 <div><dt>Rollout metrics</dt><dd>Hours and days per client.</dd></div>
 </dl></section>
-<section class="lv-close"><h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start, or we run your first rollout.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout</a></div></section>
+<section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start, or we run your first rollout.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/pricing#dfy-h">We run your first rollout</a></div></section>
 </main>
 ${lpFoot()}`;
   return doc('Grapim: deploy your AI agent to every client, with signed proof', body, 'lp-page');
