@@ -529,6 +529,8 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .lh{position:relative;isolation:isolate;padding:72px 0 0;text-align:center}
 .lh-field{top:-72px;height:560px;width:1500px}.lh-field rect{fill:color-mix(in srgb,var(--line-strong) 80%,var(--line))}.lh-field.close{top:auto;bottom:-40px;height:420px}
 .lv-close{position:relative;isolation:isolate}
+.lh,.lv-close{overflow-x:clip}body.lp-page{overflow-x:hidden}@supports (overflow:clip){body.lp-page{overflow-x:clip}}
+@media (max-width:560px){.lh-field{width:760px}}
 .lb-wrap{position:relative;isolation:isolate}.lb-wrap::before{content:"";position:absolute;z-index:-1;left:2%;right:2%;top:-40px;bottom:-20px;border-radius:50%;background:radial-gradient(60% 70% at 28% 45%,color-mix(in srgb,var(--accent) 32%,transparent),transparent 70%),radial-gradient(55% 65% at 76% 60%,color-mix(in srgb,var(--good) 26%,transparent),transparent 70%);filter:blur(56px)}
 .lh h1{margin:0 auto;max-width:24ch;font-size:clamp(36px,4.3vw,62px);line-height:1.04;letter-spacing:-0.04em;font-weight:620;text-wrap:balance}
 .lh h1 span{color:var(--text-3)}
