@@ -75,7 +75,7 @@ html.rail-drag,html.rail-drag *{cursor:col-resize!important;user-select:none}
 .panel-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-height:48px;padding:10px 16px;border-bottom:1px solid var(--line)}
 .panel-head .aside{margin-left:auto;font-size:13px}
 .signoff-decide{margin:4px 0 0;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);scroll-margin-top:16px}
-.wz-ready{display:grid;gap:10px;margin:0 0 16px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--sunken);font-size:13px}.wz-ready>div{display:grid;grid-template-columns:72px 1fr;gap:8px}.wz-ready dt{color:var(--text-3)}.wz-ready dd{margin:0;min-width:0;overflow-wrap:anywhere}.wz-url{display:block;font-size:12px;margin-top:2px}
+.wz-ready{display:grid;gap:10px;margin:18px 0 12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--sunken);font-size:13px}.wz-ready>div{display:grid;grid-template-columns:72px 1fr;gap:8px}.wz-ready dt{color:var(--text-3)}.wz-ready dd{margin:0;min-width:0;overflow-wrap:anywhere}.wz-url{display:block;font-size:12px;margin-top:2px}
 .share-link{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--sunken)}
 .field>.copyrow,.copyrow{display:flex;gap:8px;margin:0;font-weight:400}.copyrow input{flex:1;min-width:0}.copyrow .btn{flex:none}.btn.copied{color:var(--good)}
 .panel-body{padding:16px}
@@ -1571,7 +1571,7 @@ ${who ? `<input type="hidden" name="customer" value="${who}">` : ''}<input type=
 <button class="btn primary wz-go" data-busy="Uploading…">Upload and continue ${icon('arrow', { size: 16 })}</button></form>`,
     check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. About two minutes.</p>
 ${state.agent ? `<dl class="wz-ready"><div><dt>Agent</dt><dd><span class="strong">${esc(state.agent.title)}</span>${state.agent.customer ? ` <span class="subtle">· ${esc(state.agent.customer)}</span>` : ''}${state.agent.url ? `<span class="mono subtle wz-url">${esc(state.agent.url)}</span>` : ''}</dd></div>
-<div><dt>Policies</dt><dd>${state.agent.files.length ? state.agent.files.map(f => `<span class="mono">${esc(f)}</span>`).join('<br>') : '<span class="subtle">None yet</span>'}</dd></div></dl>
+<div><dt>Files</dt><dd>${state.agent.files.length ? state.agent.files.map(f => `<span class="mono">${esc(f)}</span>`).join('<br>') : '<span class="subtle">None yet</span>'}</dd></div></dl>
 ${state.agent.sample ? `<p class="hint" style="margin:0 0 16px">A sample agent from a made-up store, Lia at Linden &amp; Co., built on an older version of its policy. ${who ? `Connect ${who}’s real agent later from its workspace.` : ''}</p>` : ''}` : ''}
 <div class="wz-pips" aria-hidden="true">${Array.from({ length: 16 }, (_, k) => `<i style="--d:${(k * 0.12).toFixed(2)}s"></i>`).join('')}</div>
 <form method="post" action="${esc(depPath(client, dep))}/scan" class="wz-form">${`<input type="hidden" name="csrf" value="${esc(csrf)}">`}<button class="btn primary wz-go" data-busy="Starting…">Run the check ${icon('arrow', { size: 16 })}</button></form>`,
