@@ -414,7 +414,7 @@ function routes(ctx) {
       const role = roleIn(db, principal, org.id);
       return principalAllows(principal, role, 'deployments:read') ? deploymentsOf(org) : [];
     });
-    const review = deployments.flatMap(d => d.ov.pending.map(draft => ({ org: d.org, name: d.name, draft })))
+    const review = deployments.flatMap(d => d.ov.pending.map(draft => ({ org: d.org, name: d.name, title: d.config?.title, draft })))
       .sort((a, b) => a.draft.createdAt.localeCompare(b.draft.createdAt));
     const homeRole = roleIn(db, principal, principal.homeOrgId);
     const home = orgs.find(o => o.id === principal.homeOrgId);

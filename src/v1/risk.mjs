@@ -325,7 +325,7 @@ export async function riskScan(dir, { llm, now = new Date(), limits, onProgress 
   }
   const draft = createDraft(dir, {
     kind: 'cases', step: 3, actor: 'agent', content: { rows },
-    rationale: `Risk scan ${id}: ${scan.summary.broken} of ${scan.summary.rules} policy rules were broken by the current AI. Adding these ${rows.length} probes keeps every rule under test from now on.`,
+    rationale: `From the check on ${String(scan.createdAt ?? '').slice(0, 10)}: ${scan.summary.broken ? `${scan.summary.broken} of ${scan.summary.rules} policy rules broken` : `all ${scan.summary.rules} policy rules kept`}. Saving these ${rows.length} test messages keeps every rule tested from now on.`,
   }, now);
   scan.draftId = draft.id;
   saveScan(dir, scan);

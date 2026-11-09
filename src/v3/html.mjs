@@ -1435,8 +1435,8 @@ export function homePage({ user, csrf, nav, now, deployments, review, canWrite, 
   const summary = deployments.length
     ? `${deployments.length} AI agent${deployments.length > 1 ? 's' : ''}${broken ? ` · ${broken} breaking policy rules` : ''}`
     : 'No AI agents yet.';
-  const queue = review.length ? `<section class="panel"><div class="panel-head"><h2>Waiting for your decision</h2><span class="badge accent plain num">${review.length}</span></div><div class="rows">${review.map(({ org, name, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
-${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.rationale ? ` · ${esc(draft.rationale)}` : ''}</p></div>
+  const queue = review.length ? `<section class="panel"><div class="panel-head"><h2>Waiting for your decision</h2><span class="badge accent plain num">${review.length}</span></div><div class="rows">${review.map(({ org, name, title, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
+${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.rationale ? ` · ${esc(plainRationale(draft.rationale))}` : ''}</p></div>
 <span class="btn">Review</span></a>`).join('')}</div></section>` : '';
   return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
 <div class="page-head"><div><h1>AI agents</h1><p class="sub num">${esc(summary)}</p></div>
@@ -1445,6 +1445,9 @@ ${orgs.length === 1 && canWrite ? `<div class="actions"><a class="btn primary" h
 ${queue}` });
 }
 
+// Drafts written before 2026-11-09 start with the check's internal id ("Risk scan 2026-11-09T09-46-…: "); a list
+// row shows the sentence without it.
+const plainRationale = text => String(text).replace(/^Risk scan \S+: /, '').replace(/\bprobes\b/g, 'test messages').replace(/were broken by the current AI/, 'broken');
 const draftLabel = d => ({ mapping: 'Data mapping', integration: 'Integration', cases: 'Test cases', fixes: 'Fixes', 'launch-report': 'Launch report' })[d.kind] ?? 'Draft';
 
 export function orgPage({ user, csrf, nav, now, org, deployments, canWrite, notice: msg, signinKey }) {
