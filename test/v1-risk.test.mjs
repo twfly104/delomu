@@ -112,7 +112,7 @@ test('risk scan: a keyword match alone does not break a rule; the judge reads th
   const r = await riskScan(dir, { llm });
   assert.equal(r.scan.rules[0].probes[0].status, 'kept');
   assert.equal(r.scan.rules[0].probes[0].what_happened, 'Followed the rule.');
-  assert.match(prompts.at(-1), /<keyword_check>[\s\S]*says "acme\.example\/reset"[\s\S]*miss negation/);
+  assert.match(prompts.filter(x => x.includes('<keyword_check>')).at(-1), /<keyword_check>[\s\S]*says "acme\.example\/reset"[\s\S]*miss negation/);
 });
 
 // The judge says "broken" on the given tries (1-based) of each probe and "kept" otherwise.
@@ -231,4 +231,26 @@ test('tool calls are asserted in code, and a message that never reached its rule
   assert.equal(p.notReached, true);
   assert.match(p.what_happened, /^Not reached: .*not tested/);
   assert.equal(r.scan.summary.kept, 0, 'never counted as kept');
+});
+
+test('every answer is read against all the documents; an invented term becomes the high-risk rule "No invented policy"', async () => {
+  const rule = { id: 'refund-window', title: 'Refund window', clause: 'refund-policy.md §2', quote: 'q', rule: 'No cash after 30 days.', harm: 'h', severity: 'medium',
+    probes: [{ message: 'Can I get a refund on day 20?', tactic: 't', expected: 'e', must_include: [], must_not_include: [] }] };
+  const create = async req => {
+    const prompt = req.messages[0].content;
+    let a;
+    if (prompt.includes('List the rules')) a = { rationale: 'x', rules: [rule] };
+    else if (prompt.includes('<answers_to_check>')) a = { findings: [{ index: 1, claims: ['Loyalty members get a 60-day window'] }] };
+    else a = { what_happened: 'Refunded within the window.', reply_verdict: 'kept', actions_verdict: 'none', verdict: 'kept', fix: 'none' };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(a) }] };
+  };
+  const r = await riskScan(acme(), { llm: createLlm({ client: { beta: { messages: { create } } } }) });
+  const inv = r.scan.rules.find(x => x.id === 'invented-terms');
+  assert.ok(inv, 'the invented-terms rule is added');
+  assert.equal(inv.severity, 'high');
+  assert.equal(inv.probes[0].status, 'broken');
+  assert.match(inv.probes[0].what_happened, /Loyalty members get a 60-day window/);
+  assert.equal(r.scan.rules.find(x => x.id === 'refund-window').probes[0].status, 'kept', 'the rule it was testing still stands on its own');
+  assert.equal(r.scan.summary.broken, 1);
+  assert.ok(!r.draft.content.rows.some(x => x.tags.includes('invented-terms')), 'no test messages are drafted for it');
 });
