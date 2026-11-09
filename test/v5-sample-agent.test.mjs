@@ -76,3 +76,17 @@ test('the sample agent never sends an empty message', async () => {
   const client = { messages: { create: async () => ({ stop_reason: 'end_turn', content: [] }) } };
   assert.equal((await storeAgentAnswer('hi', { client })).reply, 'Let me connect you with our care team.');
 });
+
+test('the real sample agent is prompted with the previous policy, so a check finds the two gaps', async () => {
+  const { AGENT_POLICY } = await import('../src/v3/sample-agent.mjs');
+  const current = storeSampleFiles().find(f => f.name === 'returns-and-support-policy.md').text;
+  assert.match(current, /within 1 hour of being placed/);
+  assert.match(current, /for any order over \$1,000/);
+  assert.doesNotMatch(AGENT_POLICY, /1 hour|\$1,000/);
+  assert.match(AGENT_POLICY, /Version 3/);
+  let system = '';
+  const client = { messages: { create: async req => { system = req.system; return { stop_reason: 'end_turn', content: [{ type: 'text', text: 'ok' }] }; } } };
+  await storeAgentAnswer('hi', { client });
+  assert.doesNotMatch(system, /within 1 hour|over \$1,000/);
+  assert.match(system, /until they ship/);
+});

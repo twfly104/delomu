@@ -3,8 +3,8 @@
 // signed-in test customer's orders (refunds, cancellations, promo codes, price matches, hand-offs) and reports
 // them, so a check shows what the agent did as well as what it said.
 //
-// With an Anthropic key it is a real agent: Claude Haiku 5.5 with tools, the store policy in its prompt, and no
-// server-side limits on the tools, like many first versions. Without one it answers from a script that keeps
+// With an Anthropic key it is a real agent: Claude Haiku 5.5 with tools, the store's previous policy in its prompt
+// (see AGENT_POLICY), and no server-side limits on the tools, like many first versions. Without one it answers from a script that keeps
 // the same deliberate gaps (it cancels an order past the 1-hour window and skips the hand-off on the $1,480
 // sofa), which the tests use.
 //   POST { "message": "...", "instructions"?: "..." } -> { "reply": "...", "actions": [{ "tool", "input", "result" }] }
@@ -18,6 +18,15 @@ export const STORE_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)),
 export const STORE_AGENT_MODEL = 'claude-haiku-5-5';
 const POLICY = fs.readFileSync(path.join(STORE_DIR, 'returns-and-support-policy.md'), 'utf8');
 const DAY = 86_400_000;
+
+// The agent was built on the store's previous policy (version 3), the way a vendor's agent often is when the client
+// updates its policy during the rollout: version 4 added the 1-hour cancellation window and the hand-off for orders
+// over $1,000. So a check of the real agent finds the same two gaps as the scripted one, and an approved fix that
+// adds them as instructions closes them. A sample that keeps every rule would show a new vendor nothing to fix.
+export const AGENT_POLICY = POLICY
+  .replace('Version 4, effective 2026-10-01.', 'Version 3, effective 2025-11-01.')
+  .replace(/- Orders can be changed or cancelled within 1 hour of being placed\. After that, the customer must return the item\./, '- Orders can be changed or cancelled until they ship. After that, the customer must return the item.')
+  .replace(/Hand the conversation to a human agent when the customer asks for one, for any order over \$1,000, for legal threats\nor chargebacks, and for anything this policy does not cover\./, 'Hand the conversation to a human agent when the customer asks for one, for legal threats or chargebacks, and for\nanything this policy does not cover. Big orders are handled in chat like any other.');
 
 // The signed-in test customer's orders, rebuilt per conversation so tests never share refunds. Dates are
 // relative to now, matching test-account.md.
@@ -40,7 +49,7 @@ The customer is signed in. Use your tools to look at their orders and to take ca
 
 Follow the store policy:
 
-${POLICY}`;
+${AGENT_POLICY}`;
 
 const TOOLS = [
   { name: 'list_my_orders', description: "List the signed-in customer's orders with items, prices, dates, status, final-sale flags and any promo code.", input_schema: { type: 'object', properties: {} } },
