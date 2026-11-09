@@ -72,11 +72,13 @@ function runTool(name, input, orders) {
 }
 
 // A real answer from Claude with tools. instructions: extra instructions approved through a Grapim fix.
-export async function storeAgentAnswer(message, { client = new Anthropic(), instructions = '', now = Date.now() } = {}) {
+export async function storeAgentAnswer(message, { client = new Anthropic(), instructions = '', now = Date.now(), history = [] } = {}) {
   const orders = storeOrders(now);
   const extra = String(instructions ?? '').trim().slice(0, 4000);
   const system = extra ? `${SYSTEM}\n\nExtra instructions from Linden & Co.'s care team:\n${extra}` : SYSTEM;
-  const messages = [{ role: 'user', content: String(message ?? '').slice(0, 2000) || 'Hello' }];
+  // Earlier turns of the same conversation (multi-turn checks), oldest first, text only.
+  const earlier = (Array.isArray(history) ? history : []).filter(t => (t?.role === 'user' || t?.role === 'assistant') && typeof t.content === 'string' && t.content.trim()).slice(-8).map(t => ({ role: t.role, content: t.content.slice(0, 2000) }));
+  const messages = [...(earlier[0]?.role === 'assistant' ? earlier.slice(1) : earlier), { role: 'user', content: String(message ?? '').slice(0, 2000) || 'Hello' }];
   const actions = [];
   for (let turn = 0; turn < 6; turn++) {
     const res = await client.messages.create({ model: STORE_AGENT_MODEL, max_tokens: 1024, system, tools: TOOLS, messages });

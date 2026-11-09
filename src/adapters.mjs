@@ -5,6 +5,8 @@
 //   headers values may use ${ENV_VAR} so keys never live in the config file.
 //   output is a dot path into the JSON response (e.g. "choices.0.message.content"); empty = whole body.
 //   actions, optional, is a dot path to what the agent did (tool calls such as refunds), judged with the words.
+//   history, optional, is a body field that takes earlier turns as [{ role: "user" | "assistant", content }]; a body
+//   with an OpenAI-style "messages" array gets earlier turns inserted before the {{input}} message automatically.
 // target.type "command": { command, timeoutMs? }
 //   the input is written to stdin; stdout is the answer. Runs in the deployment folder.
 // target.type "intercom": { token, contactExternalId?, pollMs?, timeoutMs?, baseUrl? }  see connectors/intercom.mjs
@@ -44,7 +46,28 @@ export function pickPath(obj, path) {
   return cur;
 }
 
-async function callHttp(target, input) {
+// The request body with earlier turns in it, or null when this target has no place for them.
+export function historyBody(target, input, turns) {
+  const tpl = target.body ?? {};
+  const filled = fillTemplate(tpl, input);
+  const msgs = turns.map(t => ({ role: t.role, content: t.content }));
+  const at = Array.isArray(tpl.messages) ? tpl.messages.findIndex(m => m?.content === '{{input}}') : -1;
+  if (at >= 0) return { ...filled, messages: [...filled.messages.slice(0, at), ...msgs, ...filled.messages.slice(at)] };
+  if (typeof target.history === 'string' && target.history) return { ...filled, [target.history]: msgs };
+  return null;
+}
+
+// Earlier turns written into one message, for a target that takes a single message only.
+export function replayText(turns, input) {
+  const lines = turns.map(t => `${t.role === 'user' ? 'Customer' : 'You'}: ${t.content}`).join('\n');
+  return `(This continues a conversation you are already having with this customer. What was said so far:)
+${lines}
+
+(The customer's new message:)
+${input}`;
+}
+
+async function callHttp(target, input, bodyOverride) {
   const headers = { 'content-type': 'application/json' };
   for (const [k, v] of Object.entries(target.headers ?? {})) headers[k] = expandEnv(v);
   const method = (target.method ?? 'POST').toUpperCase();
@@ -53,7 +76,7 @@ async function callHttp(target, input) {
     method,
     headers,
     redirect: redirectMode(),
-    body: method === 'GET' ? undefined : JSON.stringify(fillTemplate(target.body ?? { input: '{{input}}' }, input)),
+    body: method === 'GET' ? undefined : JSON.stringify(bodyOverride ?? fillTemplate(target.body ?? { input: '{{input}}' }, input)),
     signal: AbortSignal.timeout(target.timeoutMs ?? DEFAULT_TIMEOUT_MS),
   });
   const text = await res.text();
@@ -106,11 +129,25 @@ export async function callTarget(rawTarget, input, { cwd } = {}) {
 }
 
 // The answer and, when the target reports them, the actions the agent took ({ answer, actions? }).
-export async function callTargetFull(rawTarget, input, { cwd } = {}) {
+// history: earlier turns of the same conversation, [{ role: 'user' | 'assistant', content }]. Sent as real turns when
+// the target can take them (historyMode 'native'); otherwise written into the message as a transcript ('replayed').
+export async function callTargetFull(rawTarget, input, { cwd, history } = {}) {
   const target = withSecrets(rawTarget, cwd);
+  const turns = (Array.isArray(history) ? history : []).filter(t => (t?.role === 'user' || t?.role === 'assistant') && typeof t.content === 'string');
+  if (turns.length) {
+    const body = target?.type === 'http' ? historyBody(target, input, turns) : null;
+    if (body) return { ...(await callHttp(target, input, body)), historyMode: 'native' };
+    const text = replayText(turns, input);
+    const out = target?.type === 'http' ? await callHttp(target, text) : { answer: await callOther(target, text, cwd) };
+    return { ...out, historyMode: 'replayed' };
+  }
   if (target?.type === 'http') return callHttp(target, input);
-  if (target?.type === 'command') return { answer: await callCommand(target, input, cwd) };
-  if (target?.type === 'intercom') return { answer: await callIntercom(target, input) };
-  if (target?.type === 'zendesk') return { answer: await callZendesk(target, input) };
+  return { answer: await callOther(target, input, cwd) };
+}
+
+async function callOther(target, input, cwd) {
+  if (target?.type === 'command') return callCommand(target, input, cwd);
+  if (target?.type === 'intercom') return callIntercom(target, input);
+  if (target?.type === 'zendesk') return callZendesk(target, input);
   throw new Error(`unknown target type "${target?.type}" (use "http", "command", "intercom" or "zendesk")`);
 }

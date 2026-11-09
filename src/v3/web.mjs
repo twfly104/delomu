@@ -547,11 +547,12 @@ function routes(ctx) {
     const body = await readJson(req, 16 * 1024).catch(() => ({}));
     const message = body?.body?.message;
     const instructions = typeof body?.body?.instructions === 'string' ? body.body.instructions : '';
+    const history = Array.isArray(body?.body?.history) ? body.body.history : [];
     const json = (status, value) => ({ status, body: JSON.stringify(value), type: 'application/json' });
     if (!realBot) return json(200, storeAgentScripted(message));
     if (!botPerClient(ctx.clientIp(req)).ok || !botTotal('all').ok) return json(429, { error: 'The sample agent is busy. Try again in a minute.' });
     try {
-      return json(200, await storeAgentAnswer(message, { ...(ctx.demoBotClient ? { client: ctx.demoBotClient } : {}), instructions }));
+      return json(200, await storeAgentAnswer(message, { ...(ctx.demoBotClient ? { client: ctx.demoBotClient } : {}), instructions, history }));
     } catch (e) {
       console.error(`sample agent failed: ${e.message}`);
       return json(502, { error: 'The sample agent is unavailable right now.' });
@@ -608,7 +609,7 @@ function routes(ctx) {
     const config = {
       customer: `${client} (sample)`, name, agentKind: 'support',
       title: `${client} · ${{ bank: 'Max', health: 'Ava' }[industry] ?? 'Lia'}`,
-      target: { type: 'http', url: `${origin}${ind ? `/demo/agent/${industry}` : '/demo/store-agent'}`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions' },
+      target: { type: 'http', url: `${origin}${ind ? `/demo/agent/${industry}` : '/demo/store-agent'}`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions', ...(ind ? {} : { history: 'history' }) },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Client sign-off required before launch', reason: 'Sample client.' }],
     };
     registerDeployment(db, ctx.deploymentsRoot, org.id, { name, config }, { actor: principal.actor, policy: ctx.policy }, ctx.now());

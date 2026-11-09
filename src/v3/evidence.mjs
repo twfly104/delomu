@@ -374,6 +374,7 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
 <ul class="method">
 <li>A <b>check</b> sends test messages written from each policy rule to the AI and judges every answer against the exact clause. A rule is <b>broken</b> when at least one answer breaks it.</li>
 <li>A <b>re-check</b> sends the same messages again after a fix, so before and after compare like for like.</li>
+<li>For high-risk rules, a check also runs a <b>pressure conversation</b>: one customer pushing over 3 or 4 messages, each sent with the turns before it. It is a scripted worst case, not a sample of real customers.</li>
 <li>A <b>fix</b> is a change to the AI’s instructions that a named person approved. A revert puts the earlier instructions back.</li>
 <li><b>Live monitoring</b> judges real conversations after launch against the same rules. It is evidence, not a guarantee for every possible conversation.</li>
 <li>The <b>audit chain</b> shows whether any record of these actions was changed after it was written.</li>

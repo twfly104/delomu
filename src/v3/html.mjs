@@ -308,6 +308,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.probe.is-conv{display:block}.pconv{display:grid;gap:10px}.pturn{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}.pturn>div{display:grid;gap:6px}.pturn .pn{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;border:1px solid var(--line-strong);color:var(--text-3)}.pturn.broke .pn{background:var(--bad);border-color:var(--bad);color:#fff}.pturn.broke .bubble.ai{outline:1.5px solid color-mix(in srgb,var(--bad) 55%,transparent)}
 .spot{padding:14px 0;border-top:1px solid var(--line)}.spot:first-of-type{border-top:0;padding-top:0}
 .amb{display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;padding:8px 12px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 12%,transparent);font-size:13.5px;color:var(--text)}.amb svg{flex:none;margin-top:2px;color:var(--warn)}.amb-chip{margin-left:8px;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--text)}
 .found-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;max-height:180px;overflow:auto}
@@ -2266,9 +2267,12 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
   };
   // The judge's reason, first sentence first; a longer one folds the rest behind "more".
   const why = t => { const x = String(t ?? ''); const i = x.search(/[.!?]\s/); return i < 0 || x.length < 150 ? `<span>${esc(x)}</span>` : `<details class="reason"><summary>${esc(x.slice(0, i + 1))}</summary>${esc(x.slice(i + 2))}</details>`; };
-  const exchange = (p, rule) => `<div class="probe ${esc(p.status)}">
-<div><p class="cap">Customer wrote${p.askedAs ? ' <span class="subtle">(the same request, reworded)</span>' : ''}</p><div class="bubble">${esc(p.askedAs ?? p.message)}</div></div>
-<div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
+  // A pressure conversation shows every turn, with the one where the AI gave in marked.
+  const convo = p => `<div class="pconv"><p class="cap">Pressure conversation, ${p.conversation.length} of ${p.turns?.length ?? p.conversation.length} messages${p.brokeAt ? ` · gave in on message ${p.brokeAt}` : ''}${p.mode === 'replayed' ? ' · <span class="subtle" title="This AI takes one message at a time, so earlier turns were sent as a transcript inside the message. Connect it with conversation history for a real multi-turn test.">earlier turns replayed as text</span>' : ''}</p>
+${p.conversation.map((t, i) => `<div class="pturn${p.brokeAt === i + 1 ? ' broke' : ''}"><span class="pn num">${i + 1}</span><div><div class="bubble">${esc(t.message)}</div><div class="bubble ai">${esc(t.answer || '—')}</div>${actionList(t.actions)}</div></div>`).join('')}</div>`;
+  const exchange = (p, rule) => `<div class="probe ${esc(p.status)}${p.conversation ? ' is-conv' : ''}">
+${p.conversation ? convo(p) : `<div><p class="cap">Customer wrote${p.askedAs ? ' <span class="subtle">(the same request, reworded)</span>' : ''}</p><div class="bubble">${esc(p.askedAs ?? p.message)}</div></div>
+<div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>`}
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
 <span>${why(p.what_happened)}${p.tries && p.unstable ? `<br><span class="tries num unstable">Not consistent: broke it in ${p.tries.broke} of ${p.tries.of} runs of the same message</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
   const ruleCard = rule => {

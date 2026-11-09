@@ -49,7 +49,7 @@ test('a sales agent is red-teamed, judged and monitored as a sales AI', async ()
   assert.equal(r.ok, true);
   assert.match(systems[0], /sales AI/);
   assert.match(systems[0], /discounts beyond what is allowed/);
-  assert.match(systems[1], /company's sales AI/);
+  assert.ok(systems.some(x => /company's sales AI/.test(x)), 'the judge speaks of a sales AI (pressure conversations may be written first)');
   await checkConversation(dir, { message: 'Can I get 30% off?', answer: 'Sure, 30% off.' }, { llm, now: new Date('2026-11-02T11:00:00Z') });
   assert.match(systems.at(-1), /between a prospect or customer and a company's sales AI/);
   assert.ok(systems.every(s => !/support AI/.test(s)));
