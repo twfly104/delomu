@@ -13,6 +13,8 @@ import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { spotSample } from './spotcheck.mjs';
+import { cmdkMarkup, CMDK_SCRIPT, CMDK_STYLE } from './cmdk.mjs';
+export const CMDK_SCRIPT_HASH = `sha256-${crypto.createHash('sha256').update(CMDK_SCRIPT).digest('base64')}`;
 
 export const BUSY_SCRIPT = "document.addEventListener('submit',function(e){var b=e.submitter;if(!b||!b.dataset.busy)return;setTimeout(function(){b.disabled=true;b.setAttribute('aria-busy','true');b.textContent=b.dataset.busy;},0);});document.addEventListener('change',function(e){var i=e.target;if(i.type!=='file')return;var o=document.querySelector('[data-files-for=\"'+i.id+'\"]');if(o)o.textContent=i.files.length?Array.prototype.map.call(i.files,function(f){return f.name;}).join(', '):'No file chosen';});var r=+document.body.dataset.refresh,pending=false,iv=0;function soft(){if(pending)return;var a=document.activeElement;if(document.querySelector('main.content details[open]')||(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&!(a.closest&&a.closest('#asst'))))return;pending=true;fetch(location.href,{credentials:'same-origin',cache:'no-store'}).then(function(res){if(!res.ok||res.redirected)throw 0;return res.text();}).then(function(t){var d=new DOMParser().parseFromString(t,'text/html'),cur=document.querySelector('main.content'),nx=d.querySelector('main.content');if(!cur||!nx)throw 0;nx.querySelectorAll('.meter[data-run]').forEach(function(m){var o=cur.querySelector('.meter[data-run=\"'+m.dataset.run+'\"]');if(o&&o.firstElementChild&&m.firstElementChild)m.firstElementChild.style.width=o.firstElementChild.style.width;});var done=!+(d.body.getAttribute('data-refresh')||0);if(done)nx.classList.add('soft-in');cur.replaceWith(nx);t0=Date.now();tick();meters();if(done){clearInterval(iv);delete document.body.dataset.refresh;document.body.classList.remove('live');}}).catch(function(){location.reload();}).then(function(){pending=false;});}if(r)iv=setInterval(soft,r*1000);var t0=Date.now();function tick(){var d=Date.now()-t0;document.querySelectorAll('[data-elapsed]').forEach(function(e){e.textContent=Math.floor((+e.dataset.elapsed+d)/1000)+' s';});}var MS={},lf=0,go=false;function aim(m){var d=Date.now()-t0;if(m.dataset.ease){var x=(+m.dataset.ease+d)/1000;return 70*(1-Math.exp(-x/45));}return +m.dataset.at+(+m.dataset.creep)*0.8*(1-Math.exp(-d/3000));}function frame(ts){var dt=lf?Math.min(0.1,(ts-lf)/1000):0;lf=ts;var ms=document.querySelectorAll('.meter[data-ease],.meter[data-creep]');ms.forEach(function(m){var k='meter:'+location.pathname+':'+m.dataset.run,v=MS[k];if(v==null){v=0;try{v=+sessionStorage.getItem(k)||0;}catch(_){}v=Math.max(2,v||+m.dataset.at||0);}var t=Math.min(100,Math.max(2,aim(m)));if(t>v)v+=Math.min((t-v)*(1-Math.exp(-dt*3)),14*dt);MS[k]=v;m.classList.add('js');var i=m.firstElementChild;if(i)i.style.width=v.toFixed(2)+'%';var n=Math.round(v);if(+m.getAttribute('aria-valuenow')!==n)m.setAttribute('aria-valuenow',n);});if(ms.length)requestAnimationFrame(frame);else{go=false;lf=0;}}function meters(){if(!go&&document.querySelector('.meter[data-ease],.meter[data-creep]')){go=true;requestAnimationFrame(frame);}}setInterval(function(){for(var k in MS)try{sessionStorage.setItem(k,MS[k]);}catch(_){}},500);if(r||document.querySelector('[data-elapsed]')){tick();setInterval(tick,250);}meters();var rt=document.querySelector('[data-rail-toggle]');if(rt){var h=document.documentElement,setRail=function(c){h.classList.toggle('rail-min',c);rt.setAttribute('aria-expanded',String(!c));var l=c?'Expand sidebar':'Collapse sidebar';rt.setAttribute('aria-label',l);rt.title=l;try{localStorage.setItem('gp-rail',c?'1':'0');}catch(_){}};var c0=false;try{c0=localStorage.getItem('gp-rail')==='1';}catch(_){}setRail(c0);rt.hidden=false;requestAnimationFrame(function(){h.classList.add('rail-anim');});rt.addEventListener('click',function(){setRail(!h.classList.contains('rail-min'));});var g=document.querySelector('[data-rail-grip]'),app=document.querySelector('.app');if(g&&app){var setW=function(w){w=Math.max(180,Math.min(360,Math.round(w)));app.style.setProperty('--rail-w',w+'px');g.setAttribute('aria-valuenow',w);try{localStorage.setItem('gp-rail-w',w);}catch(_){}return w;},curW=function(){return parseInt(app.style.getPropertyValue('--rail-w'))||240;};var w0=0;try{w0=+localStorage.getItem('gp-rail-w')||0;}catch(_){}if(w0)setW(w0);g.hidden=false;g.addEventListener('pointerdown',function(e){if(e.button)return;e.preventDefault();g.setPointerCapture(e.pointerId);h.classList.remove('rail-anim');h.classList.add('rail-drag');var mv=function(ev){var x=ev.clientX;if(x<120){if(!h.classList.contains('rail-min'))setRail(true);}else{if(h.classList.contains('rail-min'))setRail(false);setW(x);}},up=function(){g.removeEventListener('pointermove',mv);g.removeEventListener('pointerup',up);g.removeEventListener('pointercancel',up);h.classList.remove('rail-drag');h.classList.add('rail-anim');};g.addEventListener('pointermove',mv);g.addEventListener('pointerup',up);g.addEventListener('pointercancel',up);});g.addEventListener('dblclick',function(){setRail(false);setW(240);});g.addEventListener('keydown',function(e){var m=h.classList.contains('rail-min');if(e.key==='ArrowLeft'){e.preventDefault();if(m)return;if(curW()<=180)setRail(true);else setW(curW()-20);}else if(e.key==='ArrowRight'){e.preventDefault();if(m)setRail(false);else setW(curW()+20);}else if(e.key==='Home'||e.key==='Enter'){e.preventDefault();setRail(false);setW(240);}});}}document.querySelectorAll('[data-copy]').forEach(function(b){var row=b.closest('.copyrow'),i=row&&row.querySelector('[data-copy-src]');if(!i||!navigator.clipboard)return;b.hidden=false;var l=b.querySelector('span');b.addEventListener('click',function(){navigator.clipboard.writeText(i.value).then(function(){l.textContent='Copied';b.classList.add('copied');setTimeout(function(){l.textContent='Copy';b.classList.remove('copied');},2000);},function(){i.select();});});});document.addEventListener('focusin',function(e){if(e.target.matches&&e.target.matches('[data-copy-src]'))e.target.select();});";
 // The assistant panel (src/v3/assistant.mjs): opens from the launcher, keeps its state across pages in
@@ -874,8 +876,8 @@ function doc(title, body, bodyClass = '', refresh = 0, meta) {
   const full = meta?.fullTitle ?? `${title} · Grapim`;
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml"><title>${esc(full)}</title>${metaTags(meta, full)}<style>${STYLE}</style></head>
-<body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}${body.includes('data-scene') ? `<script data-ui="landing">${LANDING_SCRIPT}</script>` : ''}</body></html>
+<meta name="color-scheme" content="light dark">${refresh ? `<noscript><meta http-equiv="refresh" content="${refresh}"></noscript>` : ''}<link rel="icon" href="/favicon.svg?v=4" type="image/svg+xml"><title>${esc(full)}</title>${metaTags(meta, full)}<style>${STYLE}${body.includes('id="cmdk"') ? CMDK_STYLE : ''}</style></head>
+<body${bodyClass ? ` class="${bodyClass}"` : ''}${refresh ? ` data-refresh="${refresh}"` : ''}>${body}<script data-ui="busy">${BUSY_SCRIPT}</script>${body.includes('id="cmdk"') ? `<script data-ui="cmdk">${CMDK_SCRIPT}</script>` : ''}${body.includes('id="asst"') ? `<script data-ui="assistant">${ASSISTANT_SCRIPT}</script>` : ''}${body.includes('data-scene') ? `<script data-ui="landing">${LANDING_SCRIPT}</script>` : ''}</body></html>
 `;
 }
 
@@ -919,13 +921,13 @@ ${form(`<div class="asst-form"><label class="sr" for="asst-page-q">Ask the assis
   return layout({ title: 'Assistant', user, csrf, nav, crumbs: [['Assistant']], body });
 }
 
-export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0, meta }) {
+export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0, meta, commands = [] }) {
   if (!user) return doc(title, `<main class="auth">${body.includes('class="auth-card') && /Sign in|Create your account|Check your email|sign-in key/.test(title) ? pipField('auth-field', 64, 40) : ''}${body}</main>`, '', 0, meta);
   const trail = crumbs.map(([label, href], i) => (i === crumbs.length - 1 || !href
     ? `<span class="here">${esc(label)}</span>`
     : `<a href="${esc(href)}">${esc(label)}</a><span class="sep">/</span>`)).join('');
   return doc(title, `<div class="app">${rail({ user, csrf, nav })}
-<div><header class="topbar">${trail}</header><main class="content">${body}</main></div></div>${assistantShell(csrf)}`, refresh ? 'live' : '', refresh);
+<div><header class="topbar">${trail}<button type="button" class="cmdk-open" data-cmdk-open hidden aria-haspopup="dialog" aria-controls="cmdk"><span class="lbl">Go to or run</span><kbd data-cmdk-key>Ctrl K</kbd></button></header><main class="content">${body}</main></div></div>${assistantShell(csrf)}${cmdkMarkup([...commands, ...globalCommands(nav)], csrf)}`, refresh ? 'live' : '', refresh);
 }
 
 // link: optional [href, label] shown after the text, e.g. the Billing page for a plan limit.
@@ -1092,7 +1094,7 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 <p class="lv-proof num">One real check on a store’s returns policy: <b>22 rules</b>, <b>66 test messages</b>, <b>4 min 19 s</b>, and a high-risk break the old 8-rule check missed.</p>
 <ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}How we handle data</a></li></ul>
 <section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
-<figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds a broken rule, Grapim drafts a fix, the same messages run again and all eight rules are kept, and the bank signs off from a link"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false" aria-label="Sound"><span class="on">${icon('muted', { size: 15 })}Sound off</span><span class="off">${icon('sound', { size: 15 })}Sound on</span></button></figure>
+<figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample store’s AI agent finds two broken rules, including a pressure conversation where the agent gave in on the second message; Grapim drafts the fix, a re-check keeps all eight rules, the client reviews each rule and signs off from a link, and the sign-off lands in the evidence pack"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false" aria-label="Sound"><span class="on">${icon('muted', { size: 15 })}Sound off</span><span class="off">${icon('sound', { size: 15 })}Sound on</span></button></figure>
 <p class="lv-note">Real product, sample client. Waiting sped up.</p></section>
 ${step('draft', 1, 'Drafted from <mark>the client’s docs</mark>.', 'Mapping, integration and tests. Unclear policy becomes a question for the client.', draft)}
 ${step('check', 2, 'Every rule, <mark>tested hard</mark>.', 'Up to 40 rules, multi-turn pressure, tool calls checked in code.', grid, true)}
@@ -1703,10 +1705,33 @@ ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick
 <nav class="tabs" aria-label="AI agent">${tabs.map(([key, label, href, n, hot]) => `<a href="${esc(href)}"${tab === key ? ' aria-current="page"' : ''}>${esc(label)}${n ? ` <span class="n${hot ? ' hot' : ''}">${n}</span>` : ''}</a>`).join('')}</nav>`;
 }
 
+// Places every signed-in page offers in the command menu: Home and each organization.
+function globalCommands(nav = {}) {
+  return [{ group: 'Go to', label: 'Home', href: '/' }, ...(nav.orgs ?? []).map(o => ({ group: 'Go to', label: o.name, href: orgPath(o), hint: o.partner_org_id ? 'Client' : 'Organization' })), { group: 'Go to', label: 'Ask Grapim', href: '/assistant' }];
+}
+
+// On an AI agent's pages the command menu leads with that agent: its actions, then its pages.
+function agentCommands(args) {
+  const { org, name, can = {} } = args;
+  const base = depPath(org, name);
+  const shown = agentTitle(name, args.config);
+  const scan = args.ov?.scans?.[0];
+  return [
+    ...(can.write ? [{ group: shown, label: scan ? 'Run the check again' : 'Run the check', href: `${base}/scan`, post: true, hint: 'Action' }] : []),
+    ...(can.write && scan ? [{ group: shown, label: 'Create a sign-off link', href: `${base}/signoff/link`, post: true, hint: 'Action' }] : []),
+    { group: shown, label: 'Check results', href: `${base}/scan` },
+    { group: shown, label: 'Rollout and sign-off', href: `${base}/rollout` },
+    { group: shown, label: 'Live conversations', href: `${base}/live` },
+    { group: shown, label: 'Policies', href: `${base}/inputs` },
+    ...(scan ? [{ group: shown, label: 'Evidence pack', href: `${base}/evidence.html`, hint: 'For legal' }, { group: shown, label: 'Handover for the client', href: `${base}/handover` }, { group: shown, label: 'Security questionnaire', href: `${base}/questionnaire` }] : []),
+    { group: shown, label: 'Settings', href: `${base}/settings` },
+  ];
+}
+
 function deploymentShell(args, body) {
   const { user, csrf, nav, org, name, title, flash, error, upgrade, refresh } = args;
   const shown = agentTitle(name, args.config);
-  return layout({ title: title ? `${title} · ${shown}` : shown, user, csrf, nav: { ...nav, org, active: 'deployments' }, refresh,
+  return layout({ title: title ? `${title} · ${shown}` : shown, user, csrf, nav: { ...nav, org, active: 'deployments' }, refresh, commands: agentCommands(args),
     crumbs: [['AI agents', orgPath(org)], [shown, title ? `${depPath(org, name)}/scan` : undefined], ...(title ? [[title]] : [])],
     body: `${deploymentHeader(args)}${notice(error, '', upgradeLink(upgrade))}${notice(flash, 'good')}${body}` });
 }

@@ -1,7 +1,8 @@
-// The real-product video: a screen recording of Grapim on the local server with the real model (sample client
-// Quillby Bank), cut by scripts/build-real.mjs into segments. Each segment has a camera (a crop of the 1440x900
-// recording) so the part that matters fills the frame and the text stays readable on a phone; captions sit in a
-// band above the app instead of on top of it. Sped-up stretches say so on screen.
+// The real-product video: a screen recording of Grapim on the local server with the real model (the sample
+// agent of Linden & Co.), cut by scripts/build-real.mjs into segments. The recorder stored, for every shot, the box of
+// the one element that matters (a verdict line, a reply, the chips, a review card), so each segment's camera crops the
+// recording to that box and the text reads at landing-page size. Captions sit in a band above the app. It opens
+// straight on the product (the first check's verdict) and ends on a card with the headline.
 import React from 'react';
 import { AbsoluteFill, Audio, OffthreadVideo, Sequence, interpolate, spring, staticFile, useCurrentFrame } from 'remotion';
 import cues from './real-cues.json';
@@ -12,30 +13,31 @@ const fontCss = `@font-face{font-family:"Geist";src:url(${staticFile('Geist-Vari
 export const REAL_DURATION = cues.total;
 const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 
-// Layout of the 1440x900 frame: a caption band on top, the app in a card below that runs off the bottom edge.
+// Layout of the 1440x900 frame: a caption band on top, the app in a card below.
 const BAND = 112;
-const CARD = { x: 40, y: BAND, w: 1360, h: 900 - BAND };
+const CARD = { x: 60, y: BAND + 4, w: 1320, h: 900 - BAND - 4 - 44 };
 const ASPECT = CARD.w / CARD.h;
+// The recording is 1440x900 CSS pixels (captured at 2x density). A crop is at least MINW wide, so a small element
+// keeps some context and is never blown up past the 2x capture.
+const REC = { w: 1440, h: 900 };
+const PAD = 30;
+const MINW = 660;
 
-// Camera per cue, in recording pixels: left, top and width of the crop (height follows the card's aspect).
-// Keyed by each cue's role in real-cues.json.
-type Cam = { x: number; y: number; w: number; then?: { at: number; x: number; y: number; w: number; caption?: string } };
-const CAMS: Record<string, Cam> = {
-  clients: { x: 292, y: 64, w: 1100 },
-  agents: { x: 292, y: 64, w: 1100 },
-  check: { x: 300, y: 40, w: 1080 },
-  drafting: { x: 300, y: 20, w: 1080 },
-  approve: { x: 300, y: 10, w: 1080 },
-  judging: { x: 296, y: 70, w: 1080 },
-  left: { x: 300, y: 274, w: 1080 },
-  second: { x: 296, y: 60, w: 1080 },
-  kept: { x: 300, y: 200, w: 1080 },
-  link: { x: 300, y: 160, w: 1080 },
-  // the client's sign-off form, then (once accepted, the page re-centres lower) the 'Accepted by' line
-  signoff: { x: 270, y: 20, w: 900, then: { at: 110, x: 270, y: 190, w: 900, caption: 'Accepted. Signed, in the audit log.' } },
+type Box = { x: number; y: number; w: number; h: number };
+type Crop = { x: number; y: number; w: number };
+const MAXW = 900; // a tall box may widen the crop only this far (text stays readable at 960 px wide)
+const cropOf = (b: Box): Crop => {
+  const w = Math.min(REC.w, Math.max(MINW, b.w + 2 * PAD, Math.min((b.h + 2 * PAD) * ASPECT, Math.max(MAXW, b.w + 2 * PAD))));
+  const h = w / ASPECT;
+  const x = Math.max(0, Math.min(REC.w - w, b.x + b.w / 2 - w / 2));
+  // a box taller than the crop keeps its end in frame: that is where the reply, the question or the button is
+  const y = Math.max(0, Math.min(REC.h - h, b.h + 2 * PAD > h ? b.y + b.h + PAD - h : b.y + b.h / 2 - h / 2));
+  return { x, y, w };
 };
-const camH = (c: Cam) => c.w / ASPECT;
-const fit = (c: Cam): Cam => ({ ...c, y: Math.max(0, Math.min(c.y, 900 - camH(c))) });
+const FULL: Crop = { x: 0, y: 0, w: REC.w };
+
+// Roles recorded inside the vendor's app (sidebar and assistant button on screen); the rest are the client's pages.
+const APP = new Set(['run', 'live', 'results', 'broken', 'pressure', 'fix', 'recheck', 'kept', 'link']);
 
 const Logo: React.FC<{ size: number }> = ({ size }) => (
   <svg width={size} height={size} viewBox="0 0 64 64">
@@ -56,39 +58,36 @@ const Card: React.FC<{ top: string; bottom: React.ReactNode; len: number }> = ({
   );
 };
 
-type Cue = (typeof cues.cues)[number];
+type Cue = (typeof cues.cues)[number] & { cams: { at: number; box: Box }[]; mask?: Box & { text: string }; maskFrom?: number };
 
-const Segment: React.FC<{ c: Cue; i: number; caption: string; newCaption: boolean }> = ({ c, i, caption, newCaption }) => {
+const Segment: React.FC<{ c: Cue; caption: string; newCaption: boolean }> = ({ c, caption, newCaption }) => {
   const f = useCurrentFrame();
-  // The camera eases from the previous segment's crop to this one's.
-  const camOf = (k?: number) => (k == null || k < 0 ? undefined : CAMS[(cues.cues[k] as { role?: string }).role ?? 'clients']);
-  const to = fit(camOf(i) ?? CAMS.clients);
-  const from = fit(camOf(i - 1) ?? to);
-  const k = spring({ frame: f, fps: 30, config: { damping: 200, stiffness: 90 } });
-  let cam = { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k, w: from.w + (to.w - from.w) * k };
-  if (to.then) {
-    const t = to.then; const k2 = spring({ frame: f - t.at, fps: 30, config: { damping: 200, stiffness: 90 } });
-    cam = { x: cam.x + (t.x - cam.x) * k2, y: cam.y + (t.y - cam.y) * k2, w: cam.w + (t.w - cam.w) * k2 };
+  // The camera cuts to the shot's first framing, then eases to each later one (a look within the same page).
+  const keys = c.cams.length ? c.cams : [{ at: 0, box: { x: 0, y: 0, w: REC.w, h: REC.h } }];
+  let cam = cropOf(keys[0].box) ?? FULL;
+  for (const k of keys.slice(1)) {
+    if (f < k.at) break;
+    const to = cropOf(k.box);
+    const e = spring({ frame: f - k.at, fps: 30, config: { damping: 200, stiffness: 110 } });
+    cam = { x: cam.x + (to.x - cam.x) * e, y: cam.y + (to.y - cam.y) * e, w: cam.w + (to.w - cam.w) * e };
   }
   const s = CARD.w / cam.w;
-  const late = to.then?.caption && f >= to.then.at + 4 ? to.then : null;
-  const capIn = late ? spring({ frame: f - late.at - 4, fps: 30, config: { damping: 200, stiffness: 160 } }) : newCaption ? spring({ frame: f - 2, fps: 30, config: { damping: 200, stiffness: 160 } }) : 1;
-  const shown = late ? late.caption : caption;
-  const mask = 'maskFrom' in c && f >= (c as { maskFrom: number }).maskFrom;
+  const capIn = newCaption ? spring({ frame: f - 2, fps: 30, config: { damping: 200, stiffness: 160 } }) : 1;
+  const m = c.mask;
+  const mask = !!m && f >= (c.maskFrom ?? 0);
   return (
     <AbsoluteFill>
-      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: BAND, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <div style={{ fontSize: 40, fontWeight: 640, letterSpacing: -1.2, color: INK, opacity: capIn, transform: `translateY(${(1 - capIn) * 12}px)` }}>{shown}</div>
-        {c.speed >= 3 ? <div style={{ fontSize: 20, fontWeight: 600, color: '#4a4f57', padding: '5px 12px', borderRadius: 999, background: '#e6e8ee', opacity: capIn }}>{Math.round(c.speed)}× speed</div> : null}
+      <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: BAND, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: 40, fontWeight: 640, letterSpacing: -1.2, color: INK, opacity: capIn, transform: `translateY(${(1 - capIn) * 12}px)` }}>{caption}</div>
       </div>
-      <div style={{ position: 'absolute', left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h + 40, overflow: 'hidden', borderRadius: '16px 16px 0 0', background: '#fafafa', border: '1px solid #e2e4ea', borderBottom: 'none', boxShadow: '0 30px 80px -30px rgba(20,22,26,.35)' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, width: 1440, height: 900, transformOrigin: '0 0', transform: `scale(${s}) translate(${-cam.x}px, ${-cam.y}px)` }}>
-          <OffthreadVideo src={staticFile('rec.mp4')} startFrom={Math.round(c.from * 30)} playbackRate={c.speed} muted style={{ width: 1440, height: 900 }} />
-          {/* The recording's test-account email (sidebar footer) and the assistant button are not part of the story. */}
-          <div style={{ position: 'absolute', left: 0, top: 840, width: 239, height: 60, background: '#fafafa' }} />
-          <div style={{ position: 'absolute', left: 1364, top: 824, width: 76, height: 76, background: '#fafafa' }} />
+      <div style={{ position: 'absolute', left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h, overflow: 'hidden', borderRadius: 18, background: '#fafafa', border: '1px solid #e2e4ea', boxShadow: '0 30px 80px -30px rgba(20,22,26,.35)' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, width: REC.w, height: REC.h, transformOrigin: '0 0', transform: `scale(${s}) translate(${-cam.x}px, ${-cam.y}px)` }}>
+          <OffthreadVideo src={staticFile('rec.mp4')} startFrom={Math.round(c.from * 30)} playbackRate={c.speed} muted style={{ width: REC.w, height: REC.h }} />
+          {/* The sidebar's account footer and the assistant button are not part of the story. */}
+          {APP.has(c.role) ? <div style={{ position: 'absolute', left: 0, top: 840, width: 239, height: 60, background: '#fafafa' }} /> : null}
+          {APP.has(c.role) ? <div style={{ position: 'absolute', left: 1364, top: 824, width: 76, height: 76, background: '#fafafa' }} /> : null}
           {mask ? (
-            <div style={{ position: 'absolute', left: 334, top: 614, width: 660, height: 26, background: '#fff', display: 'flex', alignItems: 'center', paddingLeft: 6, fontSize: 13.5, color: '#171717', letterSpacing: 0.1 }}>https://grapim.com/signoff/Z6e0sDLlWW8SeROUlNbJ_6jRJ3YoQt0MqO_GaPSjBgc</div>
+            <div style={{ position: 'absolute', left: m!.x, top: m!.y, width: m!.w, height: m!.h, background: '#fff', display: 'flex', alignItems: 'center', paddingLeft: 10, fontSize: 13.5, color: '#171717', letterSpacing: 0.1, overflow: 'hidden', whiteSpace: 'nowrap', boxSizing: 'border-box', border: '1px solid #e5e5e5', borderRadius: 6, fontFamily: 'Consolas, ui-monospace, monospace' }}>{m!.text}</div>
           ) : null}
         </div>
       </div>
@@ -97,18 +96,18 @@ const Segment: React.FC<{ c: Cue; i: number; caption: string; newCaption: boolea
 };
 
 // A segment with no caption keeps the one before it, so the band never goes blank mid-story.
-const captions = cues.cues.reduce<string[]>((acc, c, i) => [...acc, c.caption || acc[i - 1] || ''], []);
+const all = cues.cues as Cue[];
+const captions = all.reduce<string[]>((acc, c, i) => [...acc, c.caption || acc[i - 1] || ''], []);
 
 export const GrapimReal: React.FC = () => (
   <AbsoluteFill style={{ background: 'linear-gradient(180deg,#f6f7fa 0%,#eef0f5 100%)', fontFamily: FONT, color: INK }}>
     <style>{fontCss}</style>
     <Audio src={staticFile('real.wav')} />
-    <Sequence durationInFrames={cues.introLen}><Card top="Grapim" bottom="Recorded live. Real product, sample client." len={cues.introLen} /></Sequence>
-    {cues.cues.map((c, i) => (
+    {all.map((c, i) => (
       <Sequence key={i} from={c.start} durationInFrames={c.len}>
-        <Segment c={c} i={i} caption={captions[i]} newCaption={captions[i] !== captions[i - 1]} />
+        <Segment c={c} caption={captions[i]} newCaption={captions[i] !== captions[i - 1]} />
       </Sequence>
     ))}
-    <Sequence from={cues.total - Math.round(3.6 * 30)}><Card top="Grapim" bottom={<>Every new client, deployed<br />with signed proof. <span style={{ color: '#006bff' }}>grapim.com</span></>} len={999} /></Sequence>
+    <Sequence from={cues.total - cues.outroLen}><Card top="Grapim" bottom={<>Go-live never waits on your client’s legal team.<br /><span style={{ color: '#006bff' }}>grapim.com</span></>} len={999} /></Sequence>
   </AbsoluteFill>
 );

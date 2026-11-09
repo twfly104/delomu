@@ -55,7 +55,7 @@ const LANDING_DEMO = { bank: demoScan('bank'), store: demoScan('store') };
 import { ApiError, cookie, createRouter, notFound, parseCookies, readForm, readFormAll, readJson, send } from './http.mjs';
 import { authenticateKey, createApiKey } from './keys.mjs';
 import {
-  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, integrationsPage, developersPage, designPartnersPage, applicationsPage, welcomePage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
+  auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, CMDK_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, integrationsPage, developersPage, designPartnersPage, applicationsPage, welcomePage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
 import { overview, policyOutline } from './insights.mjs';
@@ -87,7 +87,7 @@ const FONTS = Object.fromEntries(['Geist-Variable.woff2', 'GeistMono-Variable.wo
 const MEDIA_TYPES = { '.mp4': 'video/mp4', '.jpg': 'image/jpeg' };
 const MEDIA = Object.fromEntries(fs.readdirSync(new URL('./media/', import.meta.url)).filter(f => MEDIA_TYPES[f.slice(f.lastIndexOf('.'))]).map(f => [f, fs.readFileSync(new URL(`./media/${f}`, import.meta.url))]));
 const FAVICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><style>.f{fill:#0a0a0a}.s{stroke:#0a0a0a}@media (prefers-color-scheme:dark){.f{fill:#fff}.s{stroke:#fff}}</style><rect x="25" y="9" width="30" height="30" rx="5" transform="rotate(45 40 24)" fill="none" class="s" stroke-width="5"/><rect x="6" y="26" width="34" height="34" rx="8" class="f"/></svg>';
-const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'; font-src 'self'; connect-src 'self'; script-src '${BUSY_SCRIPT_HASH}' '${ASSISTANT_SCRIPT_HASH}' '${LANDING_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
+const PAGE_CSP = `default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; media-src 'self'; font-src 'self'; connect-src 'self'; script-src '${BUSY_SCRIPT_HASH}' '${ASSISTANT_SCRIPT_HASH}' '${LANDING_SCRIPT_HASH}' '${CMDK_SCRIPT_HASH}'; frame-ancestors 'none'; base-uri 'none'`;
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d{1,5})?$/;
 const INPUT_TYPES = new Set(['.md', '.txt', '.csv', '.json', '.yaml', '.yml', '.html']);
