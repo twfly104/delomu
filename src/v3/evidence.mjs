@@ -21,7 +21,7 @@ const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 90;
 const TOP_RULES = 5;
 
-const FIX_ACTIONS = { 'fix.apply': 'Approved and applied by Grapim', 'fix.applied_manually': 'Approved, applied by the team in their own tool', 'fix.revert': 'Reverted to the earlier instructions' };
+const FIX_ACTIONS = { 'fix.apply': 'Approved; Grapim applied the change', 'fix.applied_manually': 'Approved; the team applied it in their own tool', 'fix.revert': 'Reverted to the earlier instructions' };
 
 const isoDay = d => d.toISOString().slice(0, 10);
 
@@ -221,6 +221,7 @@ td,th{padding:9px 12px;text-align:left;vertical-align:top}td{font-size:13.5px}
 ul.rules{margin:4px 0 0;padding-left:18px;font-size:13px}
 .foot{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--text-3)}
 .print-hint{font-size:12.5px;color:var(--text-3)}
+.verdict-line-top{font-size:16px;margin:16px 0 4px}
 .snapshot{font-size:13px;color:var(--text-2);margin:14px 0 4px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunken)}
 .recheck{border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-top:10px;break-inside:avoid}
 @media (max-width:640px){main{padding:28px 16px}.facts{grid-template-columns:repeat(2,minmax(0,1fr))}.facts div:nth-child(3){border-left:0}table{display:block;overflow-x:auto}}
@@ -249,14 +250,14 @@ function judgeSection(j) {
   if (!j?.judged) return '<p class="empty">No judged answers in this period.</p>';
   return `<p class="num">The AI judge gave <b>${j.judged}</b> verdicts in this period. People reviewed the findings and changed <b>${j.overturned}</b>${j.overturned ? `: ${j.falseAlarms} judged broken that a person marked kept, ${j.misses} judged kept that a person marked broken` : ''}.</p>
 ${src('verdicts in the checks above and the overrides recorded against them, each with who changed it and when. People look mostly at broken findings, so this is a floor on the judge’s errors, not a measured accuracy.')}
-${j.spot?.reviewed ? `<p class="num" style="margin-top:12px"><b>Random spot-check:</b> people reviewed <b>${j.spot.reviewed}</b> answers the judge marked kept, picked at random, and found <b>${j.spot.wrong}</b> that actually broke the rule (${Math.round(100 * j.spot.wrong / j.spot.reviewed)}% of the sample). A sample this size gives a rough rate, not a precise one.</p>${src('<code>spotchecks.json</code>: the answers each check offered at random, and each person’s mark.')}` : '<p class="src">No random spot-check of kept answers yet. It is offered on each check’s results page.</p>'}`;
+${j.spot?.reviewed ? `<p class="num" style="margin-top:12px"><b>Random spot-check:</b> people reviewed <b>${j.spot.reviewed}</b> answers the judge marked kept, picked at random, and found <b>${j.spot.wrong}</b> that actually broke the rule (${Math.round(100 * j.spot.wrong / j.spot.reviewed)}% of the sample). A sample this size gives a rough rate, not a precise one.</p>${src('the answers each check offered at random, and each person’s mark.')}` : '<p class="src">No random spot-check of kept answers yet. It is offered on each check’s results page.</p>'}`;
 }
 
 function signoffSection(list, checkRef) {
   if (!list.length) return '<p class="empty">No sign-off in this period. A sign-off link lets the client review a check and accept the agent or send it back, without an account.</p>';
   return `<table><thead><tr><th>Date</th><th>Decision</th><th>By</th><th>For check</th></tr></thead><tbody>
 ${list.map(x => `<tr><td class="nowrap">${esc(stamp(x.at))}</td><td><b>${x.decision === 'accepted' ? 'Accepted' : 'Sent back'}</b>${x.note ? `<br><span class="subtle">“${esc(x.note)}”</span>` : ''}</td><td>${esc(x.name)}</td><td>${checkRef(x.scanId)}</td></tr>`).join('\n')}
-</tbody></table>${src('<code>signoff.json</code>, one record per decision given on a sign-off link, also written to the audit log as <code>signoff.accepted</code> or <code>signoff.declined</code>.')}`;
+</tbody></table>${src('each decision given on a sign-off link, also written to the audit log.')}`;
 }
 
 // The questions common AI frameworks ask, and which records in this pack answer them. A map for the reader, not a
@@ -311,7 +312,7 @@ export function renderEvidence(data, { name, title: agent, customer, org } = {})
 
   const checksTable = checks.length ? `<table><thead><tr><th>Date</th><th>Check</th><th>Rules</th><th>Broken</th><th>Re-check?</th></tr></thead><tbody>
 ${checks.map(c => `<tr><td class="nowrap">${esc(stamp(c.createdAt))}</td><td>${checkRef(c.id)}</td><td class="num">${c.rules}</td><td class="num">${c.broken}</td><td>${c.recheckOf ? `Yes, of ${num.has(c.recheckOf) ? `check ${num.get(c.recheckOf)}` : `<span class="hash">${esc(c.recheckOf)}</span>`}` : 'No'}</td></tr>`).join('\n')}
-</tbody></table>${src(`${checks.length} check record${checks.length === 1 ? '' : 's'} in <code>scans/</code> created in this period. “Broken” counts rules with at least one test message judged as breaking them.`)}` : EMPTY;
+</tbody></table>${src(`the ${checks.length} check record${checks.length === 1 ? '' : 's'} created in this period. “Broken” counts rules with at least one test message judged as breaking them.`)}` : EMPTY;
 
   const recheckBlocks = rechecks.length ? rechecks.map(r => `<div class="recheck">
 <p><b>${esc(stamp(r.createdAt))}</b> · ${checkRef(r.id)}, re-check of ${checkRef(r.of)}</p>
@@ -320,11 +321,11 @@ ${r.ofFound ? '' : '<p class="src">The earlier check is no longer in scans/, so 
 ${r.fixed.length ? `<p style="margin-top:6px">Fixed (${r.fixed.length}):</p>${ruleList(r.fixed)}` : ''}
 ${r.stillBroken.length ? `<p style="margin-top:6px">Still broken (${r.stillBroken.length}):</p>${ruleList(r.stillBroken)}` : ''}
 ${r.newlyBroken.length ? `<p style="margin-top:6px">Newly broken (${r.newlyBroken.length}):</p>${ruleList(r.newlyBroken)}` : ''}
-</div>`).join('') + src('each re-check record (its <code>recheckOf</code> field) compared rule by rule with the check it repeated; a re-check sends the exact same messages again.') : EMPTY;
+</div>`).join('') + src('each re-check compared rule by rule with the check it repeated; a re-check sends the exact same messages again.') : EMPTY;
 
   const fixesTable = fixes.length ? `<table><thead><tr><th>Date</th><th>What happened</th><th>By</th><th>For check</th><th>Record</th></tr></thead><tbody>
-${fixes.map(f => `<tr><td class="nowrap">${esc(stamp(f.at))}</td><td>${esc(FIX_ACTIONS[f.action])}${f.summary ? `<br><span class="subtle">${esc(f.summary)}</span>` : ''}${f.rules ? `<br><span class="subtle num">Covers ${f.rules} rule${f.rules === 1 ? '' : 's'}</span>` : ''}</td><td>${esc(f.actor.replace(/^human:/, ''))}</td><td>${checkRef(f.scanId)}</td><td>${f.source === 'audit' ? `Audit entry ${f.seq}` : '<b>fix.json only, no audit entry</b>'}</td></tr>`).join('\n')}
-</tbody></table>${src('audit log entries <code>fix.apply</code>, <code>fix.applied_manually</code> and <code>fix.revert</code> in this period; summaries from <code>fix.json</code>, which keeps only the latest fix.')}` : EMPTY;
+${fixes.map(f => `<tr><td class="nowrap">${esc(stamp(f.at))}</td><td>${esc(FIX_ACTIONS[f.action])}${f.summary ? `<br><span class="subtle">${esc(f.summary)}</span>` : ''}${f.rules ? `<br><span class="subtle num">Covers ${f.rules} rule${f.rules === 1 ? '' : 's'}</span>` : ''}</td><td>${esc(f.actor.replace(/^human:/, ''))}</td><td>${checkRef(f.scanId)}</td><td>${f.source === 'audit' ? `Audit entry ${f.seq}` : '<b>No audit entry found</b>'}</td></tr>`).join('\n')}
+</tbody></table>${src('the audit log’s approvals and reverts in this period; the summary is the latest fix’s own description.')}` : EMPTY;
 
   const ttf = timeToFix.meanMs === null
     ? `<p class="empty">Not enough data: no rule broken in a check in this period was kept by a later re-check in this period.</p>`
@@ -342,14 +343,14 @@ ${live.months.map(m => `<tr><td>${esc(monthName(m.month))}</td><td class="num">$
 ${live.topRules.length ? `<h3 style="font-size:14px;margin:16px 0 6px">Most-broken rules</h3><table><thead><tr><th>Rule</th><th>Source</th><th>Times broken</th></tr></thead><tbody>
 ${live.topRules.map(r => `<tr><td>${esc(r.text)}</td><td class="subtle">${esc(cl(r.clause))}</td><td class="num">${r.count}</td></tr>`).join('\n')}
 </tbody></table>` : '<p class="src">No conversation in this period broke a rule.</p>'}
-${src('real conversations stored in <code>live/&lt;month&gt;.jsonl</code>, counted by the time the conversation happened. A conversation that broke two rules counts once in “Broke a rule” and once for each rule below it.')}` : EMPTY;
+${src('the real conversations checked in this period, counted by the time the conversation happened. A conversation that broke two rules counts once in “Broke a rule” and once for each rule below it.')}` : EMPTY;
 
   const chain = audit.count === 0
     ? '<p class="empty">No records in this period. The audit log is empty.</p>'
     : `<p class="chain ${audit.ok ? 'good' : 'bad'}">${audit.ok ? 'Intact: every entry links to the one before it.' : `Broken at entry ${esc(String(audit.brokenAt))}: ${esc(audit.reason)}.`}</p>
 <p class="num">${audit.count} entr${audit.count === 1 ? 'y' : 'ies'} in total, ${audit.inRange} in this period.</p>
 ${audit.latest ? `<p class="src">Latest entry: ${audit.latest.seq} at ${esc(stamp(audit.latest.ts))}${audit.latest.hash ? `, hash <span class="hash">${esc(audit.latest.hash)}</span>` : ''}</p>` : ''}
-${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each entry stores the SHA-256 of its contents and of the entry before it, so editing or deleting an earlier entry breaks the chain from that point.')}`;
+${src('the audit log, re-verified when this pack was generated. Each entry stores the SHA-256 of its contents and of the entry before it, so editing or deleting an earlier entry breaks the chain from that point.')}`;
 
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light">
@@ -358,6 +359,7 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
 <h1>${esc(title)}</h1>
 <p class="lede">The record of how this AI was tested against the company’s written policies, what was fixed, and what live monitoring saw, from ${esc(period)}. Every figure is counted from stored records; nothing is estimated.</p>
 <p class="snapshot">Snapshot generated ${esc(stamp(data.generatedAt))}${data.policy ? ` · policy files <span class="hash">${esc(data.policy.fingerprint.slice(0, 12))}</span>, ${data.policy.checkedOnIt ? 'the same version the latest check ran on' : '<b>changed since the latest check</b>'}` : ''}. Later checks are not included; generate it again for a newer record.</p>
+${(() => { const last = checks.at(-1); const so = signed.at(-1); return last ? `<p class="verdict-line-top"><b>${last.broken ? `${last.broken} of ${last.rules} rules broken` : `All ${last.rules} rules kept`}</b> in the latest check, ${esc(stamp(last.createdAt))}${so ? `. ${so.decision === 'accepted' ? 'Accepted' : 'Sent back'} by ${esc(so.name)}, ${esc(stamp(so.at))}` : ''}.</p>` : ''; })()}
 <p class="print-hint">To save as PDF: Print (Ctrl+P or ⌘P), then Save as PDF.</p>
 <div class="facts"><div><b class="num">${checks.length}</b><span>Checks run</span></div><div><b class="num">${fixedRules}</b><span>Broken rules fixed on re-check</span></div>
 <div><b class="num">${approvals}</b><span>Fixes approved</span></div><div><b class="num">${live.checked}</b><span>Live conversations checked</span></div></div>

@@ -592,7 +592,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sl-alert{display:flex;gap:12px;align-items:flex-start;margin:12px 16px 16px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sl-alert p{margin-top:3px;color:var(--text-2);font-size:13px}.sl-alert .sc-cap{margin-top:6px}
 .lv-faq{padding-top:152px;text-align:center}.lv-faq h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600}.lv-faq .lp-faq{margin:36px auto 0;text-align:left}
 .lv-more{padding-top:152px;text-align:center}.lv-more h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
-.lv-mlist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin:44px 0 0;text-align:left}.lv-mlist.six,.lv-mlist.three{grid-template-columns:repeat(3,minmax(0,1fr))}.lv-legal{padding-top:120px}@media (max-width:900px){.lv-mlist.three{grid-template-columns:1fr}.lv-mlist.six{grid-template-columns:1fr 1fr}.lv-legal{padding-top:96px}}@media (max-width:560px){.lv-mlist.six{grid-template-columns:1fr}}
+.lv-mlist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin:44px 0 0;text-align:left}.lv-mlist.six,.lv-mlist.three{grid-template-columns:repeat(3,minmax(0,1fr))}.lv-proof{margin:20px auto 0;max-width:46em;text-align:center;font-size:14.5px;color:var(--text-2)}.lv-proof b{color:var(--text);font-weight:600}.kept-all>summary{cursor:pointer;list-style:none}.kept-all>summary::-webkit-details-marker{display:none}.lv-legal{padding-top:120px}@media (max-width:900px){.lv-mlist.three{grid-template-columns:1fr}.lv-mlist.six{grid-template-columns:1fr 1fr}.lv-legal{padding-top:96px}}@media (max-width:560px){.lv-mlist.six{grid-template-columns:1fr}}
 .lv-mlist>div{padding-top:16px;border-top:1px solid var(--line-strong)}.lv-mlist dt{font-weight:600;font-size:17px;letter-spacing:-0.015em}.lv-mlist dd{margin:6px 0 0;color:var(--text-2);font-size:15.5px;line-height:1.55}
 .lv-js [data-scene] .lb-bars i{height:4px}.lv-js [data-scene].on .lb-bars i{animation:lbBar .6s cubic-bezier(.2,.7,.2,1) var(--d) forwards}
 @keyframes lbBar{from{height:4px}to{height:var(--h)}}
@@ -1085,10 +1085,11 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 <main class="lv">
 <section class="lh">${pipField('lh-field')}
 <h1>Go&#8209;live never waits on your client’s legal team. <span>Their rules, tested and signed off.</span></h1>
-<p class="lv-sub">For AI agent vendors. Check your agent against each client’s own policies, fix what breaks, get their sign-off.</p>
+<p class="lv-sub">For AI agent vendors: each client’s policies, checked, fixed and signed off.</p>
 <div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div>
 </section>
 <section class="lb-wrap" aria-label="A rollout board with one sample client at each stage">${board}<p class="lv-note">Sample clients. Real Grapim screens.</p></section>
+<p class="lv-proof num">One real check on a store’s returns policy: <b>22 rules</b>, <b>66 test messages</b>, <b>4 min 19 s</b>, and a high-risk break the old 8-rule check missed.</p>
 <ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}How we handle data</a></li></ul>
 <section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
 <figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds a broken rule, Grapim drafts a fix, the same messages run again and all eight rules are kept, and the bank signs off from a link"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false" aria-label="Sound"><span class="on">${icon('muted', { size: 15 })}Sound off</span><span class="off">${icon('sound', { size: 15 })}Sound on</span></button></figure>
@@ -1482,7 +1483,7 @@ export function homePage({ user, csrf, nav, now, deployments, review, asks = [],
 ${icon('inbox')}<div class="what"><p class="strong">Question from ${esc(q.name)} about ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · asked ${esc(ago(q.at, now))}${q.ruleTitle ? ` · on ${esc(q.ruleTitle)}` : ''} · “${esc(q.text.length > 90 ? `${q.text.slice(0, 90)}…` : q.text)}”</p></div>
 <span class="btn">Answer</span></a>`).join('');
   const draftRows = review.map(({ org, name, title, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
-${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.rationale ? ` · ${esc(plainRationale(draft.rationale))}` : ''}</p></div>
+${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.kind === 'cases' && draft.content?.rows?.length ? ` · Save ${draft.content.rows.length} test messages so every rule stays tested` : draft.rationale ? ` · ${esc(plainRationale(draft.rationale))}` : ''}</p></div>
 <span class="btn">Review</span></a>`).join('');
   const queue = needs ? `<section class="panel"><div class="panel-head"><h2>Waiting for your decision</h2><span class="badge accent plain num">${needs}</span></div><div class="rows">${askRows}${draftRows}</div></section>` : '';
   const onClient = waiting.length ? `<section class="panel"><div class="panel-head"><h2>Waiting on the client</h2><span class="badge plain num">${waiting.length}</span></div><div class="rows">${waiting.map(({ org, name, title }) => `<a class="row" href="${esc(depPath(org, name))}/rollout#signoff">
@@ -2338,7 +2339,7 @@ ${so.active ? `<a class="btn" href="${esc(base)}/rollout#signoff">${icon('arrow'
   // Every rule at a glance, in the policy's order; each tile jumps to its findings.
   const state = r => (isBroken(r) ? 'broken' : isUnsure(r) ? 'unsure' : 'kept');
   const map = `<div class="rulemap">${scan.rules.map(r => `<a class="rt ${state(r)}" href="#r-${esc(r.id)}" title="${esc(r.rule)}"><span class="t">${esc(ruleTitle(r))}</span>
-<span class="c"><span class="cl">${esc(cl(r.clause))}</span><span class="pips">${r.probes.map(pr => `<i class="${esc(pr.status)}"></i>`).join('')}</span></span></a>`).join('')}</div>`;
+<span class="c"><span class="cl" title="${esc(cl(r.clause))}">${esc(cl(r.clause).replace(/^[^,]*\.(?:md|txt|html?)\s*,\s*/i, '') || cl(r.clause))}</span><span class="pips">${r.probes.map(pr => `<i class="${esc(pr.status)}"></i>`).join('')}</span></span></a>`).join('')}</div>`;
   return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
 <p class="meta num">Checked ${esc(ago(scan.createdAt, now))} with ${s.probes} test messages${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''}</p>
@@ -2349,7 +2350,7 @@ ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}${readyPanel}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, the judge could not decide, or the conversation never reached what the rule is about (for example the AI could not find the order). These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
 ${spotPanel({ scan, base, csrf, can, spots: args.spots ?? {} })}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span>${r.ambiguity ? `<span class="amb-chip" title="${esc(r.ambiguity)}">Question for the client</span>` : ''}<span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}${(() => { const n = r.probes.reduce((k, p) => k + (p.tries?.of ?? 1), 0); return n > r.probes.length ? `, kept in all ${n} answers` : ''; })()}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<details class="kept-all" style="margin-top:28px"><summary><h2 style="display:inline;font-size:17px">Kept</h2> <span class="subtle num">${kept.length} rule${kept.length === 1 ? '' : 's'} · details</span></summary><section class="panel" style="margin-top:12px"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span>${r.ambiguity ? `<span class="amb-chip" title="${esc(r.ambiguity)}">Question for the client</span>` : ''}<span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}${(() => { const n = r.probes.reduce((k, p) => k + (p.tries?.of ?? 1), 0); return n > r.probes.length ? `, kept in all ${n} answers` : ''; })()}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section></details>` : ''}`);
 }
 
 // The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.

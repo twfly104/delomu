@@ -462,7 +462,7 @@ function routes(ctx) {
     if (dir) {
       let config = {};
       try { config = loadConfig(dir); } catch { /* shown without it */ }
-      agent = { title: config.title || dep, customer: config.customer ?? '', type: config.target?.type ?? '', url: config.target?.url ?? '', files: hasPolicies ? fs.readdirSync(inputs).filter(f => !f.startsWith('.')) : [], sample: /\(sample\)$/.test(config.customer ?? '') };
+      agent = { title: config.title || dep, customer: config.customer ?? '', type: config.target?.type ?? '', url: config.target?.url ?? '', files: hasPolicies ? fs.readdirSync(inputs).filter(f => !f.startsWith('.')) : [], sample: /\(sample\)$/.test(config.customer ?? '') || /\(sample\)$/.test(config.title ?? '') || dep.startsWith('sample-') };
     }
     return { vendor, home, client, dep, agent, steps, current: steps.find(x => !x.done)?.key ?? 'done' };
   }
@@ -609,8 +609,10 @@ function routes(ctx) {
     for (let n = 2; taken.has(name); n++) name = `${stem}-${n}`;
     const origin = ctx.publicUrl ?? `http://${String(req.headers.host ?? '127.0.0.1')}`;
     const config = {
-      customer: `${client} (sample)`, name, agentKind: 'support',
-      title: `${client} · ${{ bank: 'Max', health: 'Ava' }[industry] ?? 'Lia'}`,
+      // In a vendor's client workspace the sample agent stands in for that client's agent, so it carries the
+      // client's name everywhere; the title says it is a sample.
+      customer: org.partner_org_id ? org.name : `${client} (sample)`, name, agentKind: 'support',
+      title: `${client} · ${{ bank: 'Max', health: 'Ava' }[industry] ?? 'Lia'}${org.partner_org_id ? ' (sample)' : ''}`,
       target: { type: 'http', url: `${origin}${ind ? `/demo/agent/${industry}` : '/demo/store-agent'}`, body: { message: '{{input}}' }, output: 'reply', actions: 'actions', ...(ind ? {} : { history: 'history' }) },
       acceptance: { minPassRate: 0.9 }, decisions: [{ date: ctx.now().toISOString().slice(0, 10), decision: 'Client sign-off required before launch', reason: 'Sample client.' }],
     };
@@ -1196,7 +1198,7 @@ function routes(ctx) {
   r.add('GET', '/signoff/:token/report.html', ({ params }) => {
     const c = signoffContext(params.token);
     if (!c.scan) throw notFound('check');
-    return { status: 200, body: renderScanReport({ scan: c.scan, name: c.share.deployment, customer: c.config.customer, org: c.view.preparedBy }), csp: REPORT_CSP };
+    return { status: 200, body: renderScanReport({ scan: c.scan, name: c.config.title || c.share.deployment, customer: c.view.client, org: c.view.preparedBy }), csp: REPORT_CSP };
   }, { public: true });
 
   r.add('POST', '/signoff/:token', async ({ req, params }) => {
@@ -1556,7 +1558,7 @@ function routes(ctx) {
     if (!scan) throw notFound('check');
     let config = {};
     try { config = loadConfig(dir); } catch { /* the report works without it */ }
-    return { status: 200, body: renderScanReport({ scan, name: params.name, customer: config.customer, org: org.name }), csp: REPORT_CSP };
+    return { status: 200, body: renderScanReport({ scan, name: config.title || params.name, customer: config.customer, org: org.name }), csp: REPORT_CSP };
   });
 
   // The agent's evidence pack over a date range (default: the last 90 days), for legal, risk and compliance.
