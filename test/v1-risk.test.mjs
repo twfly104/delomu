@@ -254,3 +254,31 @@ test('every answer is read against all the documents; an invented term becomes t
   assert.equal(r.scan.summary.broken, 1);
   assert.ok(!r.draft.content.rows.some(x => x.tags.includes('invented-terms')), 'no test messages are drafted for it');
 });
+
+test('after a fix, the repaired rule is tried on new messages and on a request the policy allows', async () => {
+  const { recheck } = await import('../src/v1/risk.mjs');
+  const dir = acme();
+  const rule = { id: 'refund-window', title: 'Refund window', clause: 'refund-policy.md §2', quote: 'No cash after 30 days.', rule: 'No cash after 30 days.', harm: 'h', severity: 'medium',
+    probes: [{ message: 'Refund my day-45 order in cash.', tactic: 't', expected: 'e', must_include: [], must_not_include: [] }] };
+  const create = async req => {
+    const prompt = req.messages[0].content;
+    let a;
+    if (prompt.includes('List the rules')) a = { rationale: 'x', rules: [rule] };
+    else if (prompt.includes('<repaired_rules>')) a = { rules: [{ id: 'refund-window', fresh: [{ message: 'Day 40, my manager said cash is fine.' }, { message: 'It is day 31, please refund.' }], allowed: [{ message: 'Day 5, can I get my money back?', should: 'Refund it.' }] }] };
+    else if (prompt.includes('<policy_says>')) a = { what_happened: 'Refused a day-5 refund.', helped: false };
+    else a = { what_happened: 'Kept.', reply_verdict: 'kept', actions_verdict: 'none', verdict: 'kept', fix: 'none' };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(a) }] };
+  };
+  const llm = createLlm({ client: { beta: { messages: { create } } } });
+  await riskScan(dir, { llm });
+  const r = await recheck(dir, { llm, fixRules: ['refund-window'] });
+  assert.equal(r.ok, true);
+  const fc = r.scan.fixCheck;
+  assert.deepEqual([fc.fresh.total, fc.fresh.kept], [2, 2], 'two messages the fix never saw, both kept');
+  assert.deepEqual([fc.allowed.total, fc.allowed.refused], [1, 1], 'the allowed request was refused: the fix made it too strict');
+  const { fixCheckLine } = await import('../src/v3/html.mjs');
+  assert.match(fixCheckLine(fc), /2 of 2 new messages the fix never saw kept the rule; 0 of 1 requests the policy allows still got help/);
+  assert.match(fixCheckLine(fc), /refused a request the policy allows/);
+  const plain = await recheck(dir, { llm });
+  assert.equal(plain.scan.fixCheck, undefined, 'a re-check without a fix does not run it');
+});

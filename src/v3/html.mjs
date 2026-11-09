@@ -310,6 +310,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.fixcheck{margin-top:10px;padding:8px 12px;border-radius:var(--r);background:var(--sunken);font-size:13.5px}.fixcheck p{margin:0}.fixcheck ul{margin:6px 0;padding-left:18px}.fixcheck.warn{background:color-mix(in srgb,var(--warn) 12%,transparent)}
 .ib{margin-bottom:16px}.ib-row{align-items:center}.ib-chip{flex:none;min-width:92px;text-align:center;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:600;border:1px solid var(--line);color:var(--text-2)}.ib-chip.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line));background:color-mix(in srgb,var(--bad) 8%,transparent)}.ib-chip.acc{color:var(--accent-text);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:var(--accent-weak)}.ib-chip.warn{border-color:color-mix(in srgb,var(--warn) 50%,var(--line));background:color-mix(in srgb,var(--warn) 10%,transparent);color:var(--text)}.ib-chip.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,var(--line))}.ib-all{font-size:15px;margin:28px 0 10px}@media (max-width:560px){.ib-chip{min-width:0}}
 .runline{list-style:none;margin:14px 0 0;padding:0;display:grid;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.rl{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 14px;font-size:13.5px}.rl+.rl{border-top:1px solid var(--line)}.rl-dot{width:9px;height:9px;border-radius:50%;background:var(--line-strong)}.rl.run .rl-dot{background:var(--accent)}.rl.good .rl-dot{background:var(--good)}.rl.bad .rl-dot{background:var(--bad)}.rl.warn .rl-dot{background:var(--warn)}.rl.wait .rl-t{color:var(--text-3)}.rl-s{font-size:12.5px;color:var(--text-3);white-space:nowrap}.rl.bad .rl-s{color:var(--bad)}.rl.good .rl-s{color:var(--good)}.rl-hi{margin-left:6px;font-size:11px;font-weight:600;color:var(--bad)}.rl .rl-dot.is-running{animation:pulse 1.6s ease-in-out infinite}@media (prefers-reduced-motion:no-preference){.rl.new{animation:rise .2s cubic-bezier(0,.4,0,1) both}}@media (prefers-reduced-motion:reduce){.rl .rl-dot.is-running{animation:none}}
 .probe.is-conv{display:block}.pconv{display:grid;gap:10px}.pturn{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}.pturn>div{display:grid;gap:6px}.pturn .pn{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;border:1px solid var(--line-strong);color:var(--text-3)}.pturn.broke .pn{background:var(--bad);border-color:var(--bad);color:#fff}.pturn.broke .bubble.ai{outline:1.5px solid color-mix(in srgb,var(--bad) 55%,transparent)}
@@ -2241,6 +2242,15 @@ function outlineList(outline) {
   return `<div class="scan-outline">${outline.map(f => `<div><p class="mono-s strong">${esc(f.name)}${f.sections ? ` <span class="subtle">· ${f.sections} section${f.sections === 1 ? '' : 's'}</span>` : ''}</p>${f.headings.length ? `<ul>${f.headings.map(h => `<li>${esc(h)}</li>`).join('')}${f.sections > f.headings.length ? `<li class="subtle">and ${f.sections - f.headings.length} more</li>` : ''}</ul>` : ''}</div>`).join('')}</div>`;
 }
 
+// After a fix: did it hold on messages it never saw, and does the agent still help with what the policy allows?
+export function fixCheckLine(fc) {
+  if (!fc) return '';
+  const f = fc.fresh, a = fc.allowed;
+  const bad = [...f.items.filter(x => x.status === 'broken').map(x => `<li><span class="strong">${esc(x.title)}</span>: new message broke it. ${esc(x.what_happened)}</li>`),
+    ...a.items.filter(x => !x.helped).map(x => `<li><span class="strong">${esc(x.title)}</span>: refused a request the policy allows. ${esc(x.what_happened)}</li>`)];
+  return `<div class="fixcheck${bad.length ? ' warn' : ''}"><p><span class="strong">Beyond the same messages:</span> ${f.total ? `${f.kept} of ${f.total} new messages the fix never saw kept the rule` : 'no new messages could be written'}${a.total ? `; ${a.helped} of ${a.total} requests the policy allows still got help` : ''}.</p>${bad.length ? `<ul>${bad.join('')}</ul><p class="subtle">The fix may have learned the test, or made the agent stricter than the policy. Look before you send it to the client.</p>` : ''}</div>`;
+}
+
 export function runTimeline(ruleList, marks, nowMs) {
   return `<ol class="runline" aria-label="Rules being checked">${ruleList.map(r => {
       const mine = marks.filter(m => m.rule === r.id);
@@ -2390,7 +2400,7 @@ ${so.active ? `<a class="btn" href="${esc(base)}/rollout#signoff">${icon('arrow'
   return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
 <p class="meta num">Checked ${esc(ago(scan.createdAt, now))} with ${s.probes} test messages${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''}</p>
-${compare}${moved}</div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
+${compare}${moved}${fixCheckLine(scan.fixCheck)}</div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}${readyPanel}
