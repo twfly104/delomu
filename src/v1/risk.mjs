@@ -262,14 +262,8 @@ async function judgeProbes(dir, config, llm, rules, onProgress) {
   const probes = rules.flatMap(rule => rule.probes.map((probe, n) => ({ rule, probe, n })));
   let done = 0;
   onProgress({ phase: 'probes', done, total: probes.length, rules: rules.length });
-  const once = async ({ rule, probe }) => {
-    let answer;
-    let actions;
-    try {
-      ({ answer, actions } = await callTargetFull(config.target, probe.message, { cwd: dir }));
-    } catch (e) {
-      return { status: 'error', answer: '', what_happened: `No answer from the AI: ${e.message}`, fix: 'Check the integration before launch.' };
-    }
+  // One verdict from the judge on one answer.
+  const verdictOf = async ({ rule, probe }, answer, actions) => {
     // A keyword match is a hint for the judge, not a verdict: "I can't confirm it has been erased" contains
     // "has been erased" and keeps the rule. The judge reads the whole answer and decides.
     const phrase = phraseCheck(probe, answer);
@@ -286,15 +280,43 @@ async function judgeProbes(dir, config, llm, rules, onProgress) {
       fix: broken ? (v.data.fix && v.data.fix !== 'none' ? v.data.fix : 'Make the answer follow the clause above.') : '',
     };
   };
+  // Ask the AI once and judge its answer.
+  const once = async item => {
+    let answer;
+    let actions;
+    try {
+      ({ answer, actions } = await callTargetFull(config.target, item.probe.message, { cwd: dir }));
+    } catch (e) {
+      return { status: 'error', answer: '', what_happened: `No answer from the AI: ${e.message}`, fix: 'Check the integration before launch.' };
+    }
+    return verdictOf(item, answer, actions);
+  };
+  // Reliability, the tau-bench way (pass^k): a rule is only kept when the AI keeps it every time it is asked.
+  // High-severity messages are always asked TRIES times; others are asked again once the first answer breaks.
+  // Two kinds of noise are kept apart: the AI under test answering differently each time ("not consistent"), and
+  // the judge changing its mind on the very same answer. Every "broken" verdict is judged a second time; when the
+  // judge does not confirm it, nobody can say whether the rule held, so a person must look ("judge split").
   const judge = async item => {
     const first = await once(item);
-    if (first.status !== 'broken' || TRIES < 2) return first;
+    if (TRIES < 2 || first.status === 'error' || first.status === 'unjudged') return first;
+    if (item.rule.severity !== 'high' && first.status !== 'broken') return first;
     const tries = [first];
     for (let i = 1; i < TRIES; i++) tries.push(await once(item));
+    for (const t of tries) {
+      if (t.status !== 'broken') continue;
+      const again = await verdictOf(item, t.answer, t.actions);
+      if (again.status !== 'broken') t.split = true;
+    }
     const votes = tries.filter(t => t.status === 'kept' || t.status === 'broken');
-    const broke = votes.filter(t => t.status === 'broken').length;
-    const pick = broke * 2 > votes.length ? first : (votes.find(t => t.status === 'kept') ?? first);
-    return { ...pick, tries: { broke, of: votes.length }, ...(broke < votes.length ? { unstable: true } : {}) };
+    const confirmed = votes.filter(t => t.status === 'broken' && !t.split);
+    const split = votes.filter(t => t.split).length;
+    const tally = { broke: confirmed.length, of: votes.length, ...(split ? { split } : {}) };
+    if (confirmed.length) return { ...confirmed[0], tries: tally, ...(confirmed.length < votes.length ? { unstable: true } : {}) };
+    if (split) {
+      const t = votes.find(x => x.split);
+      return { ...t, split: undefined, status: 'unjudged', tries: tally, what_happened: `The judge called this answer broken once and kept on a second reading; a person must decide. First reading: ${t.what_happened}` };
+    }
+    return { ...(votes[0] ?? first), tries: tally };
   };
   const judged = await pool(probes, CONCURRENCY, async item => {
     const out = await judge(item);

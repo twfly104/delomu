@@ -2313,7 +2313,7 @@ ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}${readyPanel}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}${(() => { const n = r.probes.reduce((k, p) => k + (p.tries?.of ?? 1), 0); return n > r.probes.length ? `, kept in all ${n} answers` : ''; })()}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
 }
 
 // The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.
