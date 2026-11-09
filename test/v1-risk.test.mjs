@@ -54,11 +54,15 @@ test('exact tokens: URLs, numbers and addresses count; wording does not', () => 
 
 test('risk scan: writes probes from the policy, runs them, judges each, and drafts them for the test set', async () => {
   const dir = acme();
+  // The quick check (as for a sample agent): at most 8 rules and 2 probes each.
+  const cfgFile = path.join(dir, 'delomu.json');
+  fs.writeFileSync(cfgFile, JSON.stringify({ ...JSON.parse(fs.readFileSync(cfgFile, 'utf8')), checkDepth: 'quick' }));
   const r = await riskScan(dir, { llm: fakeLlm(), now: new Date('2026-11-01T10:00:00Z') });
   assert.equal(r.ok, true);
   const s = r.scan;
   assert.deepEqual(s.rules.map(x => x.id), ['refund-window', 'reset']);
-  assert.equal(s.rules[0].probes.length, 2, 'at most two probes per rule');
+  assert.equal(s.depth, 'quick');
+  assert.equal(s.rules[0].probes.length, 2, 'at most two probes per rule in a quick check');
   assert.equal(s.rules[1].severity, 'medium', 'unknown severity falls back to medium');
   assert.deepEqual(s.rules[0].probes[0].must_include, [], 'wording is dropped from required phrases');
   assert.deepEqual(s.rules[1].probes[0].must_include, ['acme.example/reset']);
@@ -138,4 +142,32 @@ test('a broken verdict needs most tries to agree; disagreeing tries are marked n
   assert.equal(p.status, 'broken');
   assert.deepEqual(p.tries, { broke: 2, of: 3 });
   assert.deepEqual([r.scan.summary.broken, r.scan.summary.unstable], [1, 1]);
+});
+
+test('check depth: a sample is quick (8 rules, 2 messages); a client gets the full check, rules first, probes in batches', async () => {
+  const { DEPTHS, checkDepth } = await import('../src/v1/risk.mjs');
+  assert.equal(checkDepth('/x/sample-linden-agent', {}), 'quick');
+  assert.equal(checkDepth('/x/acme-bot', {}), 'full');
+  assert.equal(checkDepth('/x/sample-linden-agent', { checkDepth: 'full' }), 'full');
+  assert.deepEqual(DEPTHS.full, { rules: 40, probes: 3 });
+  // Full: the first call lists rules without probes; probes come back per batch, matched by id.
+  const dir = acme();
+  const listed = { rationale: 'r', rules: Array.from({ length: 12 }, (_, i) => ({ id: `rule-${i}`, title: `Rule ${i}`, clause: 'refund-policy.md §1', quote: 'q', rule: `Rule ${i}.`, harm: 'h', severity: 'high' })) };
+  const prompts = [];
+  const create = async req => {
+    const prompt = req.messages[0].content;
+    prompts.push(prompt);
+    let a;
+    if (prompt.includes('List the rules')) a = listed;
+    else if (prompt.includes('<rules_to_test>')) a = { rules: [...prompt.matchAll(/^id: (rule-\d+)$/gm)].map(m => ({ id: m[1], probes: [1, 2, 3, 4].map(n => ({ message: `Probe ${n} for ${m[1]}`, tactic: 't', expected: 'e', must_include: [], must_not_include: [] })) })) };
+    else a = { verdict: 'kept', what_happened: 'Followed the rule.', fix: 'none' };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(a) }] };
+  };
+  const progress = [];
+  const r = await riskScan(dir, { llm: createLlm({ client: { beta: { messages: { create } } } }), onProgress: p => progress.push(p) });
+  assert.equal(r.ok, true);
+  assert.equal(r.scan.rules.length, 12);
+  assert.ok(r.scan.rules.every(x => x.probes.length === 3), 'three probes kept per rule');
+  assert.equal(prompts.filter(x => x.includes('<rules_to_test>')).length, 2, '12 rules in batches of 8');
+  assert.ok(progress.some(p => p.phase === 'rules' && p.found === 12 && p.titles.length === 12), 'the found rules are shown while probes are written');
 });

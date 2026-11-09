@@ -60,3 +60,14 @@ test('the evidence pack says it is a snapshot and whether the policy changed sin
   assert.match(html, /Snapshot generated 2026-11-03 12:00 UTC/);
   assert.match(html, /<b>changed since the latest check<\/b>/);
 });
+
+test('the evidence pack counts how often people overruled the judge, both ways', async () => {
+  const { judgeRecord } = await import('../src/v3/evidence.mjs');
+  const p = (status, judgeStatus) => ({ status, ...(judgeStatus ? { judgeStatus } : {}) });
+  const scans = [{ rules: [{ probes: [p('kept', 'broken'), p('broken'), p('kept')] }, { probes: [p('broken', 'kept'), p('unjudged')] }] }];
+  assert.deepEqual(judgeRecord(scans), { judged: 4, overturned: 2, falseAlarms: 1, misses: 1 });
+  const html = renderEvidence({ ...buildEvidence(fs.mkdtempSync(path.join(os.tmpdir(), 'grapim-j-')), { from: '2026-11-01', to: '2026-11-03' }), judge: judgeRecord(scans) }, { name: 'bot' });
+  assert.match(html, /The judge, checked by people/);
+  assert.match(html, /changed <b>2<\/b>: 1 judged broken that a person marked kept, 1 judged kept that a person marked broken/);
+  assert.match(html, /a floor on the judge’s errors, not a measured accuracy/);
+});

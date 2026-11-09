@@ -178,7 +178,7 @@ export function buildEvidence(dir, { from, to, now = new Date() }) {
   const last = audit.entries.at(-1);
   return {
     range: { from, to }, generatedAt: now.toISOString(),
-    checks, rechecks, fixes: fixEvents, timeToFix, live, signoffs: signed, ruleTexts,
+    checks, rechecks, fixes: fixEvents, timeToFix, live, signoffs: signed, ruleTexts, judge: judgeRecord(scans),
     // The policy files as they are now, and whether the latest check ran on that same version.
     policy: (() => { const fp = policyFingerprint(dir); const latest = all[0]; return fp ? { fingerprint: fp, checkedOnIt: Boolean(latest?.policyHash) && latest.policyHash === fp } : null; })(),
     audit: {
@@ -229,6 +229,26 @@ ul.rules{margin:4px 0 0;padding-left:18px;font-size:13px}
 const EMPTY = '<p class="empty">No records in this period.</p>';
 const src = text => `<p class="src">Source: ${text}</p>`;
 const ruleList = list => (list.length ? `<ul class="rules">${list.map(r => `<li>${esc(r.text)}${r.clause ? ` <span class="subtle">(${esc(cl(r.clause))})</span>` : ''}</li>`).join('')}</ul>` : '');
+
+// How often people overruled the AI judge on the answers in this period's checks. Every override is kept with who
+// made it (overrides.json), so this is counted, not estimated. It covers answers someone chose to look at; it is
+// not a random sample, so it bounds the judge's errors from below rather than measuring them.
+export function judgeRecord(scans) {
+  let judged = 0, falseAlarms = 0, misses = 0;
+  for (const s of scans) for (const r of s.rules ?? []) for (const p of r.probes ?? []) {
+    const verdict = p.judgeStatus ?? p.status;
+    if (verdict !== 'kept' && verdict !== 'broken') continue;
+    judged++;
+    if (p.judgeStatus === 'broken' && p.status === 'kept') falseAlarms++;
+    if (p.judgeStatus === 'kept' && p.status === 'broken') misses++;
+  }
+  return { judged, overturned: falseAlarms + misses, falseAlarms, misses };
+}
+function judgeSection(j) {
+  if (!j?.judged) return '<p class="empty">No judged answers in this period.</p>';
+  return `<p class="num">The AI judge gave <b>${j.judged}</b> verdicts in this period. People reviewed the findings and changed <b>${j.overturned}</b>${j.overturned ? `: ${j.falseAlarms} judged broken that a person marked kept, ${j.misses} judged kept that a person marked broken` : ''}.</p>
+${src('verdicts in the checks above and the overrides recorded against them, each with who changed it and when. People look mostly at broken findings, so this is a floor on the judge’s errors, not a measured accuracy.')}`;
+}
 
 function signoffSection(list, checkRef) {
   if (!list.length) return '<p class="empty">No sign-off in this period. A sign-off link lets the client review a check and accept the agent or send it back, without an account.</p>';
@@ -343,6 +363,7 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
 <h2>Breaks found and fixed</h2>${recheckBlocks}
 <h2>Approved fixes</h2>${fixesTable}
 <h2>Mean time to fix</h2>${ttfSection}
+<h2>The judge, checked by people</h2>${judgeSection(data.judge)}
 <h2>Live monitoring</h2>${liveSection}
 <h2>Client sign-off</h2>${signoffSection(signed, checkRef)}
 <h2>Audit chain</h2>${chain}

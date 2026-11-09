@@ -307,6 +307,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.found-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;max-height:180px;overflow:auto}
 .wz-url-form{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .convo-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px}
 .moved{display:grid;gap:6px;margin-top:10px}.moved p,.fix-covers{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.fix-covers{margin-top:10px}.mv-k{font-size:12px;font-weight:600;margin-right:2px}.mv-k.good{color:var(--good)}.mv-k.bad{color:var(--bad)}.mv{display:inline-flex;gap:6px;align-items:center;padding:2px 9px;border-radius:99px;border:1px solid var(--line);font-size:12.5px;color:var(--text);background:var(--surface)}.mv:hover{text-decoration:none;border-color:var(--line-strong)}.mv.good{border-color:color-mix(in srgb,var(--good) 40%,var(--line))}.mv.bad{border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
@@ -1606,7 +1607,7 @@ ${who ? `<input type="hidden" name="customer" value="${who}">` : ''}<input type=
 <form method="post" action="${esc(depPath(client, dep))}/inputs/url" class="wz-form wz-url-form" novalidate>${hidden}<input type="hidden" name="next" value="welcome">
 <label class="field"><span>Or paste the address of ${who ? `${esc(who)}’s` : 'the'} public policy page</span><input type="url" name="url" required placeholder="https://www.example.com/returns-policy" inputmode="url" autocomplete="off"></label>
 <button class="btn" data-busy="Reading the page…">Read the page and continue</button><p class="hint" style="margin:0">A refund policy, terms of service or help-center article. Grapim saves the text and where it came from.</p></form>`,
-    check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. About two minutes.</p>
+    check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. ${state.agent?.sample ? 'About two minutes on the sample.' : 'Every rule in the policies, up to 40, with 3 messages each: usually 5 to 10 minutes.'}</p>
 ${state.agent ? `<dl class="wz-ready"><div><dt>Agent</dt><dd><span class="strong">${esc(state.agent.title)}</span>${state.agent.customer && !String(state.agent.title).startsWith(String(state.agent.customer).replace(/ \(sample\)$/, '')) ? ` <span class="subtle">· ${esc(state.agent.customer)}</span>` : ''}${state.agent.url ? `<span class="mono subtle wz-url">${esc(state.agent.url)}</span>` : ''}</dd></div>
 <div><dt>Files</dt><dd>${state.agent.files.length ? state.agent.files.map(f => `<span class="mono">${esc(f)}</span>`).join('<br>') : '<span class="subtle">None yet</span>'}</dd></div></dl>
 ${state.agent.sample ? `<p class="hint" style="margin:0 0 16px">A sample agent from a made-up store, Lia at Linden &amp; Co., built on an older version of its policy. ${who ? `Connect ${who}’s real agent later from its workspace.` : ''}</p>` : ''}` : ''}
@@ -2191,7 +2192,8 @@ export function riskScanPage(args) {
     const probing = p.phase === 'probes' && p.total;
     const fixing = p.phase === 'fix';
     const pctDone = fixing ? 99 : probing ? Math.round(70 + 30 * p.done / p.total) : Math.round(70 * (1 - Math.exp(-secs / 45)));
-    const slow = !probing && secs > 90 ? ' · Taking longer than usual; still working' : '';
+    // A full check (dozens of rules) reads for longer than the quick sample check; only call it slow past that.
+    const slow = !probing && secs > (p.found ? 240 : 90) ? ' · Taking longer than usual; still working' : '';
     // One tile per test message, lit as its answer is judged; the ones lit since the last reload animate in.
     const marks = args.job.marks ?? [];
     const nowMs = now?.getTime?.() ?? Date.now();
@@ -2208,10 +2210,13 @@ export function riskScanPage(args) {
       : probing
       ? `${meter}<div class="probegrid" role="img" aria-label="${p.done} of ${p.total} answers judged, ${count('broken')} broke a rule">${tiles}</div>
 <p class="legend muted num"><span><i class="pt broken"></i>${count('broken')} broke a rule</span><span><i class="pt kept"></i>${count('kept')} kept</span><span>${p.total - p.done} to go</span></p>`
+      : p.found
+      ? `${meter}
+<p class="muted">Found <span class="strong">${p.found} rules</span> in the policies. Writing ${p.found * 3} messages most likely to break them${slow}.</p><div class="found-rules">${(p.titles ?? []).map(t => `<span class="mv">${esc(t)}</span>`).join('')}</div>`
       : `${meter}
 <p class="muted">Writing the messages most likely to break each rule${slow}.</p>${outlineList(args.outline)}`;
     return shell(`<section class="panel scan-live" aria-live="polite">
-<div class="live-head"><p class="big">${probing ? `Judging ${p.total} answers` : 'Reading your policies'}</p><span class="subtle num" data-elapsed="${elapsedMs}">${secs} s</span></div>${body}</section>`, 2);
+<div class="live-head"><p class="big">${probing ? `Judging ${p.total} answers` : p.found ? 'Writing the test messages' : 'Reading your policies'}</p><span class="subtle num" data-elapsed="${elapsedMs}">${secs} s</span></div>${body}</section>`, 2);
   }
   if (!scan) {
     return shell(`<section class="panel"><div class="emptystate" style="padding:48px 16px">

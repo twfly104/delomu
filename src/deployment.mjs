@@ -35,6 +35,7 @@ export function loadConfig(dir) {
     target: config.target,
     agentKind: config.agentKind ?? 'support',
     ...(config.title ? { title: String(config.title) } : {}),
+    ...(['quick', 'full'].includes(config.checkDepth) ? { checkDepth: config.checkDepth } : {}),
   };
 }
 
