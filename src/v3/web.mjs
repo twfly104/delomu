@@ -26,6 +26,7 @@ import { addToPlaybook, consentOf, contributed, integrationExamples, playbookSta
 import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix, undoIfWorse } from '../v1/fix.mjs';
+import { conversationToTests } from '../v1/live-to-tests.mjs';
 import { renderScanReport } from './scan-report.mjs';
 import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg } from './accounts.mjs';
@@ -1325,6 +1326,18 @@ function routes(ctx) {
       flash: job?.status === 'done' ? NOTICES.replayed : ws.flash, ...extra });
   };
   r.add('GET', '/orgs/:org/deployments/:name/live', ({ req, principal, params, url }) => html(liveView(req, principal, params, url)));
+
+  // A live conversation that broke a rule, drafted into the saved test set (src/v1/live-to-tests.mjs).
+  r.add('POST', '/orgs/:org/deployments/:name/live/:id/tests', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const res = conversationToTests(dir, params.id, { actor: principal.actor, now: ctx.now() });
+    if (!res.ok) throw new ApiError('invalid_request_error', res.reason);
+    if (!res.existing) event(ctx, principal, org.id, 'live.to_tests', params.name, { conversation: params.id });
+    return new Redirect(`${depPath(org, params.name)}/drafts?notice=drafted`);
+  });
 
   r.add('POST', '/orgs/:org/deployments/:name/live/check', async ({ req, principal, params }) => {
     const form = await readForm(req, ctx.maxBodyBytes);

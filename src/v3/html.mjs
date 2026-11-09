@@ -282,14 +282,14 @@ details.menu[open]>summary{background:var(--hover)}
 .row-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media (max-width:560px){.row-2{grid-template-columns:1fr}}
 form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=type][value=openai]:checked) .conn-openai,form:has(input[name=type][value=command]:checked) .conn-command,form:has(input[name=type][value=intercom]:checked) .conn-intercom,form:has(input[name=type][value=zendesk]:checked) .conn-zendesk{display:block;animation:rise .24s cubic-bezier(.2,.75,.25,1) both}
 @media (prefers-reduced-motion:no-preference){
-  .content>*{animation:rise .34s cubic-bezier(.2,.75,.25,1) both}
-  .content>*:nth-child(2){animation-delay:.03s}.content>*:nth-child(3){animation-delay:.06s}.content>*:nth-child(4){animation-delay:.09s}.content>*:nth-child(n+5){animation-delay:.12s}
-  .live .content>*{animation:none}
-  .notice{animation:rise .3s cubic-bezier(.2,.75,.25,1) both}
-  .btn{transition:background .15s,border-color .15s,transform .08s}.btn:active{transform:scale(.97)}
+  /* No page-load animation: a tool opened many times a day should feel instant. Motion marks outcomes only:
+     a notice arriving, a verdict landing, a result row lighting up, a menu opening. */
+  .notice{animation:rise .2s cubic-bezier(0,.4,0,1) both}
+  .verdict-in{animation:rise .28s cubic-bezier(0,.4,0,1) both}
+  .btn{transition:background .1s,border-color .1s,transform .08s}.btn:active{transform:scale(.97)}
   .rows a.row,tbody tr,.tabs a,.rail a{transition:background .12s,color .12s}
   .menu-pop{animation:pop .14s ease-out both;transform-origin:top right}
-  .step.current .dot,.step.review .dot{animation:pulse 2s ease-in-out infinite}
+  .is-running .dot,.dot.is-running{animation:pulse 2s ease-in-out infinite}
 }
 .stages{list-style:none;margin:0 0 20px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .stages li+li{border-left:1px solid var(--line)}
@@ -307,6 +307,8 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.convo-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px}
+.moved{display:grid;gap:6px;margin-top:10px}.moved p,.fix-covers{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.fix-covers{margin-top:10px}.mv-k{font-size:12px;font-weight:600;margin-right:2px}.mv-k.good{color:var(--good)}.mv-k.bad{color:var(--bad)}.mv{display:inline-flex;gap:6px;align-items:center;padding:2px 9px;border-radius:99px;border:1px solid var(--line);font-size:12.5px;color:var(--text);background:var(--surface)}.mv:hover{text-decoration:none;border-color:var(--line-strong)}.mv.good{border-color:color-mix(in srgb,var(--good) 40%,var(--line))}.mv.bad{border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
 .scan-outline{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.scan-outline p{margin:0 0 4px}.scan-outline ul{margin:0;padding-left:16px;font-size:13px;color:var(--text-2);line-height:1.55}
 .so-qlist{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);display:grid;gap:10px}.so-qlist h3{font-size:13.5px;margin:0;display:flex;gap:8px;align-items:center}.so-q{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r)}.so-q.answered{background:var(--sunken)}.so-a{margin:6px 0 0;font-size:13.5px}
 .ro-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -1392,15 +1394,33 @@ function liveCell(live) {
 }
 
 // rows: [{ org, name, ov (overview), customer }]
+// One status word per agent's rollout, in a fixed vocabulary, with the reason on hover. The order is what needs
+// someone first: a broken rule, a policy that changed since the check, then where sign-off stands.
+export function rolloutStatus({ ov, signoff, signoffOpen }) {
+  const scan = ov.scans[0];
+  const day = iso => String(iso ?? '').slice(0, 10);
+  if (!scan) return { word: 'Not checked', cls: 'plain', why: 'No policy check has run yet.' };
+  if (scan.summary.broken) return { word: 'Rule broken', cls: 'bad', why: `${scan.summary.broken} of ${scan.summary.rules} rules broken in the check on ${day(scan.createdAt)}.` };
+  if (ov.policiesChanged) return { word: 'Policy changed', cls: 'warn', why: 'A policy file changed after the last check. Run the check again before sign-off.' };
+  const decided = signoff && signoff.at >= scan.createdAt ? signoff : null;
+  if (decided?.decision === 'accepted') return { word: 'Signed off', cls: 'good', why: `Accepted by ${decided.name} on ${day(decided.at)}.` };
+  if (decided?.decision === 'declined') return { word: 'Sent back', cls: 'bad', why: `Sent back by ${decided.name} on ${day(decided.at)}${decided.note ? `: ${decided.note}` : '.'}` };
+  if (signoffOpen) return { word: 'Waiting on client', cls: 'accent', why: 'A sign-off link is out; the client has not decided yet.' };
+  return { word: 'Ready for sign-off', cls: 'good', why: `All ${scan.summary.rules} rules kept on ${day(scan.createdAt)}. Send the client a sign-off link.` };
+}
+
 function agentsTable(rows, { showOrg, now }) {
   if (!rows.length) return '';
-  return `<div class="scroll"><table><thead><tr><th>AI agent</th>${showOrg ? '<th class="hide-sm">Organization</th>' : ''}<th>Pre-launch check</th><th class="hide-sm">Live, last 7 days</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
-${rows.map(({ org, name, ov, customer, config }) => {
+  return `<div class="scroll"><table><thead><tr><th>AI agent</th>${showOrg ? '<th class="hide-sm">Organization</th>' : ''}<th>Rollout</th><th class="hide-sm">Pre-launch check</th><th class="hide-sm">Live, last 7 days</th><th class="hide-sm">Last checked</th></tr></thead><tbody>
+${rows.map(row => {
+    const { org, name, ov, customer, config } = row;
     const scan = ov.scans[0];
+    const st = rolloutStatus(row);
     return `<tr>
 <td><a class="agent-name" href="${esc(depPath(org, name))}/scan"><span class="av">${icon('layers')}</span><span><span class="strong">${esc(agentTitle(name, config))}</span>${customer ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(customer)}</span>` : ''}</span></a></td>
 ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
-<td>${checkBadge(scan)}</td>
+<td><a class="badge ${st.cls}" href="${esc(depPath(org, name))}/rollout" title="${esc(st.why)}">${esc(st.word)}</a></td>
+<td class="hide-sm">${checkBadge(scan)}</td>
 <td class="hide-sm">${liveCell(ov.live)}</td>
 <td class="hide-sm subtle nowrap">${scan ? esc(ago(scan.createdAt, now)) : '—'}</td></tr>`;
   }).join('\n')}
@@ -2227,6 +2247,12 @@ ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.len
   // Before and after: a re-check runs the earlier check's exact messages again after a fix.
   const before = scan.recheckOf ? ov.scans.find(x => x.id === scan.recheckOf) : null;
   const compare = before ? `<p class="meta num" style="color:var(--text)"><span class="strong">${args.fix?.status === 'reverted' ? 'After undoing the fix' : 'After the fix'}:</span> ${before.summary.broken} → ${s.broken} rules broken, ${before.summary.failed} → ${s.failed} messages failed, on the same ${s.probes} messages.</p>` : '';
+  // Rule by rule, what moved between the two checks: anything newly broken first, then what the fix repaired.
+  const was = new Map((before?.rules ?? []).map(r => [r.id, isBroken(r)]));
+  const regressed = before ? scan.rules.filter(r => was.get(r.id) === false && isBroken(r)) : [];
+  const repaired = before ? scan.rules.filter(r => was.get(r.id) === true && !isBroken(r)) : [];
+  const chip = (r, cls) => `<a class="mv ${cls}" href="#r-${esc(r.id)}">${esc(ruleTitle(r))}</a>`;
+  const moved = regressed.length || repaired.length ? `<div class="moved">${regressed.length ? `<p><span class="mv-k bad">Kept → broken</span>${regressed.map(r => chip(r, 'bad')).join('')}</p>` : ''}${repaired.length ? `<p><span class="mv-k good">Broken → kept</span>${repaired.map(r => chip(r, 'good')).join('')}</p>` : ''}</div>` : '';
   const worse = before && (s.broken > before.summary.broken || s.failed > before.summary.failed);
   const applied = args.fix?.scanId === scan.recheckOf && args.fix?.status === 'applied';
   const autoUndone = worse && args.fix?.scanId === scan.recheckOf && args.fix?.status === 'reverted' && args.fix?.revertedBy === 'grapim';
@@ -2240,7 +2266,7 @@ ${applied && can.write ? `<form method="post" action="${esc(base)}/fix/revert" s
 <p class="muted" style="margin-top:4px">One change for the ${broken.length} broken rule${broken.length === 1 ? '' : 's'}. Nothing applies until you approve it.</p></div>
 <form method="post" action="${esc(base)}/fix/draft"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Drafting… about 20 s">Draft a fix</button></form></div></section>`
     : `<section class="panel fixit"><form method="post" action="${esc(base)}/fix/approve" class="panel-body stack" style="gap:12px" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
-<div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p></div>
+<div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p>${(fix.rules ?? []).length ? `<p class="fix-covers"><span class="subtle">Repairs</span>${(fix.rules ?? []).map(id => scan.rules.find(r => r.id === id)).filter(Boolean).map(r => `<a class="mv bad" href="#r-${esc(r.id)}">${esc(ruleTitle(r))} <span class="subtle">${esc(cl(r.clause))}</span></a>`).join('')}</p>` : ''}</div>
 ${gaps(fix.gaps)}
 <label class="field" style="margin:0"><span>Extra instructions for your AI <span class="subtle" style="font-weight:400">(edit before approving)</span></span><textarea name="instructions" maxlength="4000" style="min-height:180px;font:13.5px/1.55 var(--font)">${esc(fix.instructions)}</textarea>
 <p class="hint">${target.canApply ? `Grapim puts these in ${esc(target.where || 'every request')} for this AI, so approving applies them right away. Your own instructions are left as they are, and a re-check that comes out worse is undone automatically.` : 'Grapim cannot change this AI directly. Paste these into its instructions (Intercom Fin: Fin, then Guidance; Zendesk: the AI agent\'s instructions), then re-check.'}</p></label>
@@ -2253,10 +2279,10 @@ ${gaps(fix.gaps)}
 <p class="muted" style="margin-top:4px">${so.active ? `A sign-off link is out (${so.active} open). The client accepts or sends it back from the link, no account needed.` : 'Every rule kept. Send the client a link: they read these results and accept the agent or send it back, no account needed.'}</p></div>
 ${so.active ? `<a class="btn" href="${esc(base)}/rollout#signoff">${icon('arrow')}See the sign-off</a>` : `<form method="post" action="${esc(base)}/signoff/link"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Creating…">${icon('arrow')}Create the sign-off link</button></form>`}</div></section>`;
   const verdict = s.broken
-    ? `<p class="verdict bad num"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
+    ? `<p class="verdict bad num verdict-in"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
     : unsure.length
-      ? `<p class="verdict warn num"><b>${unsure.length}</b> <span class="of">of ${s.rules}</span> rules could not be checked</p>`
-      : `<p class="verdict good num"><b>All ${s.rules}</b> policy rules kept</p>`;
+      ? `<p class="verdict warn num verdict-in"><b>${unsure.length}</b> <span class="of">of ${s.rules}</span> rules could not be checked</p>`
+      : `<p class="verdict good num verdict-in"><b>All ${s.rules}</b> policy rules kept</p>`;
   // Every rule at a glance, in the policy's order; each tile jumps to its findings.
   const state = r => (isBroken(r) ? 'broken' : isUnsure(r) ? 'unsure' : 'kept');
   const map = `<div class="rulemap">${scan.rules.map(r => `<a class="rt ${state(r)}" href="#r-${esc(r.id)}" title="${esc(r.rule)}"><span class="t">${esc(ruleTitle(r))}</span>
@@ -2264,7 +2290,7 @@ ${so.active ? `<a class="btn" href="${esc(base)}/rollout#signoff">${icon('arrow'
   return shell(`<section class="panel"><div class="scan-head">
 <div>${verdict}
 <p class="meta num">Checked ${esc(ago(scan.createdAt, now))} with ${s.probes} test messages${s.highRiskBroken ? ` · ${s.highRiskBroken} high-risk` : ''}${s.unjudged ? ` · ${s.unjudged} could not be judged` : ''}</p>
-${compare}</div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
+${compare}${moved}</div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}${readyPanel}
@@ -2321,7 +2347,7 @@ ${dayChart(live.days)}${bars}</section>`;
   const why = c => (c.violations.length ? `<div class="why">${c.violations.map(v => `<p><span class="badge ${esc((SEVERITY[v.severity] ?? SEVERITY.medium)[0])}">${esc(cl(v.clause))}</span> ${esc(v.what_happened)}<br><span class="fix"><span class="strong">Fix</span> ${esc(v.fix)}</span></p>`).join('')}</div>`
     : c.status === 'unjudged' ? '<p class="subtle" style="margin-top:8px">The judge gave no verdict; a person should read this one.</p>' : '');
   const convo = c => `<div class="convo ${esc(c.status)}"><p class="meta-line">${badge(c)}<span title="${esc(fmtDate(c.at))}">${esc(ago(c.at, now))}</span><span>· ${esc(c.source)}</span>${c.externalId ? `<span class="mono">· ${esc(c.externalId)}</span>` : ''}</p>
-<div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Your AI</p><div class="bubble ai">${esc(c.answer)}</div>${actionList(c.actions)}</div></div>${why(c)}</div>`;
+<div class="probe"><div><p class="cap">Customer</p><div class="bubble">${esc(c.message)}</div></div><div><p class="cap">Your AI</p><div class="bubble ai">${esc(c.answer)}</div>${actionList(c.actions)}</div></div>${why(c)}${c.status === 'flagged' && can.write ? `<form method="post" action="${esc(base)}/live/${esc(c.id)}/tests" class="convo-act"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn sm" data-busy="Adding…">${icon('plus')}Add to tests</button><span class="subtle">The same customer message runs on every check from now on.</span></form>` : ''}</div>`;
   const recent = [...live.recent].sort((a, b) => (b.status === 'flagged') - (a.status === 'flagged')).slice(0, 20);
   const feed = recent.length ? `<section class="panel"><div class="panel-head"><h2>Conversations</h2><span class="aside subtle">Rule breaks first · newest 20</span></div>${recent.map(convo).join('')}</section>` : '';
   // The example message is one this agent was really tested with, so the snippet fits the client.

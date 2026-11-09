@@ -14,6 +14,7 @@ import { getFix } from '../v1/fix.mjs';
 import { listConversations, liveDir } from '../v1/live.mjs';
 import { listScans } from '../v1/risk.mjs';
 import { signoffs } from './signoff.mjs';
+import { policyFingerprint } from '../v1/policies.mjs';
 
 const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 90;
@@ -178,6 +179,8 @@ export function buildEvidence(dir, { from, to, now = new Date() }) {
   return {
     range: { from, to }, generatedAt: now.toISOString(),
     checks, rechecks, fixes: fixEvents, timeToFix, live, signoffs: signed, ruleTexts,
+    // The policy files as they are now, and whether the latest check ran on that same version.
+    policy: (() => { const fp = policyFingerprint(dir); const latest = all[0]; return fp ? { fingerprint: fp, checkedOnIt: Boolean(latest?.policyHash) && latest.policyHash === fp } : null; })(),
     audit: {
       ok: audit.verify.ok, brokenAt: audit.verify.brokenAt ?? null, reason: audit.verify.reason ?? '',
       count: audit.lines ?? audit.entries.length, inRange: audit.entries.filter(e => inRange(e.ts)).length,
@@ -217,6 +220,7 @@ td,th{padding:9px 12px;text-align:left;vertical-align:top}td{font-size:13.5px}
 ul.rules{margin:4px 0 0;padding-left:18px;font-size:13px}
 .foot{margin-top:40px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--text-3)}
 .print-hint{font-size:12.5px;color:var(--text-3)}
+.snapshot{font-size:13px;color:var(--text-2);margin:14px 0 4px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r);background:var(--sunken)}
 .recheck{border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;margin-top:10px;break-inside:avoid}
 @media (max-width:640px){main{padding:28px 16px}.facts{grid-template-columns:repeat(2,minmax(0,1fr))}.facts div:nth-child(3){border-left:0}table{display:block;overflow-x:auto}}
 @media print{.print-hint{display:none}main{padding:0}body{background:#fff}}
@@ -331,6 +335,7 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
 <div class="top"><span class="brand">Grapim</span><span>${esc(period)}${org ? ` · Prepared by ${esc(org)}` : ''}</span></div>
 <h1>${esc(title)}</h1>
 <p class="lede">The record of how this AI was tested against the company’s written policies, what was fixed, and what live monitoring saw, from ${esc(period)}. Every figure is counted from stored records; nothing is estimated.</p>
+<p class="snapshot">Snapshot generated ${esc(stamp(data.generatedAt))}${data.policy ? ` · policy files <span class="hash">${esc(data.policy.fingerprint.slice(0, 12))}</span>, ${data.policy.checkedOnIt ? 'the same version the latest check ran on' : '<b>changed since the latest check</b>'}` : ''}. Later checks are not included; generate it again for a newer record.</p>
 <p class="print-hint">To save as PDF: Print (Ctrl+P or ⌘P), then Save as PDF.</p>
 <div class="facts"><div><b class="num">${checks.length}</b><span>Checks run</span></div><div><b class="num">${fixedRules}</b><span>Broken rules fixed on re-check</span></div>
 <div><b class="num">${approvals}</b><span>Fixes approved</span></div><div><b class="num">${live.checked}</b><span>Live conversations checked</span></div></div>
