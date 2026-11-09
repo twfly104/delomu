@@ -58,6 +58,17 @@ test('a client accepts an AI agent from a link, without an account, once', async
   const clientCookie = cookiesOf(open)[0];
   assert.equal((await post(`/signoff/${token}`, clientCookie, { csrf: 'forged', name: 'Dana', decision: 'accepted' })).status, 403);
   assert.equal((await post(`/signoff/${token}`, clientCookie, { csrf: csrfOf(text), name: ' ', decision: 'accepted' })).status, 400);
+  // Accept opens only after every rule was reviewed on this link (src/v3/review.mjs).
+  const early = await post(`/signoff/${token}`, clientCookie, { csrf: csrfOf(text), name: 'Dana Lee', decision: 'accepted' });
+  assert.equal(early.status, 400);
+  assert.match(await early.text(), /Review every rule before you accept: 0 of 1 done/);
+  assert.match(text, /Start the review: 1 rules|Start the review/);
+  const step = await (await get(`/signoff/${token}/review/1`, clientCookie)).text();
+  assert.match(step, /Rule 1 of 1/);
+  const reviewed = await post(`/signoff/${token}/review/1`, clientCookie, { csrf: csrfOf(text), rule: 'refund', state: 'ok', name: 'Dana Lee' });
+  assert.equal(reviewed.status, 303);
+  assert.match(reviewed.headers.get('location'), /#decide$/);
+  assert.equal(readAudit(dir).filter(e => e.action === 'signoff.review' && e.detail.rule === 'refund').length, 1);
   const ok = await post(`/signoff/${token}`, clientCookie, { csrf: csrfOf(text), name: 'Dana Lee', decision: 'accepted', note: 'Fine after the refund fix' });
   assert.equal(ok.status, 200);
   assert.match(await ok.text(), /Accepted by Dana Lee/);

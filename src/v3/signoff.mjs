@@ -8,6 +8,7 @@ import { appendAudit } from '../core/audit.mjs';
 import { esc } from '../report.mjs';
 import { layout, mark, possessive } from './html.mjs';
 import { handoverSection, HANDOVER_STYLE } from './handover.mjs';
+import { reviewPanel, reviewProgress } from './review.mjs';
 
 const file = dir => path.join(dir, 'signoff.json');
 const MAX_NOTE = 1000;
@@ -75,21 +76,25 @@ ${asked ? `<div class="notice good" role="status"><span>Question sent to ${esc(p
 const SIGNOFF_STYLE = `.so-history{margin:0 0 24px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 .so-history ol{list-style:none;margin:0;padding:0;display:grid;gap:12px}.so-history li{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:start}.so-history li p{margin:0}
 .so-dot{width:10px;height:10px;margin-top:6px;border-radius:50%;background:var(--accent)}.so-dot.bad{background:var(--bad)}.so-dot.good{background:var(--good)}
-.so-ask{margin-top:16px;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);scroll-margin-top:16px}.so-ask textarea{min-height:76px}.so-qs{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:12px}
+.choice label.off{opacity:.6}.so-ask{margin-top:16px;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);scroll-margin-top:16px}.so-ask textarea{min-height:76px}.so-qs{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:12px}
 .so-qs li{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r)}.so-ans{margin-top:10px;padding:10px 12px;border-radius:calc(var(--r) - 2px);background:var(--sunken)}`;
 
 // The page the client sees. scan: the check the link was made for; done: a decision already given on this link.
-export function signoffPage({ csrf, token, preparedBy, client, name, title: agent = '', scan, launch, done, error, values = {}, handover = null, sender = '', history = null, questions = [], qValues, qError, asked }) {
+export function signoffPage({ csrf, token, preparedBy, client, name, title: agent = '', scan, launch, done, error, values = {}, handover = null, sender = '', history = null, questions = [], qValues, qError, asked, review = { name: '', rules: {} } }) {
   const s = scan?.summary;
   const verdict = !s ? '' : s.broken
     ? `<div class="notice" role="status"><span>The check found <span class="strong">${s.broken} of ${s.rules} policy rules broken</span>. Read the findings before you accept.</span></div>`
     : `<div class="notice good" role="status"><span>The AI kept all ${s.rules} policy rules in this check${s.unjudged ? `; ${s.unjudged} answer${s.unjudged === 1 ? '' : 's'} need a person to review` : ''}.</span></div>`;
   const decided = done ? `<div class="notice ${done.decision === 'accepted' ? 'good' : ''}" role="status"><span>${done.decision === 'accepted' ? 'Accepted' : 'Sent back'} by ${esc(done.name)} on ${esc(done.at.slice(0, 10))}.${done.note ? ` Note: ${esc(done.note)}` : ''}</span></div>` : '';
+  // Accept opens once every rule was reviewed on this link; sending it back is always possible.
+  const prog = reviewProgress(review, scan);
+  const canAccept = prog.complete;
+  const pick = values.decision ?? (canAccept ? 'accepted' : '');
   const form = done || !scan ? '' : `<form method="post" action="/signoff/${esc(token)}" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
-<label class="field"><span>Your name</span><input type="text" name="name" required maxlength="120" autocomplete="name" value="${esc(values.name ?? '')}"></label>
+<label class="field"><span>Your name</span><input type="text" name="name" required maxlength="120" autocomplete="name" value="${esc(values.name ?? review.name ?? '')}"></label>
 <div class="field"><span>Decision</span><div class="choice">
-<label><input type="radio" name="decision" value="accepted"${values.decision === 'declined' ? '' : ' checked'}><span><span class="strong">Accept this AI agent</span></span></label>
-<label><input type="radio" name="decision" value="declined"${values.decision === 'declined' ? ' checked' : ''}><span><span class="strong">Send it back</span><span class="hint" style="display:block;margin:2px 0 0">Say what must change in the note.</span></span></label></div></div>
+<label${canAccept ? '' : ' class="off"'}><input type="radio" name="decision" value="accepted"${canAccept ? (pick === 'accepted' ? ' checked' : '') : ' disabled'}><span><span class="strong">Accept this AI agent</span>${canAccept ? '' : `<span class="hint" style="display:block;margin:2px 0 0">Opens once you have reviewed every rule (${prog.done} of ${prog.total} so far).</span>`}</span></label>
+<label><input type="radio" name="decision" value="declined"${pick === 'declined' ? ' checked' : ''}><span><span class="strong">Send it back</span><span class="hint" style="display:block;margin:2px 0 0">Say what must change in the note.</span></span></label></div></div>
 <label class="field"><span>Note <span class="subtle" style="font-weight:400">(optional)</span></span><textarea name="note" maxlength="${MAX_NOTE}" rows="3">${esc(values.note ?? '')}</textarea></label>
 <label class="check" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 16px"><input type="checkbox" name="reuse" value="yes"${values.reuse ? ' checked' : ''}><span><span class="strong">Let ${esc(preparedBy)} reuse what it learned here</span><span class="hint" style="display:block;margin:2px 0 0">Test messages and the shape of the integration, with names, contact details, keys and order data removed, for its other rollouts. Only with “Accept”. Ask ${esc(preparedBy)} to remove it at any time.</span></span></label>
 <button class="btn primary block" data-busy="Saving…">Record my decision</button></form>`;
@@ -103,8 +108,8 @@ export function signoffPage({ csrf, token, preparedBy, client, name, title: agen
 ${sender ? `<p class="subtle" style="margin:-6px 0 16px">Sent by <a href="mailto:${esc(sender)}">${esc(sender)}</a> at ${esc(preparedBy)}</p>` : ''}
 ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : ''}
 ${scan ? `${verdict}<p class="subtle" style="margin:8px 0 12px">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>
-<div class="row-inline" style="gap:8px;flex-wrap:wrap;margin-bottom:24px">${form ? '<a class="btn primary" href="#decide">Decide</a>' : ''}<a class="btn" href="/signoff/${esc(token)}/report.html">Read the full check report</a>${handover ? `<a class="btn" href="/signoff/${esc(token)}/handover">Handover page</a>` : ''}<a class="btn" href="#ask">Ask a question</a></div>
-<style>${SIGNOFF_STYLE}</style>${historySection(history, preparedBy)}` : '<p>There is no check to review yet.</p>'}
+<div class="row-inline" style="gap:8px;flex-wrap:wrap;margin-bottom:24px">${form ? `<a class="btn${canAccept ? ' primary' : ''}" href="#decide">Decide</a>` : ''}<a class="btn" href="/signoff/${esc(token)}/report.html">Read the full check report</a>${handover ? `<a class="btn" href="/signoff/${esc(token)}/handover">Handover page</a>` : ''}<a class="btn" href="#ask">Ask a question</a></div>
+<style>${SIGNOFF_STYLE}</style>${done ? '' : reviewPanel({ token, scan, review })}${historySection(history, preparedBy)}` : '<p>There is no check to review yet.</p>'}
 ${decided}${form ? `<section id="decide" class="signoff-decide"><h2 style="margin:0 0 12px">Your decision</h2>${form}<p class="subtle" style="margin-top:12px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p></section>` : ''}
 ${scan ? questionsSection({ token, csrf, preparedBy, rules: (scan.rules ?? []).map(r => ({ id: String(r.id), title: String(r.title || r.rule || r.id).slice(0, 90) })), questions, qValues, qError, asked }) : ''}
 ${launch ? `<h2 style="margin:28px 0 6px">Launch summary</h2><div class="subtle" style="white-space:pre-wrap">${esc(launch)}</div>` : ''}

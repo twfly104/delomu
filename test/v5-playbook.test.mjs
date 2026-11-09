@@ -47,6 +47,9 @@ async function signOff(v, c, { reuse }) {
   const open = await get(`/signoff/${token}`);
   const text = await open.text();
   assert.match(text, /Let VendorOne reuse what it learned here|reuse what it learned here/);
+  // Accept opens after the client reviewed every rule of the check (src/v3/review.mjs).
+  const rules = scan('x').rules;
+  for (let i = 0; i < rules.length; i++) await post(`/signoff/${token}/review/${i + 1}`, cookiesOf(open)[0], { csrf: csrfOf(text), rule: rules[i].id, state: 'ok', name: 'Dana Lee' });
   return post(`/signoff/${token}`, cookiesOf(open)[0], { csrf: csrfOf(text), name: 'Dana Lee', decision: 'accepted', ...(reuse && { reuse: 'yes' }) });
 }
 

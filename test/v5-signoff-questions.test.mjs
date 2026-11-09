@@ -117,3 +117,34 @@ test('the Test and fix step counts the policy check when it ran last', () => {
   const newerRun = { generatedAt: '2026-11-03T00:00:00.000Z', summary: { verdict: 'accepted', pass: 9, total: 10 } };
   assert.equal(stepStates(dir, { drafts: [], runs: [newerRun], config: {}, scans: [FIRST] }).find(s => s.key === 'fixes').detail, '9/10 passing');
 });
+
+test('the guided review goes rule by rule, a question counts as reviewed, and Accept opens at the end', async () => {
+  const { cookie, dep, dir } = await setup();
+  writeChecks(dir);
+  const page = await (await get(`${dep}/rollout`, cookie)).text();
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
+  const open = await get(`/signoff/${token}`);
+  const summary = await open.text();
+  const c = cookiesOf(open)[0];
+  assert.match(summary, /Start the review: 2 rules/);
+  assert.match(summary, /value="accepted" disabled/);
+
+  const one = await (await get(`/signoff/${token}/review/1`, c)).text();
+  assert.match(one, /Refunds within 30 days/);
+  assert.match(one, /This rule broke in the first check/);
+  assert.equal((await get(`/signoff/${token}/review/3`, c)).status, 404);
+  // Asking without a name is refused; with one, the question is sent and the review moves on.
+  assert.equal((await post(`/signoff/${token}/review/1`, c, { csrf: csrfOf(summary), rule: 'refund', state: 'asked', text: 'Store credit too?' })).status, 400);
+  const asked = await post(`/signoff/${token}/review/1`, c, { csrf: csrfOf(summary), rule: 'refund', state: 'asked', text: 'Store credit too?', name: 'Dana Lee' });
+  assert.equal(asked.headers.get('location'), `/signoff/${token}/review/2`);
+  const two = await (await get(`/signoff/${token}/review/2`, c)).text();
+  assert.doesNotMatch(two, /name="name" required/, 'the name is asked once');
+  const last = await post(`/signoff/${token}/review/2`, c, { csrf: csrfOf(summary), rule: 'handoff', state: 'ok' });
+  assert.equal(last.headers.get('location'), `/signoff/${token}#decide`);
+  const after = await (await get(`/signoff/${token}`, c)).text();
+  assert.match(after, /You reviewed all 2 rules/);
+  assert.match(after, /1 with a question/);
+  assert.doesNotMatch(after, /value="accepted" disabled/);
+  assert.match(await (await get('/', cookie)).text(), /Question from Dana Lee/);
+});

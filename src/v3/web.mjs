@@ -33,6 +33,7 @@ import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg }
 import { activeShares, createShare, deadShare, findShare, isPreviewBot, markOpened, revokeShares } from './shares.mjs';
 import { checkHistory, latestSignoff, recordSignoff, signoffGonePage, signoffPage, signoffs } from './signoff.mjs';
 import { answerQuestion, askQuestion, listQuestions, openQuestions } from './questions.mjs';
+import { markRule, reviewOf, reviewProgress, reviewStepPage } from './review.mjs';
 import { handoverData, handoverPage } from './handover.mjs';
 import { buildQuestionnaire, questionnaireCsv, questionnairePage, saveVendorAnswers } from './questionnaire.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
@@ -1158,7 +1159,7 @@ function routes(ctx) {
     const sender = makerEmail(share);
     const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment, title: config.title ?? '', sender };
     const questions = listQuestions(dir).filter(q => q.shareId === share.id);
-    return { share, org, dir, config, scan, launch, done, view: { ...view, handover: scan ? handoverData(dir, { scan, ...view }) : null, history: checkHistory(dir, scan, { getScan, getFix }), questions } };
+    return { share, org, dir, config, scan, launch, done, view: { ...view, handover: scan ? handoverData(dir, { scan, ...view }) : null, history: checkHistory(dir, scan, { getScan, getFix }), questions, review: reviewOf(dir, share.id) } };
   }
 
   r.add('GET', '/signoff/:token', ({ req, params, url }) => {
@@ -1184,11 +1185,14 @@ function routes(ctx) {
     const c = signoffContext(params.token);
     const form = await readForm(req, ctx.maxBodyBytes);
     requireCsrf(parseCookies(req.headers.cookie)[SIGNOFF_CSRF] ?? '', form);
-    const values = { name: String(form.name ?? '').trim(), decision: form.decision === 'declined' ? 'declined' : 'accepted', note: String(form.note ?? ''), reuse: form.reuse === 'yes' };
+    const values = { name: String(form.name ?? '').trim(), decision: ['accepted', 'declined'].includes(form.decision) ? form.decision : '', note: String(form.note ?? ''), reuse: form.reuse === 'yes' };
     const again = (error, status) => html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, error, values }), status);
     if (c.done || !c.scan) return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done: c.done }), 409);
     if (!signoffLimit(ctx.clientIp(req)).ok) return again('Too many attempts from this network. Try again in a few minutes.', 429);
     if (!values.name) return again('Enter your name so the team knows who decided.', 400);
+    if (!values.decision) return again('Choose whether to accept the agent or send it back.', 400);
+    const prog = reviewProgress(c.view.review, c.scan);
+    if (values.decision === 'accepted' && !prog.complete) return again(`Review every rule before you accept: ${prog.done} of ${prog.total} done so far.`, 400);
     const done = recordSignoff(c.dir, { ...values, scanId: c.scan.id, shareId: c.share.id, ip: ctx.clientIp(req) }, ctx.now());
     recordEvent(db, { orgId: c.share.org_id, actor: `client:${done.name}`, action: `signoff.${done.decision}`, target: c.share.deployment, detail: { scan: c.scan.id, share: c.share.id }, ip: ctx.clientIp(req) }, ctx.now());
     if (values.reuse && done.decision === 'accepted') {
@@ -1199,6 +1203,46 @@ function routes(ctx) {
       } catch (e) { ctx.log(`playbook harvest failed for ${c.share.deployment}: ${e.message}`); }
     }
     return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done }));
+  }, { public: true });
+
+  // The guided review (src/v3/review.mjs): one rule per screen, marked "looks right" or asked about.
+  const stepOf = (c, n) => { const i = Number.parseInt(n, 10); if (!c.scan || !Number.isInteger(i) || i < 1 || i > (c.scan.rules ?? []).length) throw notFound('rule'); return i; };
+  const stepView = (c, n, csrf, extra = {}) => {
+    const rule = c.scan.rules[n - 1];
+    const before = c.scan.recheckOf ? (getScan(c.dir, c.scan.recheckOf)?.rules ?? []).find(r => r.id === rule.id) ?? null : null;
+    return reviewStepPage({ ...c.view, csrf, scan: c.scan, n, before, questions: c.view.questions.filter(q => q.rule === String(rule.id)), ...extra });
+  };
+  r.add('GET', '/signoff/:token/review/:n', ({ req, params }) => {
+    const c = signoffContext(params.token);
+    const n = stepOf(c, params.n);
+    if (!isPreviewBot(req.headers['user-agent'])) markOpened(db, c.share.id, ctx.now());
+    const csrf = randomToken();
+    return html(stepView(c, n, csrf), 200, [cookie(SIGNOFF_CSRF, csrf, { maxAge: 3600, secure: ctx.secureCookies(req), path: '/signoff' })]);
+  }, { public: true });
+  r.add('POST', '/signoff/:token/review/:n', async ({ req, params }) => {
+    const c = signoffContext(params.token);
+    const n = stepOf(c, params.n);
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(parseCookies(req.headers.cookie)[SIGNOFF_CSRF] ?? '', form);
+    const again = (error, status = 400) => html(stepView(c, n, form.csrf, { error }), status);
+    if (c.done) return again('A decision was already recorded on this link.', 409);
+    if (!signoffLimit(ctx.clientIp(req)).ok) return again('Too many attempts from this network. Try again in a few minutes.', 429);
+    const rule = c.scan.rules[n - 1];
+    const name = String(form.name ?? '').trim() || c.view.review.name;
+    if (!name) return again('Enter your name so the team knows who reviewed it.');
+    const state = form.state === 'asked' ? 'asked' : 'ok';
+    if (state === 'asked') {
+      const res = askQuestion(c.dir, { rule: String(rule.id), ruleTitle: String(rule.title || rule.rule || rule.id), text: form.text, name, shareId: c.share.id, scanId: c.scan.id, ip: ctx.clientIp(req) }, ctx.now());
+      if (res.error) return again(res.error);
+      recordEvent(db, { orgId: c.share.org_id, actor: `client:${name}`, action: 'signoff.question', target: c.share.deployment, detail: { question: res.question.id, rule: res.question.rule }, ip: ctx.clientIp(req) }, ctx.now());
+    }
+    const review = markRule(c.dir, { shareId: c.share.id, scanId: c.scan.id, ruleId: String(rule.id), state, name, ip: ctx.clientIp(req) }, ctx.now());
+    const next = reviewProgress(review, c.scan);
+    // Go on to the next rule not yet reviewed after this one; when all are done, back to the decision.
+    const ids = c.scan.rules.map(r => String(r.id));
+    const ahead = ids.findIndex((id, i) => i >= n && !review.rules[id]);
+    const to = next.complete ? `/signoff/${params.token}#decide` : `/signoff/${params.token}/review/${(ahead >= 0 ? ahead : ids.findIndex(id => !review.rules[id])) + 1}`;
+    return new Redirect(to);
   }, { public: true });
 
   // A question from the client's reviewer about one rule, answered by the vendor on the Rollout page.
