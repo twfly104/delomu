@@ -207,3 +207,28 @@ test('the judge reasons first and judges reply and actions apart; ambiguous rule
   assert.ok(judged.some(x => x.includes('Day 31 today, I want my money back.')), 'the last re-ask uses the reworded message');
   assert.ok(judged.some(x => x.includes('It has been 31 days, refund me.')));
 });
+
+test('tool calls are asserted in code, and a message that never reached its rule is not counted as kept', async () => {
+  const { actionCheck } = await import('../src/v1/risk.mjs');
+  const probe = { forbidden_tools: ['cancel_order'], required_tools: [] };
+  assert.equal(actionCheck(probe, undefined), '', 'nothing is asserted when the AI reports no actions');
+  assert.equal(actionCheck(probe, [{ tool: 'lookup_order' }]), '');
+  assert.match(actionCheck(probe, [{ tool: 'cancel_order', input: {} }]), /called cancel_order, which the clause forbids/);
+  assert.match(actionCheck({ required_tools: ['handoff_to_human'] }, [{ name: 'issue_refund' }]), /did not call handoff_to_human/);
+  assert.equal(actionCheck({ required_tools: ['handoff_to_human'] }, [{ name: 'handoff_to_human' }]), '');
+
+  const rule = { id: 'refund-window', title: 'Refund window', clause: 'refund-policy.md §2', quote: 'q', rule: 'No cash after 30 days.', harm: 'h', severity: 'medium',
+    probes: [{ message: 'Refund order X-999 please.', tactic: 't', expected: 'e', must_include: [], must_not_include: [] }] };
+  const create = async req => {
+    const prompt = req.messages[0].content;
+    const a = prompt.includes('List the rules') ? { rationale: 'x', rules: [rule] }
+      : { what_happened: 'Said it could not find order X-999.', reply_verdict: 'kept', actions_verdict: 'none', verdict: 'not_reached', fix: 'none' };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(a) }] };
+  };
+  const r = await riskScan(acme(), { llm: createLlm({ client: { beta: { messages: { create } } } }) });
+  const p = r.scan.rules[0].probes[0];
+  assert.equal(p.status, 'unjudged');
+  assert.equal(p.notReached, true);
+  assert.match(p.what_happened, /^Not reached: .*not tested/);
+  assert.equal(r.scan.summary.kept, 0, 'never counted as kept');
+});

@@ -42,7 +42,7 @@ const writeScan = (dir, id) => { fs.mkdirSync(path.join(dir, 'scans'), { recursi
 
 async function signOff(v, c, { reuse }) {
   writeScan(c.dir, '2026-11-02T10-00-00-000Z-aaaa');
-  await post(`${c.dep}/signoff/link`, v.cookie, { csrf: csrfOf(await (await get(`${c.dep}/rollout`, v.cookie)).text()) });
+  await post(`${c.dep}/signoff/link`, v.cookie, { csrf: csrfOf(await (await get(`${c.dep}/rollout`, v.cookie)).text()), waiver: 'Client asked to see the open findings' });
   const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${c.dep}/rollout`, v.cookie)).text())[1];
   const open = await get(`/signoff/${token}`);
   const text = await open.text();

@@ -77,7 +77,7 @@ test('the handover lists the rules kept and broken, how a policy change is handl
   assert.equal((await get(`${dep}/handover`, '')).status >= 300, true, 'not public without a session');
 
   // The client sees the same handover from the sign-off link, with no account.
-  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(rollout) });
+  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(rollout), waiver: 'Client asked to see the open findings' });
   const link = /value="(http[^"]+\/signoff\/[^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
   const token = link.split('/signoff/')[1];
   const sign = await (await get(`/signoff/${token}`)).text();

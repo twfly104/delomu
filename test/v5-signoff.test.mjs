@@ -33,12 +33,12 @@ test('a client accepts an AI agent from a link, without an account, once', async
   const { cookie, vendor, dep, dir } = await setup();
   let page = await (await get(`${dep}/rollout`, cookie)).text();
   assert.doesNotMatch(page, /signoff\/link/); // no sign-off panel before a check exists
-  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 400);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' })).status, 400);
 
   fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
   page = await (await get(`${dep}/rollout`, cookie)).text();
-  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' })).status, 303);
   const made = await (await get(`${dep}/rollout`, cookie)).text();
   const link = /value="(http[^"]+\/signoff\/[^"]+)"/.exec(made)[1];
   const token = link.split('/signoff/')[1];
@@ -84,7 +84,7 @@ test('revoked links say so and who to ask, without the check; unknown links show
   fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
   const page = await (await get(`${dep}/rollout`, cookie)).text();
-  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' })).status, 303);
   const made = await (await get(`${dep}/rollout`, cookie)).text();
   const token = /\/signoff\/([^"]+)"/.exec(made)[1];
   assert.equal((await get(`/signoff/${token}`)).status, 200);
@@ -106,7 +106,7 @@ test('the vendor sees when the client opened the link; chat link previews do not
   fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
   let page = await (await get(`${dep}/rollout`, cookie)).text();
   assert.match(page, /broke 1 of 2 rules/, 'before a link: says the check broke rules');
-  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) });
+  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' });
   page = await (await get(`${dep}/rollout`, cookie)).text();
   assert.match(page, /data-copy hidden/, 'a copy button, shown only when JS runs');
   const token = /\/signoff\/([^"]+)"/.exec(page)[1];
@@ -125,7 +125,7 @@ test('the client sees the ask, the sender and the decision before the handover d
   fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
   const page = await (await get(`${dep}/rollout`, cookie)).text();
-  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) });
+  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' });
   const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
   const text = await (await get(`/signoff/${token}`)).text();
   assert.match(text, /Sent by <a href="mailto:fde[\d.]+@sign\.test">/);
@@ -148,7 +148,7 @@ test('a check that kept every rule offers the client sign-off as the next step',
   let page = await (await get(`${dep}/scan`, cookie)).text();
   assert.match(page, /Ready for .* sign-off/);
   assert.match(page, /signoff\/link"/);
-  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' })).status, 303);
   page = await (await get(`${dep}/scan`, cookie)).text();
   assert.match(page, /A sign-off link is out \(1 open\)/);
   assert.doesNotMatch(page, /Create the sign-off link/);

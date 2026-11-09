@@ -48,7 +48,7 @@ test('the client asks about one rule, the vendor answers on the Rollout page, th
   const { cookie, dep, dir } = await setup();
   writeChecks(dir);
   let page = await (await get(`${dep}/rollout`, cookie)).text();
-  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' })).status, 303);
   const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
 
   const open = await get(`/signoff/${token}`);
@@ -122,7 +122,7 @@ test('the guided review goes rule by rule, a question counts as reviewed, and Ac
   const { cookie, dep, dir } = await setup();
   writeChecks(dir);
   const page = await (await get(`${dep}/rollout`, cookie)).text();
-  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Client asked to see the open findings' })).status, 303);
   const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
   const open = await get(`/signoff/${token}`);
   const summary = await open.text();
@@ -147,4 +147,21 @@ test('the guided review goes rule by rule, a question counts as reviewed, and Ac
   assert.match(after, /1 with a question/);
   assert.doesNotMatch(after, /value="accepted" disabled/);
   assert.match(await (await get('/', cookie)).text(), /Question from Dana Lee/);
+});
+
+test('a broken high-risk rule blocks the sign-off link unless the vendor writes why; the client sees the reason', async () => {
+  const { cookie, dep, dir } = await setup();
+  fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'scans', `${FIRST.id}.json`), JSON.stringify(FIRST));
+  const page = await (await get(`${dep}/rollout`, cookie)).text();
+  assert.match(page, /Send anyway, with a reason/);
+  const blocked = await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) });
+  assert.equal(blocked.status, 400);
+  assert.match(await blocked.text(), /Blocked: 1 high-risk rule is still broken \(Refunds within 30 days\)/);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page), waiver: 'Acme legal wants to <b>see</b> the open finding first' })).status, 303);
+  const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
+  const client = await (await get(`/signoff/${token}`)).text();
+  assert.match(client, /Sent while 1 high-risk rule was still broken/);
+  assert.match(client, /Acme legal wants to &lt;b&gt;see&lt;\/b&gt; the open finding first/);
+  assert.ok(readAudit(dir).some(e => e.action === 'signoff.link' && e.detail.waiver));
 });

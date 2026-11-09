@@ -35,6 +35,7 @@ import { activeShares, createShare, deadShare, findShare, isPreviewBot, markOpen
 import { checkHistory, latestSignoff, recordSignoff, signoffGonePage, signoffPage, signoffs } from './signoff.mjs';
 import { answerQuestion, askQuestion, listQuestions, openQuestions } from './questions.mjs';
 import { markRule, reviewOf, reviewProgress, reviewStepPage } from './review.mjs';
+import { highRiskBroken, saveWaiver, waiverFor } from './waivers.mjs';
 import { handoverData, handoverPage } from './handover.mjs';
 import { buildQuestionnaire, questionnaireCsv, questionnairePage, saveVendorAnswers } from './questionnaire.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
@@ -1118,13 +1119,20 @@ function routes(ctx) {
   // Client sign-off (src/v3/signoff.mjs): a link to the latest check, shown once, that the client opens without
   // an account to accept the AI agent or send it back.
   r.add('POST', '/orgs/:org/deployments/:name/signoff/link', async ({ req, principal, params }) => {
-    requireCsrf(principal, await readForm(req, ctx.maxBodyBytes));
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
     const { org } = access(ctx, principal, params.org, 'deployments:write');
     const { dir } = deploymentFor(ctx, org.id, params.name);
     const scan = listScans(dir)[0];
     if (!scan) return showRollout(principal, params, null, { error: 'Run the policy check first: the client signs off on a check.' }, 400);
+    // A release gate on must-pass rules (Sierra, Decagon, Hamming gate releases the same way): a check with a broken
+    // high-risk rule goes to the client only with a written reason, which the client sees and the audit log keeps.
+    const blocking = highRiskBroken(scan);
+    const waiver = String(form.waiver ?? '').trim().slice(0, 1000);
+    if (blocking.length && !waiver) return showRollout(principal, params, null, { error: `Blocked: ${blocking.length} high-risk rule${blocking.length === 1 ? ' is' : 's are'} still broken (${blocking.join('; ')}). Fix ${blocking.length === 1 ? 'it' : 'them'} and re-check, or write why the client should see this check now.` }, 400);
     const { token, share } = createShare(db, { orgId: org.id, deployment: params.name, purpose: 'signoff', subject: scan.id, createdBy: principal.actor }, ctx.now());
-    appendAudit(dir, { actor: principal.actor, action: 'signoff.link', target: scan.id, detail: { share: share.id, expires: share.expires_at } }, ctx.now());
+    if (blocking.length) saveWaiver(dir, share.id, { reason: waiver, by: principal.actor, rules: blocking, scanId: scan.id }, ctx.now());
+    appendAudit(dir, { actor: principal.actor, action: 'signoff.link', target: scan.id, detail: { share: share.id, expires: share.expires_at, ...(blocking.length ? { waiver, broken: blocking } : {}) } }, ctx.now());
     event(ctx, principal, org.id, 'signoff.link', params.name, { scan: scan.id, share: share.id });
     // Show the link once on the next page load, so reloading the page does not make another link.
     freshLinks.set(principal.token, `${returnBase(req)}/signoff/${token}`);
@@ -1163,7 +1171,7 @@ function routes(ctx) {
     const done = signoffs(dir).find(s => s.shareId === share.id) ?? null;
     const scan = getScan(dir, share.subject);
     const sender = makerEmail(share);
-    const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment, title: config.title ?? '', sender };
+    const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment, title: config.title ?? '', sender, waiver: waiverFor(dir, share.id) };
     const questions = listQuestions(dir).filter(q => q.shareId === share.id);
     return { share, org, dir, config, scan, launch, done, view: { ...view, handover: scan ? handoverData(dir, { scan, ...view }) : null, history: checkHistory(dir, scan, { getScan, getFix }), questions, review: reviewOf(dir, share.id) } };
   }

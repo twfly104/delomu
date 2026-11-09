@@ -58,6 +58,8 @@ export const commands = [
         console.log(`  ${bad ? 'BROKEN' : 'kept  '}  [${rule.severity}] ${rule.clause}: ${rule.rule}`);
       }
       console.log(`Probes drafted for the test set: ${r.draft.id}. Review with: delomu review ${dir} ${r.draft.id} approve|reject --by NAME`);
+      // A CI gate on must-pass rules: a broken high-risk rule fails the step (exit 3), so a pipeline stops here.
+      if (s.highRiskBroken) { console.log(`GATE: ${s.highRiskBroken} high-risk rule${s.highRiskBroken === 1 ? '' : 's'} broken; exit 3.`); return 3; }
       return 0;
     },
   },
