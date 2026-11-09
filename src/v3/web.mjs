@@ -29,8 +29,8 @@ import { approveFix, draftFix, getFix, instructionsTarget, revertFix, undoIfWors
 import { renderScanReport } from './scan-report.mjs';
 import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg } from './accounts.mjs';
-import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
-import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
+import { activeShares, createShare, deadShare, findShare, isPreviewBot, markOpened, revokeShares } from './shares.mjs';
+import { latestSignoff, recordSignoff, signoffGonePage, signoffPage, signoffs } from './signoff.mjs';
 import { handoverData, handoverPage } from './handover.mjs';
 import { buildQuestionnaire, questionnaireCsv, questionnairePage, saveVendorAnswers } from './questionnaire.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
@@ -125,6 +125,10 @@ const NOTICES = {
 
 class Redirect {
   constructor(location, cookies = []) { this.location = location; this.cookies = cookies; }
+}
+// Thrown from a helper deep in a handler to answer with this page instead (e.g. a closed sign-off link).
+class Responded {
+  constructor(out) { this.out = out; }
 }
 
 const html = (body, status = 200, cookies = []) => ({ status, body, cookies });
@@ -1001,7 +1005,10 @@ function routes(ctx) {
     const fresh = freshLinks.get(principal.token);
     freshLinks.delete(principal.token);
     const job = rollouts.get(ws.dir);
-    const signoff = { latest: latestSignoff(ws.dir), active: activeShares(db, ws.org.id, params.name, 'signoff', ctx.now()).length, link: extra.link ?? fresh };
+    const open = activeShares(db, ws.org.id, params.name, 'signoff', ctx.now());
+    // The newest time any open link was opened by a person (preview bots are not counted).
+    const opened = open.map(x => x.last_opened_at).filter(Boolean).sort().at(-1) ?? null;
+    const signoff = { latest: latestSignoff(ws.dir), active: open.length, opened, link: extra.link ?? fresh };
     const owner = playbookOwner(ws.org);
     const playbook = { stats: playbookStats(ctx.deploymentsRoot, owner), consent: consentOf(ws.dir), contributed: contributed(ctx.deploymentsRoot, ctx.pepper, owner, ws.dir), vendor: ws.org.partner_org_id ? getOrg(db, ws.org.partner_org_id)?.name : ws.org.name };
     const tags = [...new Set(readInterventions(ws.dir).map(i => i.tag))].slice(0, 30);
@@ -1117,7 +1124,15 @@ function routes(ctx) {
   // The link's deployment and what the page shows, or a 404 for an unknown, expired or revoked link.
   function signoffContext(token) {
     const share = findShare(db, token, 'signoff', ctx.now());
-    if (!share) throw notFound('sign-off link');
+    if (!share) {
+      // A revoked or expired link says so and names who to ask; an unknown one stays a plain 404.
+      const dead = deadShare(db, token, 'signoff', ctx.now());
+      if (!dead) throw notFound('sign-off link');
+      const org = getOrg(db, dead.share.org_id);
+      const vendor = org?.partner_org_id ? getOrg(db, org.partner_org_id) : null;
+      const contact = /^human:([^@\s]+@[^@\s]+)$/.exec(dead.share.created_by ?? '')?.[1] ?? '';
+      throw new Responded(html(signoffGonePage({ reason: dead.reason, preparedBy: (vendor ?? org)?.name ?? 'the team', client: vendor ? org.name : '', contact }), 410));
+    }
     const org = getOrg(db, share.org_id);
     const vendor = org?.partner_org_id ? getOrg(db, org.partner_org_id) : null;
     const { dir } = deploymentFor(ctx, share.org_id, share.deployment);
@@ -1132,6 +1147,7 @@ function routes(ctx) {
 
   r.add('GET', '/signoff/:token', ({ req, params }) => {
     const c = signoffContext(params.token);
+    if (!isPreviewBot(req.headers['user-agent'])) markOpened(db, c.share.id, ctx.now());
     const csrf = randomToken();
     return html(signoffPage({ ...c.view, csrf, scan: c.scan, launch: c.launch, done: c.done }), 200, [cookie(SIGNOFF_CSRF, csrf, { maxAge: 3600, secure: ctx.secureCookies(req), path: '/signoff' })]);
   }, { public: true });
@@ -1786,6 +1802,7 @@ export function createWebHandler(ctx) {
       }
       respond(res, await found.handler({ req, url, principal, params: found.params }));
     } catch (e) {
+      if (e instanceof Responded) return respond(res, e.out);
       const err = e instanceof ApiError ? e : new ApiError('api_error', 'Something went wrong on the server.');
       if (!(e instanceof ApiError)) ctx.log(`unexpected error: ${e.stack ?? e}`);
       let nav;

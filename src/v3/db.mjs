@@ -182,6 +182,10 @@ const MIGRATIONS = [
      note TEXT NOT NULL DEFAULT '',
      created_at TEXT NOT NULL
    );`,
+  // When a shared link was first and last opened by a person, so the vendor sees whether the client has looked.
+  `ALTER TABLE share_links ADD COLUMN first_opened_at TEXT;
+   ALTER TABLE share_links ADD COLUMN last_opened_at TEXT;
+   ALTER TABLE share_links ADD COLUMN opens INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export function openDb(dataDir) {

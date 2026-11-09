@@ -29,6 +29,27 @@ export function findShare(db, token, purpose, now = new Date()) {
   return row;
 }
 
+// Why a token no longer opens anything: 'revoked', 'expired', or null when it never existed (or is live). Lets the
+// page a client lands on say what happened and who to ask, instead of a bare 404.
+export function deadShare(db, token, purpose, now = new Date()) {
+  if (typeof token !== 'string' || token.length < 20 || token.length > 100) return null;
+  const row = db.prepare('SELECT * FROM share_links WHERE token_hash = ? AND purpose = ?').get(sha256(token), purpose);
+  if (!row) return null;
+  if (row.revoked_at) return { reason: 'revoked', share: row };
+  if (row.expires_at && row.expires_at <= now.toISOString()) return { reason: 'expired', share: row };
+  return null;
+}
+
+// Link-preview bots (chat apps unfurling a pasted link) fetch the page too; they are not the client opening it.
+const PREVIEW_BOT = /bot|slack|facebookexternalhit|whatsapp|telegram|discord|skypeuripreview|teams|linkedin|embedly|preview|crawler|spider/i;
+export const isPreviewBot = userAgent => !userAgent || PREVIEW_BOT.test(String(userAgent));
+
+// Records that a person opened the link. Returns the updated counts.
+export function markOpened(db, shareId, now = new Date()) {
+  const at = now.toISOString();
+  db.prepare('UPDATE share_links SET first_opened_at = COALESCE(first_opened_at, ?), last_opened_at = ?, opens = opens + 1 WHERE id = ?').run(at, at, shareId);
+}
+
 export const activeShares = (db, orgId, deployment, purpose, now = new Date()) => db.prepare(
   'SELECT * FROM share_links WHERE org_id = ? AND deployment = ? AND purpose = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?) ORDER BY created_at DESC',
 ).all(orgId, deployment, purpose, now.toISOString());

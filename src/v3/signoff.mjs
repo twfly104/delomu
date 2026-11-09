@@ -62,3 +62,19 @@ ${decided}${form}
 </div>`,
   });
 }
+
+// What a client sees on a sign-off link that was revoked or has expired: what happened and who to ask, never a
+// bare 404. reason: 'revoked' | 'expired'. contact: the email of the person who made the link, when known.
+export function signoffGonePage({ reason, preparedBy, client, contact = '' }) {
+  const what = reason === 'revoked' ? `${preparedBy} replaced or withdrew this link` : 'This link has expired';
+  const ask = contact ? `<a href="mailto:${esc(contact)}">${esc(contact)}</a> at ${esc(preparedBy)}` : esc(preparedBy);
+  return layout({
+    title: 'Sign-off link closed',
+    body: `<div class="auth-card" style="max-width:520px">
+<span class="brand">${mark(26, 'm-sign')}<span>Grapim</span></span>
+<h1>${esc(what)}.</h1>
+<p class="lede">It opened the review of ${esc(preparedBy)}’s AI agent${client ? ` for ${esc(client)}` : ''}. Sign-off links close when they are withdrawn or after 30 days, so an old link cannot be used to sign off on an out-of-date check.</p>
+<p>Ask ${ask} for a new link.</p>
+</div>`,
+  });
+}

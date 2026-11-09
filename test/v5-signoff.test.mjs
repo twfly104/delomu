@@ -68,7 +68,7 @@ test('a client accepts an AI agent from a link, without an account, once', async
   assert.match(await (await get(vendor, cookie)).text(), /Client accepted/);
 });
 
-test('revoked and unknown links show nothing', async () => {
+test('revoked links say so and who to ask, without the check; unknown links show nothing', async () => {
   const { cookie, dep, dir } = await setup();
   fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
@@ -78,6 +78,33 @@ test('revoked and unknown links show nothing', async () => {
   const token = /\/signoff\/([^"]+)"/.exec(made)[1];
   assert.equal((await get(`/signoff/${token}`)).status, 200);
   assert.equal((await post(`${dep}/signoff/revoke`, cookie, { csrf: csrfOf(page) })).status, 303);
-  assert.equal((await get(`/signoff/${token}`)).status, 404);
+  const gone = await get(`/signoff/${token}`);
+  assert.equal(gone.status, 410);
+  const goneText = await gone.text();
+  assert.match(goneText, /VendorCo replaced or withdrew this link/);
+  assert.match(goneText, /mailto:fde[\d.]+@sign\.test/);
+  assert.doesNotMatch(goneText, /policy rules broken|name="decision"/);
+  assert.equal((await get(`/signoff/${token}/report.html`)).status, 410);
+  assert.equal((await post(`/signoff/${token}`, '', { csrf: 'x', name: 'Eve', decision: 'accepted' })).status, 410);
   assert.equal((await get('/signoff/not-a-real-token-but-long-enough')).status, 404);
+});
+
+test('the vendor sees when the client opened the link; chat link previews do not count', async () => {
+  const { cookie, dep, dir } = await setup();
+  fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
+  let page = await (await get(`${dep}/rollout`, cookie)).text();
+  assert.match(page, /broke 1 of 2 rules/, 'before a link: says the check broke rules');
+  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) });
+  page = await (await get(`${dep}/rollout`, cookie)).text();
+  assert.match(page, /data-copy hidden/, 'a copy button, shown only when JS runs');
+  const token = /\/signoff\/([^"]+)"/.exec(page)[1];
+  page = await (await get(`${dep}/rollout`, cookie)).text();
+  assert.match(page, /Not opened yet/);
+  await fetch(`${srv.base}/signoff/${token}`, { headers: { 'user-agent': 'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)' } });
+  assert.match(await (await get(`${dep}/rollout`, cookie)).text(), /Not opened yet/);
+  await fetch(`${srv.base}/signoff/${token}`, { headers: { 'user-agent': 'Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/131.0 Safari/537.36' } });
+  page = await (await get(`${dep}/rollout`, cookie)).text();
+  assert.match(page, /Opened (just now|\d+ (s|sec|min)[^<]*ago)/);
+  assert.match(page, /Waiting for the client’s decision · 1 open link/);
 });
