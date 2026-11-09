@@ -36,6 +36,7 @@ import { checkHistory, latestSignoff, recordSignoff, signoffGonePage, signoffPag
 import { answerQuestion, askQuestion, listQuestions, openQuestions } from './questions.mjs';
 import { markRule, reviewOf, reviewProgress, reviewStepPage } from './review.mjs';
 import { highRiskBroken, saveWaiver, waiverFor } from './waivers.mjs';
+import { recordSpot, spotSample, spotsFor } from './spotcheck.mjs';
 import { handoverData, handoverPage } from './handover.mjs';
 import { buildQuestionnaire, questionnaireCsv, questionnairePage, saveVendorAnswers } from './questionnaire.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
@@ -780,7 +781,7 @@ function routes(ctx) {
   r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => {
     const ws = workspace(principal, params, 'runs:read', url);
     const job = scans.get(ws.dir);
-    const fixArgs = { fix: getFix(ws.dir), fixTarget: instructionsTarget(ws.config) };
+    const fixArgs = { fix: getFix(ws.dir), fixTarget: instructionsTarget(ws.config), spots: ws.ov.scans[0] ? spotsFor(ws.dir, ws.ov.scans[0].id) : {} };
     if (job?.status === 'running') return html(riskScanPage({ ...ws, ...fixArgs, job, outline: job.progress?.phase === 'rules' ? policyOutline(ws.dir) : null }));
     if (job) scans.delete(ws.dir);
     if (job?.status === 'failed') return html(riskScanPage({ ...ws, ...fixArgs, flash: '', error: job.error }));
@@ -1335,6 +1336,22 @@ function routes(ctx) {
     }
     event(ctx, principal, org.id, 'verdict.override', `${params.name}/${params.scan}`, { rule: String(form.rule ?? ''), status: String(form.status ?? '') });
     return new Redirect(`${depPath(org, params.name)}/scan?notice=verdict#r-${encodeURIComponent(String(form.rule ?? ''))}`);
+  });
+
+  // The judge spot-check (src/v3/spotcheck.mjs): a person reviews a random kept answer; "wrong" also overrides it.
+  r.add('POST', '/orgs/:org/deployments/:name/scans/:scan/spot', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const scan = getScan(dir, params.scan);
+    const item = scan && spotSample(scan).find(x => x.key === String(form.key ?? ''));
+    if (!item) throw new ApiError('invalid_request_error', 'That answer is not in this check’s spot-check.');
+    const agree = form.agree === 'yes';
+    if (!agree) setOverride(dir, { scanId: scan.id, ruleId: item.rule.id, index: item.index, status: 'broken', note: 'Spot-check: the judge was wrong', actor: principal.actor, now: ctx.now() });
+    recordSpot(dir, { scanId: scan.id, key: item.key, agree, actor: principal.actor }, ctx.now());
+    event(ctx, principal, org.id, 'judge.spotcheck', `${params.name}/${params.scan}`, { answer: item.key, agree });
+    return new Redirect(`${depPath(org, params.name)}/scan#spot`);
   });
 
   // When a re-check came out worse: put back the instructions from before the fix, then check again.

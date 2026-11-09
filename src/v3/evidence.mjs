@@ -15,6 +15,7 @@ import { listConversations, liveDir } from '../v1/live.mjs';
 import { listScans } from '../v1/risk.mjs';
 import { signoffs } from './signoff.mjs';
 import { policyFingerprint } from '../v1/policies.mjs';
+import { spotRecord } from './spotcheck.mjs';
 
 const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 90;
@@ -178,7 +179,7 @@ export function buildEvidence(dir, { from, to, now = new Date() }) {
   const last = audit.entries.at(-1);
   return {
     range: { from, to }, generatedAt: now.toISOString(),
-    checks, rechecks, fixes: fixEvents, timeToFix, live, signoffs: signed, ruleTexts, judge: judgeRecord(scans),
+    checks, rechecks, fixes: fixEvents, timeToFix, live, signoffs: signed, ruleTexts, judge: { ...judgeRecord(scans), spot: spotRecord(dir, scans.map(x => x.id)) },
     // The policy files as they are now, and whether the latest check ran on that same version.
     policy: (() => { const fp = policyFingerprint(dir); const latest = all[0]; return fp ? { fingerprint: fp, checkedOnIt: Boolean(latest?.policyHash) && latest.policyHash === fp } : null; })(),
     audit: {
@@ -247,7 +248,8 @@ export function judgeRecord(scans) {
 function judgeSection(j) {
   if (!j?.judged) return '<p class="empty">No judged answers in this period.</p>';
   return `<p class="num">The AI judge gave <b>${j.judged}</b> verdicts in this period. People reviewed the findings and changed <b>${j.overturned}</b>${j.overturned ? `: ${j.falseAlarms} judged broken that a person marked kept, ${j.misses} judged kept that a person marked broken` : ''}.</p>
-${src('verdicts in the checks above and the overrides recorded against them, each with who changed it and when. People look mostly at broken findings, so this is a floor on the judge’s errors, not a measured accuracy.')}`;
+${src('verdicts in the checks above and the overrides recorded against them, each with who changed it and when. People look mostly at broken findings, so this is a floor on the judge’s errors, not a measured accuracy.')}
+${j.spot?.reviewed ? `<p class="num" style="margin-top:12px"><b>Random spot-check:</b> people reviewed <b>${j.spot.reviewed}</b> answers the judge marked kept, picked at random, and found <b>${j.spot.wrong}</b> that actually broke the rule (${Math.round(100 * j.spot.wrong / j.spot.reviewed)}% of the sample). A sample this size gives a rough rate, not a precise one.</p>${src('<code>spotchecks.json</code>: the answers each check offered at random, and each person’s mark.')}` : '<p class="src">No random spot-check of kept answers yet. It is offered on each check’s results page.</p>'}`;
 }
 
 function signoffSection(list, checkRef) {

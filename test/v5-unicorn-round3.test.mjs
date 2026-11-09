@@ -54,3 +54,19 @@ test('a signed-off rollout says how many days it took from adding the client', (
   assert.equal(st.days, 3);
   assert.match(st.why, /3 days after the client was added/);
 });
+
+test('the judge spot-check picks kept answers at random, stays fixed per check, and counts what people found', async () => {
+  const fs = await import('node:fs'); const os = await import('node:os'); const path = await import('node:path');
+  const { spotSample, recordSpot, spotRecord, spotsFor } = await import('../src/v3/spotcheck.mjs');
+  const probes = n => Array.from({ length: n }, (_, i) => ({ message: `m${i}`, answer: 'a', status: i === 0 ? 'broken' : 'kept' }));
+  const scan = { id: 'c1', rules: [{ id: 'r1', probes: probes(4) }, { id: 'r2', probes: probes(4) }] };
+  const sample = spotSample(scan);
+  assert.equal(sample.length, 5);
+  assert.ok(sample.every(x => x.probe.status === 'kept'), 'only kept answers');
+  assert.deepEqual(spotSample(scan).map(x => x.key), sample.map(x => x.key), 'the same sample on every reload');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grapim-spot-'));
+  recordSpot(dir, { scanId: 'c1', key: sample[0].key, agree: true, actor: 'human:a' });
+  recordSpot(dir, { scanId: 'c1', key: sample[1].key, agree: false, actor: 'human:a' });
+  assert.deepEqual(spotRecord(dir, ['c1']), { reviewed: 2, wrong: 1 });
+  assert.equal(spotsFor(dir, 'c1')[sample[1].key].agree, false);
+});
