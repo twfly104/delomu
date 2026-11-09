@@ -108,3 +108,23 @@ test('the vendor sees when the client opened the link; chat link previews do not
   assert.match(page, /Opened (just now|\d+ (s|sec|min)[^<]*ago)/);
   assert.match(page, /Waiting for the client’s decision · 1 open link/);
 });
+
+test('the client sees the ask, the sender and the decision before the handover detail', async () => {
+  const { cookie, dep, dir } = await setup();
+  fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
+  const page = await (await get(`${dep}/rollout`, cookie)).text();
+  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) });
+  const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
+  const text = await (await get(`/signoff/${token}`)).text();
+  assert.match(text, /Sent by <a href="mailto:fde[\d.]+@sign\.test">/);
+  assert.match(text, /href="#decide"/);
+  const decide = text.indexOf('id="decide"');
+  assert.ok(decide > 0 && decide < text.indexOf('The rules this agent keeps'), 'the decision comes before the handover detail');
+});
+
+test('possessives read right for names ending in s', async () => {
+  const { possessive } = await import('../src/v3/html.mjs');
+  assert.equal(possessive('Northwind Agents'), 'Northwind Agents’');
+  assert.equal(possessive('Linden'), 'Linden’s');
+});

@@ -1122,6 +1122,8 @@ function routes(ctx) {
   const SIGNOFF_CSRF = 'delomu_signoff_csrf';
   const signoffLimit = createRateLimiter({ capacity: 10, refillPerSec: 1 / 60 });
   // The link's deployment and what the page shows, or a 404 for an unknown, expired or revoked link.
+  // The email of the person who made a link, shown to the client as who sent it and who to ask.
+  const makerEmail = share => /^human:([^@\s]+@[^@\s]+)$/.exec(share.created_by ?? '')?.[1] ?? '';
   function signoffContext(token) {
     const share = findShare(db, token, 'signoff', ctx.now());
     if (!share) {
@@ -1130,8 +1132,7 @@ function routes(ctx) {
       if (!dead) throw notFound('sign-off link');
       const org = getOrg(db, dead.share.org_id);
       const vendor = org?.partner_org_id ? getOrg(db, org.partner_org_id) : null;
-      const contact = /^human:([^@\s]+@[^@\s]+)$/.exec(dead.share.created_by ?? '')?.[1] ?? '';
-      throw new Responded(html(signoffGonePage({ reason: dead.reason, preparedBy: (vendor ?? org)?.name ?? 'the team', client: vendor ? org.name : '', contact }), 410));
+      throw new Responded(html(signoffGonePage({ reason: dead.reason, preparedBy: (vendor ?? org)?.name ?? 'the team', client: vendor ? org.name : '', contact: makerEmail(dead.share) }), 410));
     }
     const org = getOrg(db, share.org_id);
     const vendor = org?.partner_org_id ? getOrg(db, org.partner_org_id) : null;
@@ -1141,7 +1142,8 @@ function routes(ctx) {
     const launch = fs.existsSync(path.join(dir, 'launch-summary.md')) ? fs.readFileSync(path.join(dir, 'launch-summary.md'), 'utf8').slice(0, 8000) : '';
     const done = signoffs(dir).find(s => s.shareId === share.id) ?? null;
     const scan = getScan(dir, share.subject);
-    const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment };
+    const sender = makerEmail(share);
+    const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment, sender };
     return { share, org, dir, config, scan, launch, done, view: { ...view, handover: scan ? handoverData(dir, { scan, ...view }) : null } };
   }
 

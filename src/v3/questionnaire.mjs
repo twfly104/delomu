@@ -12,7 +12,7 @@ import { listScans } from '../v1/risk.mjs';
 import { getLiveSettings, countConversations } from '../v1/live.mjs';
 import { monitorSettings } from './monitoring.mjs';
 import { latestSignoff } from './signoff.mjs';
-import { layout, mark } from './html.mjs';
+import { layout, mark, possessive } from './html.mjs';
 
 const file = dir => path.join(dir, 'questionnaire.json');
 const MAX_ANSWER = 2000;
@@ -113,7 +113,7 @@ ${canEdit ? `<form method="post" action="${esc(action)}" class="qn-form"><input 
 <div class="auth-card qn-wrap" style="max-width:760px">
 <span class="brand">${mark(26, 'm-qn')}<span>Grapim</span></span>
 <h1>Security and AI questionnaire</h1>
-<p class="lede">${esc(preparedBy)}’s AI agent${client ? ` for ${esc(client)}` : ''}. ${filled} answers come from this agent’s own records; ${open ? `${open} still need${open === 1 ? 's' : ''} ${esc(preparedBy)}’s answer` : `the vendor questions are answered`}.</p>
+<p class="lede">${esc(possessive(preparedBy))} AI agent${client ? ` for ${esc(client)}` : ''}. ${filled} answers come from this agent’s own records; ${open ? `${open} still need${open === 1 ? 's' : ''} ${esc(preparedBy)}’s answer` : `the vendor questions are answered`}.</p>
 ${saved ? '<div class="notice good" role="status"><span>Answers saved.</span></div>' : ''}
 <p class="no-print" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><a class="btn primary" href="${esc(action)}.csv">Download as a spreadsheet (CSV)</a>${back ? `<a class="btn" href="${esc(back)}">Back</a>` : ''}</p>
 ${[...group].map(block).join('\n')}

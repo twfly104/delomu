@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { esc } from '../report.mjs';
-import { layout, mark } from './html.mjs';
+import { layout, mark, possessive } from './html.mjs';
 import { listScans } from '../v1/risk.mjs';
 import { monitorSettings } from './monitoring.mjs';
 
@@ -64,7 +64,7 @@ export function handoverPage(data, { back = '' } = {}) {
     title: `Handover · ${data.name}`,
     body: `<style>${HANDOVER_STYLE}</style><div class="auth-card" style="max-width:720px">
 <span class="brand">${mark(26, 'm-ho')}<span>Grapim</span></span>
-<h1>${esc(data.preparedBy)}’s AI agent${data.client ? ` for ${esc(data.client)}` : ''}</h1>
+<h1>${esc(possessive(data.preparedBy))} AI agent${data.client ? ` for ${esc(data.client)}` : ''}</h1>
 <p class="lede">What the agent keeps to, and what happens when your policies change. Prepared by ${esc(data.preparedBy)} with Grapim.</p>
 ${handoverSection(data)}
 <p class="no-print" style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">${back ? `<a class="btn" href="${esc(back)}">Back</a>` : ''}<span class="subtle">Use your browser’s Print to save it as a PDF.</span></p>

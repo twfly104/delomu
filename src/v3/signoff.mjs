@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { appendAudit } from '../core/audit.mjs';
 import { esc } from '../report.mjs';
-import { layout, mark } from './html.mjs';
+import { layout, mark, possessive } from './html.mjs';
 import { handoverSection, HANDOVER_STYLE } from './handover.mjs';
 
 const file = dir => path.join(dir, 'signoff.json');
@@ -32,7 +32,7 @@ export function recordSignoff(dir, { decision, name, note = '', scanId, shareId,
 }
 
 // The page the client sees. scan: the check the link was made for; done: a decision already given on this link.
-export function signoffPage({ csrf, token, preparedBy, client, name, scan, launch, done, error, values = {}, handover = null }) {
+export function signoffPage({ csrf, token, preparedBy, client, name, scan, launch, done, error, values = {}, handover = null, sender = '' }) {
   const s = scan?.summary;
   const verdict = !s ? '' : s.broken
     ? `<div class="notice" role="status"><span>The check found <span class="strong">${s.broken} of ${s.rules} policy rules broken</span>. Read the findings before you accept.</span></div>`
@@ -46,19 +46,20 @@ export function signoffPage({ csrf, token, preparedBy, client, name, scan, launc
 <label class="field"><span>Note <span class="subtle" style="font-weight:400">(optional)</span></span><textarea name="note" maxlength="${MAX_NOTE}" rows="3">${esc(values.note ?? '')}</textarea></label>
 <label class="check" style="display:flex;gap:8px;align-items:flex-start;margin:0 0 16px"><input type="checkbox" name="reuse" value="yes"${values.reuse ? ' checked' : ''}><span><span class="strong">Let ${esc(preparedBy)} reuse what it learned here</span><span class="hint" style="display:block;margin:2px 0 0">Test messages and the shape of the integration, with names, contact details, keys and order data removed, for its other rollouts. Only with “Accept”. Ask ${esc(preparedBy)} to remove it at any time.</span></span></label>
 <button class="btn primary block" data-busy="Saving…">Record my decision</button></form>`;
+  // The ask and the decision come first; the handover detail (what to keep) follows the form.
   return layout({
     title: `Sign off ${name}`,
     body: `<div class="auth-card" style="max-width:640px">
 <span class="brand">${mark(26, 'm-sign')}<span>Grapim</span></span>
-<h1>Accept ${esc(preparedBy)}’s AI agent${client ? ` for ${esc(client)}` : ''}?</h1>
+<h1>Accept ${esc(possessive(preparedBy))} AI agent${client ? ` for ${esc(client)}` : ''}?</h1>
 <p class="lede">${esc(preparedBy)} asks you to review this AI agent before it goes live. Grapim tested it against your own policies and judged every answer against the exact clause.</p>
+${sender ? `<p class="subtle" style="margin:-6px 0 16px">Sent by <a href="mailto:${esc(sender)}">${esc(sender)}</a> at ${esc(preparedBy)}</p>` : ''}
 ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : ''}
-${scan ? `${verdict}<p><a class="btn block" href="/signoff/${esc(token)}/report.html">Read the full check report</a></p>
-<p class="subtle">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>` : '<p>There is no check to review yet.</p>'}
-${launch ? `<h2 style="margin:20px 0 6px">Launch summary</h2><div class="subtle" style="white-space:pre-wrap">${esc(launch)}</div>` : ''}
-${handover && scan ? `<style>${HANDOVER_STYLE}</style>${handoverSection(handover)}<p style="margin:16px 0 28px"><a class="btn block" href="/signoff/${esc(token)}/handover">Open the handover page to keep</a></p>` : ''}
-${decided}${form}
-<p class="subtle" style="margin-top:16px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p>
+${scan ? `${verdict}<p class="subtle" style="margin:8px 0 12px">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>
+<div class="row-inline" style="gap:8px;flex-wrap:wrap;margin-bottom:24px">${form ? '<a class="btn primary" href="#decide">Decide</a>' : ''}<a class="btn" href="/signoff/${esc(token)}/report.html">Read the full check report</a>${handover ? `<a class="btn" href="/signoff/${esc(token)}/handover">Handover page</a>` : ''}</div>` : '<p>There is no check to review yet.</p>'}
+${decided}${form ? `<section id="decide" class="signoff-decide"><h2 style="margin:0 0 12px">Your decision</h2>${form}<p class="subtle" style="margin-top:12px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p></section>` : ''}
+${launch ? `<h2 style="margin:28px 0 6px">Launch summary</h2><div class="subtle" style="white-space:pre-wrap">${esc(launch)}</div>` : ''}
+${handover && scan ? `<style>${HANDOVER_STYLE}</style><div style="margin-top:28px">${handoverSection(handover)}</div><p style="margin:16px 0 0"><a class="btn block" href="/signoff/${esc(token)}/handover">Open the handover page to keep</a></p>` : ''}
 </div>`,
   });
 }
@@ -73,7 +74,7 @@ export function signoffGonePage({ reason, preparedBy, client, contact = '' }) {
     body: `<div class="auth-card" style="max-width:520px">
 <span class="brand">${mark(26, 'm-sign')}<span>Grapim</span></span>
 <h1>${esc(what)}.</h1>
-<p class="lede">It opened the review of ${esc(preparedBy)}’s AI agent${client ? ` for ${esc(client)}` : ''}. Sign-off links close when they are withdrawn or after 30 days, so an old link cannot be used to sign off on an out-of-date check.</p>
+<p class="lede">It opened the review of ${esc(possessive(preparedBy))} AI agent${client ? ` for ${esc(client)}` : ''}. Sign-off links close when they are withdrawn or after 30 days, so an old link cannot be used to sign off on an out-of-date check.</p>
 <p>Ask ${ask} for a new link.</p>
 </div>`,
   });

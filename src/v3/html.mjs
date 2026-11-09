@@ -74,6 +74,7 @@ html.rail-drag,html.rail-drag *{cursor:col-resize!important;user-select:none}
 .panel+.panel,.stack>*+*{margin-top:16px}
 .panel-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-height:48px;padding:10px 16px;border-bottom:1px solid var(--line)}
 .panel-head .aside{margin-left:auto;font-size:13px}
+.signoff-decide{margin:4px 0 0;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);scroll-margin-top:16px}
 .share-link{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--sunken)}
 .field>.copyrow,.copyrow{display:flex;gap:8px;margin:0;font-weight:400}.copyrow input{flex:1;min-width:0}.copyrow .btn{flex:none}.btn.copied{color:var(--good)}
 .panel-body{padding:16px}
@@ -802,6 +803,9 @@ export function fmtDate(iso) {
   if (Number.isNaN(d.getTime())) return '';
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')} UTC`;
 }
+
+// "Northwind Agents’", "Linden’s": the possessive of a name, for headings like "X’s AI agent".
+export const possessive = name => `${name}${/s$/i.test(String(name)) ? '’' : '’s'}`;
 
 export function ago(iso, now = new Date()) {
   const s = Math.round((now.getTime() - new Date(iso).getTime()) / 1000);
