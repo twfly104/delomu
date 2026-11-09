@@ -40,7 +40,7 @@ test('the design partner page is public, says what a partner gets and gives, and
 
 test('an application is stored, the operator is told, and the applicant is thanked', async () => {
   const s = await page();
-  const res = await apply({ name: 'Dana Lee', email: 'Dana@Vendor.example', company: 'Vendor AI', website: 'vendor.example', timing: 'soon', note: 'A bank goes live in December.' }, s);
+  const res = await apply({ name: 'Dana Lee', email: 'Dana@Vendor.example', company: 'Vendor AI', website: 'vendor.example', timing: 'soon', review: 'weeks', note: 'A bank goes live in December.' }, s);
   assert.equal(res.status, 200);
   assert.match(await res.text(), /Thanks, Dana\./);
   const db = openDb(srv.dataDir);
@@ -49,8 +49,10 @@ test('an application is stored, the operator is told, and the applicant is thank
   assert.equal(rows.length, 1);
   assert.equal(rows[0].email, 'dana@vendor.example');
   assert.equal(rows[0].website, 'https://vendor.example');
+  assert.match(rows[0].note, /^Last client's legal\/security review held up go-live: Yes, by weeks\./, 'the demand question is stored with every application');
   assert.equal(hooks.length, 1);
   assert.match(hooks[0].body.text, /Dana Lee \(dana@vendor\.example\), Vendor AI/);
+  assert.match(hooks[0].body.text, /held up the last go-live: Yes, by weeks/);
   assert.equal(sent.length, 1);
   assert.deepEqual(sent[0].to, ['founder@grapim.example']);
   assert.equal(sent[0].reply_to, 'dana@vendor.example');

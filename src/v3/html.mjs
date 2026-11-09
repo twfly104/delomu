@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { esc } from '../report.mjs';
 import { TOKENS } from '../theme.mjs';
 import { icon } from './icons.mjs';
-import { COHORT_SIZE, TIMING } from './partners.mjs';
+import { COHORT_SIZE, REVIEW, TIMING } from './partners.mjs';
 import { draftCard, reviewedRow } from './drafts-view.mjs';
 import { STEPS } from './insights.mjs';
 import { PLANS as PLAN_VIEW } from './billing.mjs';
@@ -1286,6 +1286,7 @@ ${error ? `<div class="notice">${icon('alert')}<span>${esc(error)}</span></div>`
 <div class="dp-two"><label class="field"><span>Company</span><input type="text" name="company" required maxlength="80" autocomplete="organization" value="${esc(values.company ?? '')}"></label>
 <label class="field"><span>Website <span class="subtle">(optional)</span></span><input type="text" name="website" maxlength="200" value="${esc(values.website ?? '')}" placeholder="company.com"></label></div>
 <label class="field"><span>When does your next client go live?</span><select name="timing" required><option value="">Choose one</option>${TIMING.map(([k, l]) => opt(k, l)).join('')}</select></label>
+<div class="field"><span>Did your last client’s legal or security review hold up go-live?</span><div class="choice dp-review">${REVIEW.map(([k, l]) => `<label><input type="radio" name="review" value="${k}"${values.review === k ? ' checked' : ''} required><span>${esc(l)}</span></label>`).join('')}</div></div>
 <label class="field"><span>Tell us about that rollout <span class="subtle">(optional)</span></span><textarea name="note" maxlength="2000" rows="4" placeholder="The client, what your agent does for them, what their team needs to sign off">${esc(values.note ?? '')}</textarea></label>
 <button class="btn primary block" data-busy="Sending…">Apply for a spot</button>
 <p class="hint" style="margin:10px 0 0;text-align:center">We use these details only to reply. <a href="/privacy">Privacy Policy</a></p></form>`;
