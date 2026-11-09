@@ -15,6 +15,8 @@ import {
 import { isManager, principalAllows, roleIn } from './rbac.mjs';
 import { checkOidcConfig, getOidcConfig, setOidcConfig } from './sso.mjs';
 import { listConversations } from '../v1/live.mjs';
+import { listScans } from '../v1/risk.mjs';
+import { getFix } from '../v1/fix.mjs';
 import { deploymentAudit, listDeployments, listRuns, registerDeployment, reportFile } from './workspace.mjs';
 
 const REPORT_CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'";
@@ -136,6 +138,31 @@ function routes(ctx) {
   r.add('POST', '/v1/orgs/:org/deployments/:name/runs', async ({ principal, params, body }) => {
     access(ctx, principal, params.org, 'runs:create');
     return ok(await startRun(ctx, principal, params.org, params.name, { judge: body.judge ?? false }), 201);
+  });
+
+  // Policy checks for CI (the same check as the web page). POST starts one and answers at once; poll
+  // GET .../checks/latest until status is not "running". broken > 0 means a client rule broke.
+  const checkJson = (orgId, name, dir) => {
+    const job = ctx.scanJob?.(dir);
+    if (job?.status === 'running') return { object: 'check', status: 'running', started_at: new Date(job.startedAt).toISOString() };
+    if (job?.status === 'failed') return { object: 'check', status: 'failed', error: job.error };
+    const scan = listScans(dir)[0];
+    if (!scan) return { object: 'check', status: 'none' };
+    const broken = (scan.rules ?? []).filter(r => r.probes.some(p => p.status === 'broken'));
+    return { object: 'check', status: 'done', id: scan.id, created_at: scan.createdAt, rules: scan.rules.length, broken: broken.length,
+      broken_rules: broken.map(r => ({ id: r.id, title: r.title || r.rule, clause: r.clause })), fix_drafted: Boolean(ctx.scanJob && getFix(dir)?.status === 'proposed' && getFix(dir)?.scanId === scan.id),
+      url: `${ctx.publicUrl ?? ''}/orgs/${orgId}/deployments/${name}/scan` };
+  };
+  r.add('POST', '/v1/orgs/:org/deployments/:name/checks', async ({ principal, params }) => {
+    const { org } = access(ctx, principal, params.org, 'runs:create');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    if (!ctx.startScan) throw new ApiError('api_error', 'Checks cannot start on this server.');
+    await ctx.startScan(principal, org, params.name, dir);
+    return ok(checkJson(org.id, params.name, dir), 202);
+  });
+  r.add('GET', '/v1/orgs/:org/deployments/:name/checks/latest', ({ principal, params }) => {
+    const { org } = access(ctx, principal, params.org, 'runs:read');
+    return ok(checkJson(org.id, params.name, deploymentFor(ctx, org.id, params.name).dir));
   });
 
   r.add('GET', '/v1/orgs/:org/deployments/:name/runs/:run', ({ principal, params }) => {

@@ -44,12 +44,43 @@ export function getFix(dir) {
 
 function saveFix(dir, fix) { fs.writeFileSync(fixFile(dir), JSON.stringify(fix, null, 2) + '\n'); }
 
-// The text the AI is given today, and where it lives. Grapim can apply a change only to an HTTP target that
-// sends its instructions in the request body (instructionsField, or the built-in sample bot and sample agent).
+// The text the AI is given today, and where it lives. Grapim can apply a change itself in two places:
+// - an OpenAI-compatible agent: the approved block is kept at the end of its system prompt, under a heading, so
+//   the vendor's own prompt above it is never rewritten (mode "system");
+// - an HTTP agent that takes extra instructions in its request body (instructionsField, or the built-in sample
+//   bot and sample agent) (mode "body").
+// Anything else (Intercom, Zendesk, a command) is applied by a person in that system.
+export const GRAPIM_HEADING = '## Added by Grapim (approved fixes)';
+function systemParts(t) {
+  const msgs = Array.isArray(t.body?.messages) ? t.body.messages : [];
+  const i = msgs.findIndex(m => m?.role === 'system');
+  const content = i >= 0 ? String(msgs[i].content ?? '') : '';
+  const at = content.indexOf(GRAPIM_HEADING);
+  return { msgs, i, base: (at >= 0 ? content.slice(0, at) : content).trimEnd(), extra: at >= 0 ? content.slice(at + GRAPIM_HEADING.length).trim() : '' };
+}
 export function instructionsTarget(config) {
   const t = config.target ?? {};
+  if (t.type === 'http' && t.preset === 'openai' && Array.isArray(t.body?.messages)) {
+    return { canApply: true, mode: 'system', field: '', where: 'the system prompt', current: systemParts(t).extra };
+  }
   const field = t.type === 'http' ? (t.instructionsField || (/\/demo\/(support-bot|store-agent|agent\/(bank|health))$/.test(String(t.url ?? '')) ? 'instructions' : '')) : '';
-  return { canApply: Boolean(field), field, current: field ? String(t.body?.[field] ?? '') : '' };
+  return { canApply: Boolean(field), mode: field ? 'body' : '', field, where: field ? `the "${field}" field of every request` : '', current: field ? String(t.body?.[field] ?? '') : '' };
+}
+
+// The target with these instructions in place (empty text removes them).
+function withInstructions(config, text) {
+  const t = config.target;
+  const { mode, field } = instructionsTarget(config);
+  if (mode === 'system') {
+    const { msgs, i, base } = systemParts(t);
+    const content = text ? `${base ? `${base}\n\n` : ''}${GRAPIM_HEADING}\n${text}` : base;
+    const next = msgs.map(m => ({ ...m }));
+    if (i >= 0) { if (content) next[i].content = content; else next.splice(i, 1); } else if (content) next.unshift({ role: 'system', content });
+    return { ...t, body: { ...t.body, messages: next } };
+  }
+  const body = { ...(t.body ?? {}) };
+  if (text) body[field] = text; else delete body[field];
+  return { ...t, instructionsField: field, body };
 }
 
 // Drafts one change for the latest check's broken rules. Returns { ok, fix } or { ok: false, reason }.
@@ -87,9 +118,9 @@ export function approveFix(dir, { instructions, apply, actor, now = new Date() }
   const configFile = path.join(dir, 'delomu.json');
   if (apply) {
     const config = loadConfig(dir);
-    const { canApply, field } = instructionsTarget(config);
+    const { canApply } = instructionsTarget(config);
     if (!canApply) throw new Error('Grapim cannot change this AI directly; paste the instructions into your help desk, then re-check');
-    config.target = { ...config.target, instructionsField: field, body: { ...(config.target.body ?? {}), [field]: text } };
+    config.target = withInstructions(config, text);
     fs.writeFileSync(configFile, JSON.stringify(config, null, 2) + '\n');
   }
   Object.assign(fix, { status: apply ? 'applied' : 'applied-manually', instructions: text, approvedAt: now.toISOString(), approvedBy: actor, appliedByGrapim: Boolean(apply) });
@@ -104,10 +135,7 @@ export function revertFix(dir, { actor, now = new Date() }) {
   if (fix?.status !== 'applied') throw new Error('there is no fix applied by Grapim to undo');
   const configFile = path.join(dir, 'delomu.json');
   const config = loadConfig(dir);
-  const { field } = instructionsTarget(config);
-  const body = { ...(config.target.body ?? {}) };
-  if (fix.previous) body[field] = fix.previous; else delete body[field];
-  config.target = { ...config.target, body };
+  config.target = withInstructions(config, fix.previous || '');
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2) + '\n');
   Object.assign(fix, { status: 'reverted', revertedAt: now.toISOString(), revertedBy: actor });
   saveFix(dir, fix);

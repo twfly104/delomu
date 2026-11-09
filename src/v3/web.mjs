@@ -32,6 +32,7 @@ import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg }
 import { activeShares, createShare, findShare, revokeShares } from './shares.mjs';
 import { latestSignoff, recordSignoff, signoffPage, signoffs } from './signoff.mjs';
 import { handoverData, handoverPage } from './handover.mjs';
+import { buildQuestionnaire, questionnaireCsv, questionnairePage, saveVendorAnswers } from './questionnaire.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
 import { readSecret, saveSecret, savedSecrets } from './secrets.mjs';
 import { tx } from './db.mjs';
@@ -678,6 +679,11 @@ function routes(ctx) {
       if (field('api_key')) target.headers = { authorization: `Bearer ${keyRef(field('api_key'), 'API_KEY')}` };
       if (String(form.output ?? '').trim()) target.output = String(form.output).trim();
       if (field('actions')) target.actions = field('actions');
+      // Optional: the request field the agent reads extra instructions from, so approved fixes apply directly.
+      if (field('instructions_field')) {
+        if (!/^[A-Za-z_][\w-]{0,60}$/.test(field('instructions_field')) || field('instructions_field') === 'message') return fail('The instructions field must be a plain field name, such as instructions or system_prompt.');
+        target.instructionsField = field('instructions_field');
+      }
     }
     const agentKind = Object.hasOwn(AGENT_KINDS, String(form.agentKind ?? '')) ? String(form.agentKind) : 'support';
     const given = String(form.name ?? '').trim();
@@ -744,6 +750,7 @@ function routes(ctx) {
     return job;
   }
   ctx.startScan = (principal, org, name, dir) => { checkTarget(loadConfig(dir), ctx.policy); return startScan(principal, org, name, dir); };
+  ctx.scanJob = dir => scans.get(dir) ?? null;
 
   r.add('GET', '/orgs/:org/deployments/:name/scan', ({ principal, params, url }) => {
     const ws = workspace(principal, params, 'runs:read', url);
@@ -1379,6 +1386,33 @@ function routes(ctx) {
   });
 
   // The agent's evidence pack over a date range (default: the last 90 days), for legal, risk and compliance.
+  // The client's security and AI questionnaire (src/v3/questionnaire.mjs): answers from this agent's records, the
+  // vendor's own answers to the rest, and a CSV to paste into the client's spreadsheet.
+  const qnView = (principal, params, extra = {}) => {
+    const { org, role } = access(ctx, principal, params.org, 'runs:read');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    let config = {};
+    try { config = loadConfig(dir); } catch { /* the page works without it */ }
+    const vendor = org.partner_org_id ? getOrg(db, org.partner_org_id) : null;
+    const base = `${depPath(org, params.name)}/questionnaire`;
+    return { dir, org, rows: buildQuestionnaire(dir, { now: ctx.now() }), preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: params.name,
+      csrf: principal.csrf, canEdit: principalAllows(principal, role, 'deployments:write'), action: base, back: `${depPath(org, params.name)}/rollout`, ...extra };
+  };
+  r.add('GET', '/orgs/:org/deployments/:name/questionnaire', ({ principal, params, url }) => html(questionnairePage(qnView(principal, params, { saved: url.searchParams.get('notice') === 'saved' }))));
+  r.add('GET', '/orgs/:org/deployments/:name/questionnaire.csv', ({ principal, params }) => {
+    const v = qnView(principal, params);
+    return { status: 200, body: questionnaireCsv(v.rows), type: 'text/csv; charset=utf-8', headers: { 'content-disposition': `attachment; filename="questionnaire-${params.name}.csv"` } };
+  });
+  r.add('POST', '/orgs/:org/deployments/:name/questionnaire', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    saveVendorAnswers(dir, form);
+    appendAudit(dir, { actor: principal.actor, action: 'questionnaire.save', target: 'vendor answers' }, ctx.now());
+    return new Redirect(`${depPath(org, params.name)}/questionnaire?notice=saved`);
+  });
+
   // The handover for the client's team (src/v3/handover.mjs), printable.
   r.add('GET', '/orgs/:org/deployments/:name/handover', ({ principal, params }) => {
     const { org } = access(ctx, principal, params.org, 'runs:read');

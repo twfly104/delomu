@@ -1225,6 +1225,9 @@ export function developersPage({ signup = false }) {
       ['Check finished conversations', `<p class="sec-p">Post each finished exchange from your help desk or your code. Personal data is removed before anything is stored, and broken rules show on the Live tab and in Slack.</p>${code(`curl -X POST ${base}/conversations \\
   -H "Authorization: Bearer $GRAPIM_API_KEY" \\
   -d '{"message": "…", "answer": "…", "id": "ticket-123"}'`)}`],
+      ['Check every change in CI', `<p class="sec-p">Start the full policy check from your pipeline and fail the build when a client rule breaks. Every agent’s Settings page has the GitHub Actions file with its address filled in.</p>${code(`curl -X POST ${base}/checks -H "Authorization: Bearer $GRAPIM_API_KEY"
+curl ${base}/checks/latest -H "Authorization: Bearer $GRAPIM_API_KEY"
+# {"status": "done", "rules": 8, "broken": 0, ...}`)}<p class="sec-p">When a rule breaks, the fix is already drafted on the agent’s Check page, waiting for a person to approve it.</p>`],
       ['MCP for Claude Code and Cursor', `<p class="sec-p">List agents, run a check, read the broken rules, draft a fix and approve drafts, without leaving your editor. A person still approves every change.</p>${code('claude mcp add --transport http grapim https://grapim.com/mcp --header "Authorization: Bearer YOUR_KEY"')}`],
       ['Keys and scopes', `<p class="sec-p">API keys are scoped (for example <code>guard:check</code> or <code>conversations:write</code>), stored only as hashes, and every call is written to the audit log.</p>`],
     ] });
@@ -1596,12 +1599,13 @@ ${CONNECTIONS.map(c => `<label><input type="radio" name="type" value="${c.type}"
 <label class="field"><span>App ID</span><input type="text" name="zendesk_app_id" maxlength="64" value="${v('zendesk_app_id')}" placeholder="5f8a3c…"></label>
 <div class="row-2"><label class="field"><span>API key ID</span><input type="password" name="zendesk_key_id" autocomplete="off" placeholder="Paste the key ID"></label>
 <label class="field"><span>API key secret</span><input type="password" name="zendesk_secret" autocomplete="off" placeholder="Paste the secret"></label></div>
-</div><details class="edit more-opts"${['name', 'customer', 'output', 'actions', 'openai_system', 'intercom_contact'].some(k => values[k]) || (values.agentKind && values.agentKind !== 'support') ? ' open' : ''}><summary>More options</summary>
+</div><details class="edit more-opts"${['name', 'customer', 'output', 'actions', 'instructions_field', 'openai_system', 'intercom_contact'].some(k => values[k]) || (values.agentKind && values.agentKind !== 'support') ? ' open' : ''}><summary>More options</summary>
 <label class="field"><span>Name</span><input type="text" name="name" maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" value="${v('name')}" placeholder="Made from the URL if empty"><p class="hint">Lowercase letters, numbers and dashes.</p></label>
 <label class="field"><span>Client</span><input type="text" name="customer" maxlength="120" value="${v('customer')}" placeholder="The client’s company name"><p class="hint">Shown on the customer report.</p></label>
 <label class="field"><span>What it does</span><select name="agentKind">${Object.entries(AGENT_KINDS).map(([id, k]) => `<option value="${id}"${(values.agentKind ?? 'support') === id ? ' selected' : ''}>${esc(k.label)}</option>`).join('')}</select></label>
 <div class="conn conn-http"><label class="field"><span>Answer field</span><input type="text" name="output" value="${v('output')}" placeholder="reply"><p class="hint">Dot path in the JSON response, for example <code>choices.0.message.content</code>.</p></label>
-<label class="field"><span>Actions field</span><input type="text" name="actions" value="${v('actions')}" placeholder="actions"><p class="hint">If your agent takes actions: the dot path to its tool calls, so Grapim judges what it did.</p></label></div>
+<label class="field"><span>Actions field</span><input type="text" name="actions" value="${v('actions')}" placeholder="actions"><p class="hint">If your agent takes actions: the dot path to its tool calls, so Grapim judges what it did.</p></label>
+<label class="field"><span>Instructions field <span class="subtle" style="font-weight:400">(optional)</span></span><input type="text" name="instructions_field" value="${v('instructions_field')}" placeholder="instructions"><p class="hint">If your endpoint reads extra instructions from a request field, name it. Grapim then applies approved fixes there itself.</p></label></div>
 <div class="conn conn-openai"><label class="field"><span>System prompt</span><textarea name="openai_system" maxlength="20000" rows="4" style="min-height:96px">${v('openai_system')}</textarea></label></div>
 <div class="conn conn-intercom"><label class="field"><span>Test contact external ID</span><input type="text" name="intercom_contact" maxlength="120" value="${v('intercom_contact')}" placeholder="delomu-test"></label></div>
 <label class="field"><span>Required pass rate (%)</span><input type="number" name="pass" min="1" max="100" value="${v('pass') || '90'}" style="max-width:120px"></label></details>
@@ -1622,7 +1626,7 @@ function deploymentHeader(args) {
 <button class="btn primary" data-busy="Starting…">${icon('shield')}${scan ? 'Run check again' : 'Run check'}</button></form>` : '';
   const item = (href, label, ic, n) => `<a class="btn ghost" href="${esc(href)}">${icon(ic)}${esc(label)}${n ? ` <span class="subtle num" style="margin-left:auto">${n}</span>` : ''}</a>`;
   const more = `<details class="menu"><summary class="btn" aria-label="More actions">More</summary><div class="menu-pop" role="menu">
-${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/handover`, 'Handover for the client', 'file')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
+${item(`${base}/overview`, 'Activity', 'pulse')}${item(`${base}/handover`, 'Handover for the client', 'file')}${item(`${base}/questionnaire`, 'Security questionnaire', 'shield')}${item(`${base}/runs`, 'Test runs', 'play', ov.runs.length)}${item(`${base}/drafts`, 'Agent drafts', 'inbox', ov.pending.length)}
 ${can.run ? `<form method="post" action="${esc(base)}/run"><input type="hidden" name="csrf" value="${esc(csrf)}"><input type="hidden" name="judge" value="1">
 <button class="btn ghost" data-busy="Running tests…">${icon('play')}Run the saved test set</button></form>` : ''}
 ${can.write ? `<form method="post" action="${esc(base)}/agent" class="agent-pick" role="group" aria-labelledby="ask-h"><input type="hidden" name="csrf" value="${esc(csrf)}">
@@ -2041,11 +2045,34 @@ export function settingsPage(args) {
 ${v.link ? `<label class="field" style="margin-top:12px"><span>Public link</span><input type="text" readonly class="mono" value="${esc(v.link)}"><p class="hint">Shown only once. Turning the page off and on again makes a new link.</p></label>` : ''}
 ${v.canManage ? `<form method="post" action="${esc(depPath(args.org, args.name))}/verified" style="margin-top:12px">${hidden(v.on ? 'off' : 'on')}<button class="btn" data-busy="Saving…">${v.on ? 'Turn off' : 'Turn on and get a link'}</button></form>` : '<p class="subtle" style="margin:8px 0 0">An owner or admin can turn it on.</p>'}</div></section>`;
   const mcpUrl = args.mcpUrl ?? '/mcp';
+  const site = String(mcpUrl).replace(/\/mcp$/, '') || 'https://grapim.com';
+  const ciPanel = `<section class="panel"><div class="panel-head"><h2>Check every change in CI</h2><span class="aside subtle">GitHub Actions</span></div><div class="panel-body mcp">
+<p class="subtle" style="margin:0 0 10px">Runs the full policy check on every pull request and fails it if a client rule breaks. Save an API key with the <code>runs:create</code> scope as the repository secret <code>GRAPIM_API_KEY</code>, then add this file as <code>.github/workflows/grapim.yml</code>.</p>
+<pre class="mcp-code">${esc(`name: Grapim policy check
+on: [pull_request, workflow_dispatch]
+jobs:
+  grapim:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check every client rule
+        env:
+          GRAPIM_API_KEY: \${{ secrets.GRAPIM_API_KEY }}
+          CHECK: ${site}/v1/orgs/${args.org.id}/deployments/${args.name}/checks
+        run: |
+          auth="Authorization: Bearer $GRAPIM_API_KEY"
+          curl -sf -X POST "$CHECK" -H "$auth" > /dev/null
+          for i in $(seq 1 40); do
+            r=$(curl -sf "$CHECK/latest" -H "$auth")
+            [ "$(echo "$r" | jq -r .status)" != running ] && break
+            sleep 15
+          done
+          echo "$r" | jq '{status, rules, broken, broken_rules, url}'
+          [ "$(echo "$r" | jq -r .status)" = done ] && [ "$(echo "$r" | jq -r .broken)" = 0 ]`)}</pre></div></section>`;
   const mcpPanel = `<section class="panel"><div class="panel-head"><h2>Use from Claude Code or Cursor</h2><span class="aside subtle">MCP</span></div><div class="panel-body mcp">
 <p class="subtle" style="margin:0 0 10px">Check agents, read results and approve drafts from your AI tool. Use your sign-in key.</p>
 <p class="mcp-k">Claude Code</p><pre class="mcp-code">claude mcp add --transport http grapim ${esc(mcpUrl)} --header "Authorization: Bearer YOUR_KEY"</pre>
 <p class="mcp-k">Cursor or Claude Desktop</p><pre class="mcp-code">{ "mcpServers": { "grapim": { "url": "${esc(mcpUrl)}", "headers": { "Authorization": "Bearer YOUR_KEY" } } } }</pre></div></section>`;
-  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${keysPanel}${mcpPanel}${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
+  return deploymentShell({ ...args, tab: 'settings', title: 'Settings' }, `${keysPanel}${mcpPanel}${ciPanel}${publicPanel}<section class="panel"><div class="panel-head"><h2>Connection and acceptance</h2></div>
 <div class="draft-body"><table class="kv"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}
 ${headers.map(([k, v]) => `<tr><th scope="row">Header <code>${esc(k)}</code></th><td><code>${esc(v)}</code></td></tr>`).join('')}</tbody></table></div></section>
 <section class="panel"><div class="panel-head"><h2>Decisions</h2><span class="aside subtle">Shown in every acceptance report</span></div>
@@ -2174,7 +2201,7 @@ ${applied && can.write ? `<form method="post" action="${esc(base)}/fix/revert" s
 <div><h2>Proposed fix</h2><p class="muted" style="margin-top:4px">${esc(fix.summary)}</p></div>
 ${gaps(fix.gaps)}
 <label class="field" style="margin:0"><span>Extra instructions for your AI <span class="subtle" style="font-weight:400">(edit before approving)</span></span><textarea name="instructions" maxlength="4000" style="min-height:180px;font:13.5px/1.55 var(--font)">${esc(fix.instructions)}</textarea>
-<p class="hint">${target.canApply ? 'Grapim sends these with every message to this AI, so approving applies them right away.' : 'Grapim cannot change this AI directly. Paste these into its instructions (Intercom Fin: Fin, then Guidance; Zendesk: the AI agent\'s instructions), then re-check.'}</p></label>
+<p class="hint">${target.canApply ? `Grapim puts these in ${esc(target.where || 'every request')} for this AI, so approving applies them right away. Your own instructions are left as they are, and a re-check that comes out worse is undone automatically.` : 'Grapim cannot change this AI directly. Paste these into its instructions (Intercom Fin: Fin, then Guidance; Zendesk: the AI agent\'s instructions), then re-check.'}</p></label>
 <div class="row-inline" style="gap:8px;flex-wrap:wrap">${target.canApply ? `<button class="btn primary" name="mode" value="apply" data-busy="Applying…">${icon('check')}Approve, apply and re-check</button>` : `<button class="btn primary" name="mode" value="manual" data-busy="Starting…">${icon('check')}I applied it, re-check</button>`}</div></form></section>`;
   const verdict = s.broken
     ? `<p class="verdict bad num"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
