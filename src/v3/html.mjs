@@ -307,6 +307,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.wz-url-form{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .convo-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px}
 .moved{display:grid;gap:6px;margin-top:10px}.moved p,.fix-covers{margin:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.fix-covers{margin-top:10px}.mv-k{font-size:12px;font-weight:600;margin-right:2px}.mv-k.good{color:var(--good)}.mv-k.bad{color:var(--bad)}.mv{display:inline-flex;gap:6px;align-items:center;padding:2px 9px;border-radius:99px;border:1px solid var(--line);font-size:12.5px;color:var(--text);background:var(--surface)}.mv:hover{text-decoration:none;border-color:var(--line-strong)}.mv.good{border-color:color-mix(in srgb,var(--good) 40%,var(--line))}.mv.bad{border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
 .scan-outline{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.scan-outline p{margin:0 0 4px}.scan-outline ul{margin:0;padding-left:16px;font-size:13px;color:var(--text-2);line-height:1.55}
@@ -1396,14 +1397,14 @@ function liveCell(live) {
 // rows: [{ org, name, ov (overview), customer }]
 // One status word per agent's rollout, in a fixed vocabulary, with the reason on hover. The order is what needs
 // someone first: a broken rule, a policy that changed since the check, then where sign-off stands.
-export function rolloutStatus({ ov, signoff, signoffOpen }) {
+export function rolloutStatus({ ov, signoff, signoffOpen, daysToSignoff = null }) {
   const scan = ov.scans[0];
   const day = iso => String(iso ?? '').slice(0, 10);
   if (!scan) return { word: 'Not checked', cls: 'plain', why: 'No policy check has run yet.' };
   if (scan.summary.broken) return { word: 'Rule broken', cls: 'bad', why: `${scan.summary.broken} of ${scan.summary.rules} rules broken in the check on ${day(scan.createdAt)}.` };
   if (ov.policiesChanged) return { word: 'Policy changed', cls: 'warn', why: 'A policy file changed after the last check. Run the check again before sign-off.' };
   const decided = signoff && signoff.at >= scan.createdAt ? signoff : null;
-  if (decided?.decision === 'accepted') return { word: 'Signed off', cls: 'good', why: `Accepted by ${decided.name} on ${day(decided.at)}.` };
+  if (decided?.decision === 'accepted') return { word: 'Signed off', cls: 'good', days: daysToSignoff, why: `Accepted by ${decided.name} on ${day(decided.at)}${daysToSignoff !== null ? `, ${daysToSignoff} day${daysToSignoff === 1 ? '' : 's'} after the client was added` : ''}.` };
   if (decided?.decision === 'declined') return { word: 'Sent back', cls: 'bad', why: `Sent back by ${decided.name} on ${day(decided.at)}${decided.note ? `: ${decided.note}` : '.'}` };
   if (signoffOpen) return { word: 'Waiting on client', cls: 'accent', why: 'A sign-off link is out; the client has not decided yet.' };
   return { word: 'Ready for sign-off', cls: 'good', why: `All ${scan.summary.rules} rules kept on ${day(scan.createdAt)}. Send the client a sign-off link.` };
@@ -1419,7 +1420,7 @@ ${rows.map(row => {
     return `<tr>
 <td><a class="agent-name" href="${esc(depPath(org, name))}/scan"><span class="av">${icon('layers')}</span><span><span class="strong">${esc(agentTitle(name, config))}</span>${customer ? `<span class="subtle" style="display:block;font-size:12.5px">${esc(customer)}</span>` : ''}</span></a></td>
 ${showOrg ? `<td class="hide-sm muted">${esc(org.name)}</td>` : ''}
-<td><a class="badge ${st.cls}" href="${esc(depPath(org, name))}/rollout" title="${esc(st.why)}">${esc(st.word)}</a></td>
+<td><a class="badge ${st.cls}" href="${esc(depPath(org, name))}/rollout" title="${esc(st.why)}">${esc(st.word)}</a>${st.days != null ? ` <span class="subtle num" style="font-size:12.5px">in ${st.days} day${st.days === 1 ? '' : 's'}</span>` : ''}</td>
 <td class="hide-sm">${checkBadge(scan)}</td>
 <td class="hide-sm">${liveCell(ov.live)}</td>
 <td class="hide-sm subtle nowrap">${scan ? esc(ago(scan.createdAt, now)) : '—'}</td></tr>`;
@@ -1455,8 +1456,11 @@ export function homePage({ user, csrf, nav, now, deployments, review, asks = [],
 <div class="page-head"><div><h1>Welcome to Grapim</h1><p class="sub">Run your first check in about two minutes.</p></div></div>${keyPanel(signinKey)}${onboarding(orgs[0], csrf)}` });
   }
   const broken = deployments.filter(d => d.ov.scans[0]?.summary.broken).length;
+  // The outcome a deployment lead is measured on: days from adding a client to the client's sign-off.
+  const days = deployments.map(d => d.daysToSignoff).filter(x => x != null).sort((a, b) => a - b);
+  const median = days.length ? days[Math.floor((days.length - 1) / 2)] : null;
   const summary = deployments.length
-    ? `${deployments.length} AI agent${deployments.length > 1 ? 's' : ''}${broken ? ` · ${broken} breaking policy rules` : ''}`
+    ? `${deployments.length} AI agent${deployments.length > 1 ? 's' : ''}${broken ? ` · ${broken} breaking policy rules` : ''}${median !== null ? ` · ${days.length} signed off, median ${median} day${median === 1 ? '' : 's'} from client added to sign-off` : ''}`
     : 'No AI agents yet.';
   // Needs you, in a fixed order: client questions first (someone outside is waiting), then drafts to review.
   const needs = asks.length + review.length;
@@ -1598,7 +1602,10 @@ ${who ? `<input type="hidden" name="customer" value="${who}">` : ''}<input type=
     policies: () => `<h1>Upload ${who ? `${who}’s` : 'your'} policies.</h1><p class="lede">Refunds, privacy, handoffs: Grapim turns every rule into tests.</p>
 <form method="post" action="${esc(depPath(client, dep))}/inputs" enctype="multipart/form-data" class="wz-form" novalidate>${hidden}
 <label class="wz-drop">${icon('upload', { size: 22 })}<b>Choose policy files</b><span>Markdown, text, HTML, CSV, JSON or YAML · up to 1 MB each</span><input type="file" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"></label>
-<button class="btn primary wz-go" data-busy="Uploading…">Upload and continue ${icon('arrow', { size: 16 })}</button></form>`,
+<button class="btn primary wz-go" data-busy="Uploading…">Upload and continue ${icon('arrow', { size: 16 })}</button></form>
+<form method="post" action="${esc(depPath(client, dep))}/inputs/url" class="wz-form wz-url-form" novalidate>${hidden}<input type="hidden" name="next" value="welcome">
+<label class="field"><span>Or paste the address of ${who ? `${esc(who)}’s` : 'the'} public policy page</span><input type="url" name="url" required placeholder="https://www.example.com/returns-policy" inputmode="url" autocomplete="off"></label>
+<button class="btn" data-busy="Reading the page…">Read the page and continue</button><p class="hint" style="margin:0">A refund policy, terms of service or help-center article. Grapim saves the text and where it came from.</p></form>`,
     check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. About two minutes.</p>
 ${state.agent ? `<dl class="wz-ready"><div><dt>Agent</dt><dd><span class="strong">${esc(state.agent.title)}</span>${state.agent.customer && !String(state.agent.title).startsWith(String(state.agent.customer).replace(/ \(sample\)$/, '')) ? ` <span class="subtle">· ${esc(state.agent.customer)}</span>` : ''}${state.agent.url ? `<span class="mono subtle wz-url">${esc(state.agent.url)}</span>` : ''}</dd></div>
 <div><dt>Files</dt><dd>${state.agent.files.length ? state.agent.files.map(f => `<span class="mono">${esc(f)}</span>`).join('<br>') : '<span class="subtle">None yet</span>'}</dd></div></dl>
@@ -2074,7 +2081,12 @@ ${ov.inputs.map(f => `<tr><td><span style="display:inline-flex;gap:8px;align-ite
 <input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="picker"><span class="sr">Files</span><input type="file" id="files" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"><span class="btn" aria-hidden="true">${icon('file')}Choose files</span><span class="names" data-files-for="files" aria-live="polite">No file chosen</span></label>
 <p class="hint" style="margin:-8px 0 14px">Markdown, text, CSV, JSON, YAML or HTML, up to 1 MB.</p>
-<button class="btn primary" data-busy="Uploading…">${icon('upload')}Upload</button></div></form>` : '';
+<button class="btn primary" data-busy="Uploading…">${icon('upload')}Upload</button></div></form>
+<form method="post" action="${esc(base)}/inputs/url" class="panel" style="margin-top:16px" novalidate><div class="panel-head"><h2>Add a public policy page</h2></div><div class="panel-body">
+<input type="hidden" name="csrf" value="${esc(csrf)}">
+<label class="field"><span>Page address</span><input type="url" name="url" required placeholder="https://www.example.com/returns-policy" inputmode="url" autocomplete="off"></label>
+<p class="hint" style="margin:-8px 0 14px">The client’s refund policy, terms or help-center article. The text is saved as a file with its source address and the date it was read.</p>
+<button class="btn" data-busy="Reading the page…">${icon('arrow')}Read the page</button></div></form>` : '';
   return deploymentShell({ ...args, tab: 'inputs', title: 'Policies' }, `<section class="panel">${files}</section>${args.can.write ? importPanel({ base, csrf: args.csrf, imports: args.imports }) : ''}${upload}`);
 }
 

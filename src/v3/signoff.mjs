@@ -73,10 +73,28 @@ ${asked ? `<div class="notice good" role="status"><span>Question sent to ${esc(p
 <button class="btn" data-busy="Sending…">Send question</button></form></section>`;
 }
 
+// After an accepted sign-off: what the client keeps, and how to ask its other AI vendors for the same record. The
+// client owns the record; the ask goes out by the client's own email, written here so it is one click to send.
+function afterAccept({ token, preparedBy, client }) {
+  const subject = 'The policy record we got for our AI agent';
+  const body = `Hello,
+
+Before ${preparedBy}'s AI agent went live for ${client || 'us'}, we received a record of how it was checked against our own written policies: every rule, the test messages, what broke, the fix someone approved by name, the re-check, and our sign-off.
+
+Could you give us the same record for the AI agent you run for us, before your next change goes live?
+
+Thanks`;
+  return `<section class="so-after" aria-label="What you can do with this record"><h2 style="margin:0 0 10px;font-size:15px">What you keep</h2>
+<ul><li><a href="/signoff/${esc(token)}/handover">The handover page</a>: the rules this agent keeps, and what happens when a policy changes.</li><li><a href="/signoff/${esc(token)}/report.html">The full check report</a>: every test message, answer and verdict. Print it or save it as a PDF.</li><li>This link stays readable for 30 days; your decision is in the agent’s audit log for good.</li></ul>
+<h2 style="margin:18px 0 6px;font-size:15px">Other AI vendors working for ${esc(client || 'you')}?</h2>
+<p class="subtle" style="margin:0 0 12px">Ask them for the same record: their agent checked against your policies, every fix approved by a named person, and your sign-off.</p>
+<a class="btn" href="mailto:?subject=${encodeURIComponent(subject)}&amp;body=${encodeURIComponent(body)}">Write to another vendor</a> <a class="btn" href="/?ref=signoff">How this works</a></section>`;
+}
+
 const SIGNOFF_STYLE = `.so-history{margin:0 0 24px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
 .so-history ol{list-style:none;margin:0;padding:0;display:grid;gap:12px}.so-history li{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:start}.so-history li p{margin:0}
 .so-dot{width:10px;height:10px;margin-top:6px;border-radius:50%;background:var(--accent)}.so-dot.bad{background:var(--bad)}.so-dot.good{background:var(--good)}
-.choice label.off{opacity:.6}.so-ask{margin-top:16px;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);scroll-margin-top:16px}.so-ask textarea{min-height:76px}.so-qs{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:12px}
+.so-after{margin:16px 0 0;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}.so-after ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px;color:var(--text-2)}.choice label.off{opacity:.6}.so-ask{margin-top:16px;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);scroll-margin-top:16px}.so-ask textarea{min-height:76px}.so-qs{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:12px}
 .so-qs li{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r)}.so-ans{margin-top:10px;padding:10px 12px;border-radius:calc(var(--r) - 2px);background:var(--sunken)}`;
 
 // The page the client sees. scan: the check the link was made for; done: a decision already given on this link.
@@ -110,7 +128,7 @@ ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : 
 ${scan ? `${verdict}<p class="subtle" style="margin:8px 0 12px">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>
 <div class="row-inline" style="gap:8px;flex-wrap:wrap;margin-bottom:24px">${form ? `<a class="btn${canAccept ? ' primary' : ''}" href="#decide">Decide</a>` : ''}<a class="btn" href="/signoff/${esc(token)}/report.html">Read the full check report</a>${handover ? `<a class="btn" href="/signoff/${esc(token)}/handover">Handover page</a>` : ''}<a class="btn" href="#ask">Ask a question</a></div>
 <style>${SIGNOFF_STYLE}</style>${done ? '' : reviewPanel({ token, scan, review })}${historySection(history, preparedBy)}` : '<p>There is no check to review yet.</p>'}
-${decided}${form ? `<section id="decide" class="signoff-decide"><h2 style="margin:0 0 12px">Your decision</h2>${form}<p class="subtle" style="margin-top:12px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p></section>` : ''}
+${decided}${done?.decision === 'accepted' ? `<style>${SIGNOFF_STYLE}</style>${afterAccept({ token, preparedBy, client })}` : ''}${form ? `<section id="decide" class="signoff-decide"><h2 style="margin:0 0 12px">Your decision</h2>${form}<p class="subtle" style="margin-top:12px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p></section>` : ''}
 ${scan ? questionsSection({ token, csrf, preparedBy, rules: (scan.rules ?? []).map(r => ({ id: String(r.id), title: String(r.title || r.rule || r.id).slice(0, 90) })), questions, qValues, qError, asked }) : ''}
 ${launch ? `<h2 style="margin:28px 0 6px">Launch summary</h2><div class="subtle" style="white-space:pre-wrap">${esc(launch)}</div>` : ''}
 ${handover && scan ? `<style>${HANDOVER_STYLE}</style><div style="margin-top:28px">${handoverSection(handover)}</div><p style="margin:16px 0 0"><a class="btn block" href="/signoff/${esc(token)}/handover">Open the handover page to keep</a></p>` : ''}

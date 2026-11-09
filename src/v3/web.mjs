@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
-import { appendAudit } from '../core/audit.mjs';
+import { appendAudit, readAudit } from '../core/audit.mjs';
 import { createLlm, isAuthError } from '../core/llm.mjs';
 import { callTarget } from '../adapters.mjs';
 import { parseCsv } from '../csv.mjs';
@@ -27,6 +27,7 @@ import { policyFingerprint } from '../v1/policies.mjs';
 import { AGENT_KINDS } from '../v1/kinds.mjs';
 import { approveFix, draftFix, getFix, instructionsTarget, revertFix, undoIfWorse } from '../v1/fix.mjs';
 import { conversationToTests } from '../v1/live-to-tests.mjs';
+import { fetchPolicyPage, PolicyUrlError } from '../v1/policy-url.mjs';
 import { renderScanReport } from './scan-report.mjs';
 import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg } from './accounts.mjs';
@@ -198,7 +199,12 @@ function routes(ctx) {
     let config = {};
     try { config = loadConfig(dir); } catch { /* registered without a readable config; show what exists */ }
     const hours = Object.values(hoursByStep(dir)).reduce((a, b) => a + b, 0);
-    return { org, name: d.name, dir, customer: config.customer, config, ov: overview(dir, config), hours, signoff: latestSignoff(dir), signoffOpen: activeShares(db, org.id, d.name, 'signoff', ctx.now()).length };
+    // When the rollout started (its first audit entry) and, once the client accepted, how many days that took.
+    const signoff = latestSignoff(dir);
+    let startedAt = null;
+    try { startedAt = readAudit(dir)[0]?.ts ?? null; } catch { /* a damaged audit log: no start time */ }
+    const daysToSignoff = signoff?.decision === 'accepted' && startedAt ? Math.max(0, Math.round((Date.parse(signoff.at) - Date.parse(startedAt)) / 86_400_000)) : null;
+    return { org, name: d.name, dir, customer: config.customer, config, ov: overview(dir, config), hours, signoff, signoffOpen: activeShares(db, org.id, d.name, 'signoff', ctx.now()).length, startedAt, daysToSignoff };
   });
   // Orgs where the principal may open Billing (owners and admins), for the sidebar link.
   // A client workspace is billed to its vendor, so Billing shows on the vendor's org only.
@@ -1620,6 +1626,32 @@ function routes(ctx) {
       appendAudit(dir, { actor: principal.actor, action: 'input.upload', target: name, detail: { bytes: bytes.length } }, ctx.now());
     }
     event(ctx, principal, org.id, 'input.upload', params.name, { files: ready.map(f => f.name) });
+    if (toWelcome && !checked) return new Redirect('/welcome');
+    return afterInputs(principal, org, params.name, dir, checked, before, 'uploaded');
+  });
+
+  // A client's public policy page as a policy file (src/v1/policy-url.mjs).
+  r.add('POST', '/orgs/:org/deployments/:name/inputs/url', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const toWelcome = form.next === 'welcome';
+    const fail = message => (toWelcome ? html(welcomeView(principal, { error: message }), 400) : html(inputsPage({ ...workspace(principal, params, 'deployments:read'), error: message, imports: importState(dir) }), 400));
+    let page;
+    try {
+      page = await fetchPolicyPage(form.url, { fetchImpl: ctx.fetchImpl ?? fetch, now: ctx.now() });
+    } catch (e) {
+      if (e instanceof PolicyUrlError) return fail(e.message);
+      throw e;
+    }
+    const checked = listScans(dir)[0];
+    const before = policyFingerprint(dir);
+    const inputs = path.join(dir, 'inputs');
+    fs.mkdirSync(inputs, { recursive: true });
+    fs.writeFileSync(path.join(inputs, page.name), page.text);
+    appendAudit(dir, { actor: principal.actor, action: 'input.url', target: page.name, detail: { url: page.url, bytes: Buffer.byteLength(page.text) } }, ctx.now());
+    event(ctx, principal, org.id, 'input.url', params.name, { file: page.name, url: page.url });
     if (toWelcome && !checked) return new Redirect('/welcome');
     return afterInputs(principal, org, params.name, dir, checked, before, 'uploaded');
   });
