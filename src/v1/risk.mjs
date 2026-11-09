@@ -283,7 +283,8 @@ export async function recheck(dir, { llm, now = new Date(), onProgress = () => {
 async function judgeProbes(dir, config, llm, rules, onProgress) {
   const probes = rules.flatMap(rule => rule.probes.map((probe, n) => ({ rule, probe, n })));
   let done = 0;
-  onProgress({ phase: 'probes', done, total: probes.length, rules: rules.length });
+  // The rules being judged, each with how many answers it needs, so the page can show one live row per rule.
+  onProgress({ phase: 'probes', done, total: probes.length, rules: rules.length, ruleList: rules.map(r => ({ id: r.id, title: String(r.title || r.rule || r.id).slice(0, 60), n: r.probes.length, severity: r.severity })) });
   // One verdict from the judge on one answer.
   const verdictOf = async ({ rule, probe }, answer, actions, message = probe.message, earlier = []) => {
     // A keyword match is a hint for the judge, not a verdict: "I can't confirm it has been erased" contains
@@ -392,7 +393,7 @@ async function judgeProbes(dir, config, llm, rules, onProgress) {
   };
   const judged = await pool(probes, CONCURRENCY, async item => {
     const out = await judge(item);
-    onProgress({ phase: 'probes', done: ++done, total: probes.length, rules: rules.length, status: out.status });
+    onProgress({ phase: 'probes', done: ++done, total: probes.length, rules: rules.length, status: out.status, rule: item.rule.id });
     return out;
   });
   probes.forEach(({ probe }, i) => Object.assign(probe, judged[i]));

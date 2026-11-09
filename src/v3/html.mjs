@@ -310,6 +310,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.runline{list-style:none;margin:14px 0 0;padding:0;display:grid;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.rl{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 14px;font-size:13.5px}.rl+.rl{border-top:1px solid var(--line)}.rl-dot{width:9px;height:9px;border-radius:50%;background:var(--line-strong)}.rl.run .rl-dot{background:var(--accent)}.rl.good .rl-dot{background:var(--good)}.rl.bad .rl-dot{background:var(--bad)}.rl.warn .rl-dot{background:var(--warn)}.rl.wait .rl-t{color:var(--text-3)}.rl-s{font-size:12.5px;color:var(--text-3);white-space:nowrap}.rl.bad .rl-s{color:var(--bad)}.rl.good .rl-s{color:var(--good)}.rl-hi{margin-left:6px;font-size:11px;font-weight:600;color:var(--bad)}.rl .rl-dot.is-running{animation:pulse 1.6s ease-in-out infinite}@media (prefers-reduced-motion:no-preference){.rl.new{animation:rise .2s cubic-bezier(0,.4,0,1) both}}@media (prefers-reduced-motion:reduce){.rl .rl-dot.is-running{animation:none}}
 .probe.is-conv{display:block}.pconv{display:grid;gap:10px}.pturn{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}.pturn>div{display:grid;gap:6px}.pturn .pn{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;border:1px solid var(--line-strong);color:var(--text-3)}.pturn.broke .pn{background:var(--bad);border-color:var(--bad);color:#fff}.pturn.broke .bubble.ai{outline:1.5px solid color-mix(in srgb,var(--bad) 55%,transparent)}
 .spot{padding:14px 0;border-top:1px solid var(--line)}.spot:first-of-type{border-top:0;padding-top:0}
 .amb{display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;padding:8px 12px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 12%,transparent);font-size:13.5px;color:var(--text)}.amb svg{flex:none;margin-top:2px;color:var(--warn)}.amb-chip{margin-left:8px;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--text)}
@@ -2235,6 +2236,19 @@ function outlineList(outline) {
   return `<div class="scan-outline">${outline.map(f => `<div><p class="mono-s strong">${esc(f.name)}${f.sections ? ` <span class="subtle">· ${f.sections} section${f.sections === 1 ? '' : 's'}</span>` : ''}</p>${f.headings.length ? `<ul>${f.headings.map(h => `<li>${esc(h)}</li>`).join('')}${f.sections > f.headings.length ? `<li class="subtle">and ${f.sections - f.headings.length} more</li>` : ''}</ul>` : ''}</div>`).join('')}</div>`;
 }
 
+export function runTimeline(ruleList, marks, nowMs) {
+  return `<ol class="runline" aria-label="Rules being checked">${ruleList.map(r => {
+      const mine = marks.filter(m => m.rule === r.id);
+      const broke = mine.filter(m => m.status === 'broken').length;
+      const unsure = mine.filter(m => m.status !== 'kept' && m.status !== 'broken').length;
+      const st = broke ? 'bad' : mine.length >= r.n ? (unsure ? 'warn' : 'good') : mine.length ? 'run' : 'wait';
+      const fresh = mine.length && nowMs - mine.at(-1).at < 2600 ? ' new' : '';
+      const what = broke ? `Broke it on ${broke} of ${mine.length} answer${mine.length === 1 ? '' : 's'}${mine.length < r.n ? ' so far' : ''}`
+        : st === 'good' ? `Kept on all ${r.n} answers` : st === 'warn' ? 'Needs a person to look' : mine.length ? `${mine.length} of ${r.n} answers judged` : 'Waiting';
+      return `<li class="rl ${st}${fresh}"><span class="rl-dot${st === 'run' ? ' is-running' : ''}"></span><span class="rl-t">${esc(r.title)}${r.severity === 'high' ? ' <span class="rl-hi">high risk</span>' : ''}</span><span class="rl-s num">${what}</span></li>`;
+    }).join('')}</ol>`;
+}
+
 export function riskScanPage(args) {
   const { org, name, ov, csrf, can, now } = args;
   const base = depPath(org, name);
@@ -2260,13 +2274,16 @@ export function riskScanPage(args) {
       const m = marks[i];
       return `<i class="pt${m ? ` ${esc(m.status)}${nowMs - m.at < 2600 ? ' new' : ''}` : i === marks.length ? ' next' : ''}"></i>`;
     }).join('') : '';
+    // The live run, one row per rule (Devin shows an agent's work as steps that settle one by one): waiting, being
+    // judged (n of m answers), kept, or broke it. Rows that just settled animate in; the rest stay still.
+    const timeline = probing && args.job.ruleList ? runTimeline(args.job.ruleList, marks, nowMs) : '';
     // One bar for the whole check, so it runs to the end: step 1 (most of the time) eases toward 70%, step 2 fills to 100%.
     const meter = `<div class="meter" role="progressbar" aria-label="Check progress" data-run="${Number(args.job.startedAt) || 0}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pctDone}" data-at="${pctDone}"${fixing ? ' data-creep="0"' : probing ? ` data-creep="${p.done < p.total ? (30 / p.total).toFixed(2) : 0}"` : ` data-ease="${elapsedMs}"`}><i style="width:${Math.max(2, pctDone)}%"></i></div>`;
     const body = fixing
       ? `${meter}
 <p class="muted">${p.broken} rule${p.broken === 1 ? '' : 's'} broke. Drafting the fix now; nothing changes until you approve it.</p>`
       : probing
-      ? `${meter}<div class="probegrid" role="img" aria-label="${p.done} of ${p.total} answers judged, ${count('broken')} broke a rule">${tiles}</div>
+      ? `${meter}${timeline || `<div class="probegrid" role="img" aria-label="${p.done} of ${p.total} answers judged, ${count('broken')} broke a rule">${tiles}</div>`}
 <p class="legend muted num"><span><i class="pt broken"></i>${count('broken')} broke a rule</span><span><i class="pt kept"></i>${count('kept')} kept</span><span>${p.total - p.done} to go</span></p>`
       : p.found
       ? `${meter}

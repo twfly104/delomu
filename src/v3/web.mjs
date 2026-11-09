@@ -771,7 +771,7 @@ function routes(ctx) {
     const release = ctx.billing.reserveScan(org.id);
     const job = { status: 'running', startedAt: ctx.now().getTime(), progress: { phase: 'rules' } };
     scans.set(dir, job);
-    job.done = riskScan(dir, { llm: ctx.llm ?? createLlm(), onProgress: p => { job.progress = p; if (p.status) (job.marks ??= []).push({ status: p.status, at: Date.now() }); } }).then(result => {
+    job.done = riskScan(dir, { llm: ctx.llm ?? createLlm(), onProgress: p => { job.progress = p; if (p.ruleList) job.ruleList = p.ruleList; if (p.status) (job.marks ??= []).push({ status: p.status, rule: p.rule, at: Date.now() }); } }).then(result => {
       if (!result.ok) Object.assign(job, { status: 'failed', error: `The scan found nothing to test: ${result.reason}` });
       else {
         event(ctx, principal, org.id, 'scan.create', `${name}/${result.scan.id}`, { broken: result.scan.summary.broken, rules: result.scan.summary.rules });
@@ -1404,7 +1404,7 @@ function routes(ctx) {
   function startRecheck(principal, org, name, dir) {
     const job = { status: 'running', recheck: true, startedAt: ctx.now().getTime(), progress: { phase: 'probes', done: 0, total: 0 } };
     scans.set(dir, job);
-    job.done = recheck(dir, { llm: ctx.llm ?? createLlm(), now: ctx.now(), onProgress: p => { job.progress = p; if (p.status) (job.marks ??= []).push({ status: p.status, at: Date.now() }); } }).then(result => {
+    job.done = recheck(dir, { llm: ctx.llm ?? createLlm(), now: ctx.now(), onProgress: p => { job.progress = p; if (p.ruleList) job.ruleList = p.ruleList; if (p.status) (job.marks ??= []).push({ status: p.status, rule: p.rule, at: Date.now() }); } }).then(result => {
       if (!result.ok) Object.assign(job, { status: 'failed', error: `The re-check could not run: ${result.reason}.` });
       else {
         event(ctx, principal, org.id, 'scan.recheck', `${name}/${result.scan.id}`, { broken: result.scan.summary.broken });

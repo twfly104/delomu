@@ -70,3 +70,15 @@ test('the judge spot-check picks kept answers at random, stays fixed per check, 
   assert.deepEqual(spotRecord(dir, ['c1']), { reviewed: 2, wrong: 1 });
   assert.equal(spotsFor(dir, 'c1')[sample[1].key].agree, false);
 });
+
+test('a running check shows one live row per rule: waiting, being judged, kept or broke it', async () => {
+  const { runTimeline } = await import('../src/v3/html.mjs');
+  const now = new Date('2026-11-10T10:00:10Z');
+  const job = { status: 'running', startedAt: now.getTime() - 60_000, progress: { phase: 'probes', done: 4, total: 7 },
+    ruleList: [{ id: 'a', title: 'Refund window', n: 3, severity: 'high' }, { id: 'b', title: 'Hand off big orders', n: 2, severity: 'high' }, { id: 'c', title: 'Promo codes', n: 2, severity: 'medium' }],
+    marks: [{ rule: 'a', status: 'kept', at: now.getTime() - 9000 }, { rule: 'a', status: 'kept', at: now.getTime() - 8000 }, { rule: 'a', status: 'kept', at: now.getTime() - 7000 }, { rule: 'b', status: 'broken', at: now.getTime() - 1000 }] };
+  const html = runTimeline(job.ruleList, job.marks, now.getTime());
+  assert.match(html, /class="rl good"[^]*?Refund window[^]*?Kept on all 3 answers/);
+  assert.match(html, /class="rl bad new"[^]*?Hand off big orders[^]*?Broke it on 1 of 1 answer so far/);
+  assert.match(html, /class="rl wait"[^]*?Promo codes[^]*?Waiting/);
+});
