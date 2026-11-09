@@ -307,6 +307,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.amb{display:flex;gap:8px;align-items:flex-start;margin:10px 0 0;padding:8px 12px;border-radius:var(--r);background:color-mix(in srgb,var(--warn) 12%,transparent);font-size:13.5px;color:var(--text)}.amb svg{flex:none;margin-top:2px;color:var(--warn)}.amb-chip{margin-left:8px;padding:1px 8px;border-radius:99px;font-size:11.5px;font-weight:600;background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--text)}
 .found-rules{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;max-height:180px;overflow:auto}
 .wz-url-form{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .convo-act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px}
@@ -2245,7 +2246,7 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
   // The judge's reason, first sentence first; a longer one folds the rest behind "more".
   const why = t => { const x = String(t ?? ''); const i = x.search(/[.!?]\s/); return i < 0 || x.length < 150 ? `<span>${esc(x)}</span>` : `<details class="reason"><summary>${esc(x.slice(0, i + 1))}</summary>${esc(x.slice(i + 2))}</details>`; };
   const exchange = (p, rule) => `<div class="probe ${esc(p.status)}">
-<div><p class="cap">Customer wrote</p><div class="bubble">${esc(p.message)}</div></div>
+<div><p class="cap">Customer wrote${p.askedAs ? ' <span class="subtle">(the same request, reworded)</span>' : ''}</p><div class="bubble">${esc(p.askedAs ?? p.message)}</div></div>
 <div><p class="cap">Your AI replied</p><div class="bubble ai">${esc(p.answer || '—')}</div>${actionList(p.actions)}</div>
 <p class="verdict-line">${p.status === 'kept' ? '<span class="badge good">Kept</span>' : p.status === 'broken' ? '<span class="badge bad">Broken</span>' : '<span class="badge warn">Check</span>'}
 <span>${why(p.what_happened)}${p.tries && p.unstable ? `<br><span class="tries num unstable">Not consistent: broke it in ${p.tries.broke} of ${p.tries.of} runs of the same message</span>` : ''}</span></p>${rule ? verdictForm(rule, p) : ''}</div>`;
@@ -2255,7 +2256,7 @@ ${ov.inputs.length ? (can.write ? `<form method="post" action="${esc(base)}/scan
     const [cls, label] = SEVERITY[rule.severity] ?? SEVERITY.medium;
     return `<section class="panel" id="r-${esc(rule.id)}"><div class="rule-head">
 <div class="what"><div class="rule-title">${icon('alert')}<h3>${esc(ruleTitle(rule))}</h3></div>
-<p class="clause"><cite>${esc(cl(rule.clause))}</cite>“${esc(rule.quote)}”</p></div>
+<p class="clause"><cite>${esc(cl(rule.clause))}</cite>“${esc(rule.quote)}”</p>${rule.ambiguity ? `<p class="amb">${icon('alert', { size: 14 })}<span><span class="strong">Ask the client:</span> ${esc(rule.ambiguity)} The policy can be read more than one way here, so a finding may be the policy’s gap, not the agent’s.</span></p>` : ''}</div>
 <div class="tags"><span class="badge ${cls}">${esc(label)}</span><span class="subtle num" style="font-size:12.5px">${bad.some(p => p.status === 'broken') ? `${bad.filter(p => p.status === 'broken').length} of ${rule.probes.length} messages broke it` : `${bad.length} of ${rule.probes.length} need review`}</span></div></div>
 ${bad.map(p => exchange(p, rule)).join('')}
 ${ok.length ? `<details class="kept"><summary>${ok.length} other message${ok.length === 1 ? '' : 's'} handled correctly</summary>${ok.map(p => exchange(p, rule)).join('')}</details>` : ''}</section>`;
@@ -2313,7 +2314,7 @@ ${worseNotice}
 ${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}${readyPanel}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
-${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}${(() => { const n = r.probes.reduce((k, p) => k + (p.tries?.of ?? 1), 0); return n > r.probes.length ? `, kept in all ${n} answers` : ''; })()}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
+${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span>${r.ambiguity ? `<span class="amb-chip" title="${esc(r.ambiguity)}">Question for the client</span>` : ''}<span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}${(() => { const n = r.probes.reduce((k, p) => k + (p.tries?.of ?? 1), 0); return n > r.probes.length ? `, kept in all ${n} answers` : ''; })()}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
 }
 
 // The last 7 days as bars: height is conversations checked that day, the red part those that broke a rule.

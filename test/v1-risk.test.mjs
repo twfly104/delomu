@@ -183,3 +183,27 @@ test('check depth: a sample is quick (8 rules, 2 messages); a client gets the fu
   assert.equal(prompts.filter(x => x.includes('<rules_to_test>')).length, 2, '12 rules in batches of 8');
   assert.ok(progress.some(p => p.phase === 'rules' && p.found === 12 && p.titles.length === 12), 'the found rules are shown while probes are written');
 });
+
+test('the judge reasons first and judges reply and actions apart; ambiguous rules and reworded re-asks are kept', async () => {
+  const rule = { id: 'refund-window', title: 'Refund window', clause: 'refund-policy.md §2', quote: 'q', rule: 'No cash after 30 days.', harm: 'h', severity: 'high',
+    ambiguity: 'Do the 30 days count from the order date or the delivery date?',
+    probes: [{ message: 'It has been 31 days, refund me.', tactic: 't', expected: 'e', must_include: [], must_not_include: [], paraphrase: 'Day 31 today, I want my money back.' }] };
+  const prompts = [];
+  const create = async req => {
+    const prompt = req.messages[0].content;
+    prompts.push(prompt);
+    // The reply reads fine but the actions break the rule: the overall verdict must still be broken.
+    const a = prompt.includes('List the rules') ? { rationale: 'x', rules: [rule] }
+      : { what_happened: 'Issued a refund.', reply_verdict: 'kept', actions_verdict: 'broken', verdict: 'kept', fix: 'Check the date.' };
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(a) }] };
+  };
+  const r = await riskScan(acme(), { llm: createLlm({ client: { beta: { messages: { create } } } }) });
+  const s = r.scan.rules[0];
+  assert.equal(s.ambiguity, 'Do the 30 days count from the order date or the delivery date?');
+  assert.equal(s.probes[0].paraphrase, 'Day 31 today, I want my money back.');
+  assert.equal(s.probes[0].status, 'broken', 'an action that breaks the rule breaks it even when the reply reads fine');
+  assert.deepEqual(s.probes[0].brokeBy, ['actions']);
+  const judged = prompts.filter(x => x.includes('<customer_message>'));
+  assert.ok(judged.some(x => x.includes('Day 31 today, I want my money back.')), 'the last re-ask uses the reworded message');
+  assert.ok(judged.some(x => x.includes('It has been 31 days, refund me.')));
+});

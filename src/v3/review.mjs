@@ -53,6 +53,7 @@ const STYLE = `.rv{max-width:640px}.rv-top{display:flex;justify-content:space-be
 .rv-quote{margin:0 0 16px;padding:10px 14px;border-left:3px solid var(--line-strong);color:var(--text-2);font-size:14.5px;line-height:1.55}.rv-quote cite{display:block;font-style:normal;font-size:12px;color:var(--text-3);margin-bottom:4px}
 .rv-res{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 14px;font-size:14px}
 .rv-ex{display:grid;gap:8px;margin:0 0 6px}.rv-ex .cap{font-size:12px;color:var(--text-3);margin:0 0 3px}.rv-ex .bubble{font-size:14px}
+.rv-amb{margin:14px 0 0;padding:10px 12px;border-radius:calc(var(--r) - 2px);background:color-mix(in srgb,var(--warn) 12%,transparent);font-size:13.5px}
 .rv-hist{margin:14px 0 0;padding:10px 12px;border-radius:calc(var(--r) - 2px);background:var(--sunken);font-size:13.5px;color:var(--text-2)}
 .rv-acts{display:grid;gap:12px;margin-top:20px}.rv-acts .row-inline{gap:8px}.rv-ask summary{cursor:pointer;color:var(--text-2);font-size:14px}
 .rv-qs{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}.rv-qs li{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r);font-size:13.5px}.rv-qs .so-ans{margin-top:8px;padding:8px 10px;border-radius:6px;background:var(--sunken)}
@@ -84,6 +85,7 @@ ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : 
 <blockquote class="rv-quote"><cite>Your policy${rule.clause ? `, ${esc(rule.clause)}` : ''}</cite>“${esc(rule.quote || rule.rule)}”</blockquote>
 <p class="rv-res">${kept ? '<span class="badge good">Kept</span>' : '<span class="badge bad">Broken</span>'}<span>${kept ? `The agent kept this rule on all ${rule.probes.length} test message${rule.probes.length === 1 ? '' : 's'}.` : `The agent broke this rule on ${nBroke} of ${rule.probes.length} test messages.`}</span></p>
 ${show ? `<div class="rv-ex"><div><p class="cap">A customer wrote</p><div class="bubble">${esc(show.message)}</div></div><div><p class="cap">The agent replied</p><div class="bubble ai">${esc(show.answer || '—')}</div></div></div>` : ''}
+${rule.ambiguity ? `<p class="rv-amb"><span class="strong">A question for you:</span> ${esc(rule.ambiguity)} Your policy can be read more than one way here. Answer it with “Ask about this rule” below, so ${esc(preparedBy)} tests the reading you mean.</p>` : ''}
 ${wasBroken ? `<p class="rv-hist">This rule broke in the first check. ${esc(preparedBy)} approved a fix, and the same messages were sent again: ${kept ? 'kept' : 'still broken'}.</p>` : ''}
 ${mine ? `<p class="subtle" style="margin:12px 0 0">${mine.state === 'ok' ? 'You marked this rule as looking right.' : 'You asked about this rule.'} You can change it.</p>` : ''}
 <div class="rv-acts">
