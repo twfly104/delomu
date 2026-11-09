@@ -13,5 +13,6 @@ test('the home review list names the agent and hides internal check ids', () => 
 
 test('on a phone the six rollout steps stack in one column', () => {
   const html = homePage({ user: { email: 'a@b.test' }, csrf: 'x', nav: { orgs: [{ id: 'o1', name: 'A' }, { id: 'o2', name: 'B' }] }, now: new Date(), deployments: [], review: [], canWrite: false });
-  assert.match(html, /@media \(max-width:760px\)\{[^}]*\.stages,\.stages\.six\{grid-template-columns:1fr\}/);
+  const phone = html.slice(html.indexOf('@media (max-width:760px){'));
+  assert.ok(phone.includes('.stages,.stages.six{grid-template-columns:1fr}'));
 });
