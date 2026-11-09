@@ -74,13 +74,14 @@ test('the client asks about one rule, the vendor answers on the Rollout page, th
 
   // The vendor: Home lists it first, the Rollout page has an answer box.
   const home = await (await get('/', cookie)).text();
-  assert.match(home, /Question from Dana Lee about/);
+  assert.match(home, /Dana Lee asked about/);
+  assert.match(home, /<h1>Inbox<\/h1>[^]*<h2>Needs you<\/h2>[^]*Client asked[^]*<h2 class="ib-all">All AI agents<\/h2>/, 'the inbox puts what needs you above the list of agents');
   assert.match(home, /on Refunds within 30 days/);
   page = await (await get(`${dep}/rollout`, cookie)).text();
   assert.match(page, /Questions from the client/);
   const action = /action="([^"]+\/questions\/q_[0-9a-f]+\/answer)"/.exec(page)[1];
   assert.equal((await post(action, cookie, { csrf: csrfOf(page), answer: 'Yes: store credit counts as a refund.' })).status, 303);
-  assert.doesNotMatch(await (await get('/', cookie)).text(), /Question from Dana Lee/);
+  assert.doesNotMatch(await (await get('/', cookie)).text(), /Dana Lee asked about/);
   assert.match(await (await get(`/signoff/${token}`)).text(), /Yes: store credit counts as a refund\./);
   assert.equal(readAudit(dir).filter(e => e.action === 'signoff.answer').length, 1);
 });
@@ -146,7 +147,7 @@ test('the guided review goes rule by rule, a question counts as reviewed, and Ac
   assert.match(after, /You reviewed all 2 rules/);
   assert.match(after, /1 with a question/);
   assert.doesNotMatch(after, /value="accepted" disabled/);
-  assert.match(await (await get('/', cookie)).text(), /Question from Dana Lee/);
+  assert.match(await (await get('/', cookie)).text(), /Dana Lee asked about/);
 });
 
 test('a broken high-risk rule blocks the sign-off link unless the vendor writes why; the client sees the reason', async () => {

@@ -310,6 +310,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.ib{margin-bottom:16px}.ib-row{align-items:center}.ib-chip{flex:none;min-width:92px;text-align:center;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:600;border:1px solid var(--line);color:var(--text-2)}.ib-chip.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line));background:color-mix(in srgb,var(--bad) 8%,transparent)}.ib-chip.acc{color:var(--accent-text);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));background:var(--accent-weak)}.ib-chip.warn{border-color:color-mix(in srgb,var(--warn) 50%,var(--line));background:color-mix(in srgb,var(--warn) 10%,transparent);color:var(--text)}.ib-chip.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,var(--line))}.ib-all{font-size:15px;margin:28px 0 10px}@media (max-width:560px){.ib-chip{min-width:0}}
 .runline{list-style:none;margin:14px 0 0;padding:0;display:grid;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.rl{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 14px;font-size:13.5px}.rl+.rl{border-top:1px solid var(--line)}.rl-dot{width:9px;height:9px;border-radius:50%;background:var(--line-strong)}.rl.run .rl-dot{background:var(--accent)}.rl.good .rl-dot{background:var(--good)}.rl.bad .rl-dot{background:var(--bad)}.rl.warn .rl-dot{background:var(--warn)}.rl.wait .rl-t{color:var(--text-3)}.rl-s{font-size:12.5px;color:var(--text-3);white-space:nowrap}.rl.bad .rl-s{color:var(--bad)}.rl.good .rl-s{color:var(--good)}.rl-hi{margin-left:6px;font-size:11px;font-weight:600;color:var(--bad)}.rl .rl-dot.is-running{animation:pulse 1.6s ease-in-out infinite}@media (prefers-reduced-motion:no-preference){.rl.new{animation:rise .2s cubic-bezier(0,.4,0,1) both}}@media (prefers-reduced-motion:reduce){.rl .rl-dot.is-running{animation:none}}
 .probe.is-conv{display:block}.pconv{display:grid;gap:10px}.pturn{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}.pturn>div{display:grid;gap:6px}.pturn .pn{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;border:1px solid var(--line-strong);color:var(--text-3)}.pturn.broke .pn{background:var(--bad);border-color:var(--bad);color:#fff}.pturn.broke .bubble.ai{outline:1.5px solid color-mix(in srgb,var(--bad) 55%,transparent)}
 .spot{padding:14px 0;border-top:1px solid var(--line)}.spot:first-of-type{border-top:0;padding-top:0}
@@ -1480,22 +1481,26 @@ export function homePage({ user, csrf, nav, now, deployments, review, asks = [],
   const summary = deployments.length
     ? `${deployments.length} AI agent${deployments.length > 1 ? 's' : ''}${broken ? ` · ${broken} breaking policy rules` : ''}${median !== null ? ` · ${days.length} signed off, median ${median} day${median === 1 ? '' : 's'} from client added to sign-off` : ''}`
     : 'No AI agents yet.';
-  // Needs you, in a fixed order: client questions first (someone outside is waiting), then drafts to review.
-  const needs = asks.length + review.length;
-  const askRows = asks.map(({ org, name, title, q }) => `<a class="row" href="${esc(depPath(org, name))}/rollout#signoff">
-${icon('inbox')}<div class="what"><p class="strong">Question from ${esc(q.name)} about ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · asked ${esc(ago(q.at, now))}${q.ruleTitle ? ` · on ${esc(q.ruleTitle)}` : ''} · “${esc(q.text.length > 90 ? `${q.text.slice(0, 90)}…` : q.text)}”</p></div>
-<span class="btn">Answer</span></a>`).join('');
-  const draftRows = review.map(({ org, name, title, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
-${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.kind === 'cases' && draft.content?.rows?.length ? ` · Save ${draft.content.rows.length} test messages so every rule stays tested` : draft.rationale ? ` · ${esc(plainRationale(draft.rationale))}` : ''}</p></div>
-<span class="btn">Review</span></a>`).join('');
-  const queue = needs ? `<section class="panel"><div class="panel-head"><h2>Waiting for your decision</h2><span class="badge accent plain num">${needs}</span></div><div class="rows">${askRows}${draftRows}</div></section>` : '';
-  const onClient = waiting.length ? `<section class="panel"><div class="panel-head"><h2>Waiting on the client</h2><span class="badge plain num">${waiting.length}</span></div><div class="rows">${waiting.map(({ org, name, title }) => `<a class="row" href="${esc(depPath(org, name))}/rollout#signoff">
-${icon('arrow')}<div class="what"><p class="strong">Sign-off for ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · link sent, no decision yet</p></div><span class="btn">Open</span></a>`).join('')}</div></section>` : '';
+  // The inbox, Grapim's version of Linear's: everything grouped by who has to act, in a fixed order, each row with
+  // one state chip and one action. 'Needs you' runs most urgent first: a client waiting on an answer, a broken rule,
+  // a draft to review, a policy that changed, a rollout ready to send; then what waits on the client.
+  const item = (href, chip, cls, title, sub, act) => `<a class="row ib-row" href="${esc(href)}"><span class="ib-chip ${cls}">${esc(chip)}</span><div class="what"><p class="strong">${title}</p><p class="subtle">${sub}</p></div><span class="btn">${esc(act)}</span></a>`;
+  const needsYou = [
+    ...asks.map(({ org, name, title, q }) => item(`${depPath(org, name)}/rollout#signoff`, 'Client asked', 'acc', `${esc(q.name)} asked about ${esc(title || name)}`, `${esc(org.name)} · ${esc(ago(q.at, now))}${q.ruleTitle ? ` · on ${esc(q.ruleTitle)}` : ''} · “${esc(q.text.length > 90 ? `${q.text.slice(0, 90)}…` : q.text)}”`, 'Answer')),
+    ...deployments.filter(d => rolloutStatus(d).word === 'Rule broken').map(d => item(`${depPath(d.org, d.name)}/scan`, 'Rule broken', 'bad', esc(agentTitle(d.name, d.config)), `${esc(d.org.name)} · ${esc(rolloutStatus(d).why)}`, 'Fix')),
+    ...review.map(({ org, name, title, draft }) => item(`${depPath(org, name)}/drafts`, 'To review', 'plain', `${esc(draftLabel(draft))} for ${esc(title || name)}`, `${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.kind === 'cases' && draft.content?.rows?.length ? ` · Save ${draft.content.rows.length} test messages so every rule stays tested` : draft.rationale ? ` · ${esc(plainRationale(draft.rationale))}` : ''}`, 'Review')),
+    ...deployments.filter(d => rolloutStatus(d).word === 'Policy changed').map(d => item(`${depPath(d.org, d.name)}/scan`, 'Policy changed', 'warn', esc(agentTitle(d.name, d.config)), `${esc(d.org.name)} · ${esc(rolloutStatus(d).why)}`, 'Re-check')),
+    ...deployments.filter(d => rolloutStatus(d).word === 'Ready for sign-off').map(d => item(`${depPath(d.org, d.name)}/rollout#signoff`, 'Ready', 'good', esc(agentTitle(d.name, d.config)), `${esc(d.org.name)} · ${esc(rolloutStatus(d).why)}`, 'Send link')),
+  ];
+  const onClientRows = waiting.map(({ org, name, title }) => item(`${depPath(org, name)}/rollout#signoff`, 'Link sent', 'plain', `Sign-off for ${esc(title || name)}`, `${esc(org.name)} · no decision yet`, 'Open'));
+  const group = (h, rows, cls = '') => rows.length ? `<section class="panel ib${cls}"><div class="panel-head"><h2>${h}</h2><span class="badge ${cls ? 'plain' : 'accent plain'} num">${rows.length}</span></div><div class="rows">${rows.join('')}</div></section>` : '';
+  const clear = !needsYou.length && deployments.length ? `<section class="panel ib"><div class="emptystate" style="padding:22px 16px"><span class="strong">Nothing needs you right now.</span>New questions, broken rules and drafts show up here first.</div></section>` : '';
   return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
-<div class="page-head"><div><h1>AI agents</h1><p class="sub num">${esc(summary)}</p></div>
+<div class="page-head"><div><h1>Inbox</h1><p class="sub num">${esc(summary)}</p></div>
 ${orgs.length === 1 && canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(orgs[0]))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
-<section class="panel">${deployments.length ? agentsTable(deployments, { showOrg: orgs.length > 1, now }) : `<div class="emptystate"><span class="strong">No AI agents yet</span>Connect the AI agent you want to check.</div>`}</section>
-${queue}${onClient}` });
+${group('Needs you', needsYou)}${clear}${group('Waiting on the client', onClientRows, ' quiet')}
+<h2 class="ib-all">All AI agents</h2>
+<section class="panel">${deployments.length ? agentsTable(deployments, { showOrg: orgs.length > 1, now }) : `<div class="emptystate"><span class="strong">No AI agents yet</span>Connect the AI agent you want to check.</div>`}</section>` });
 }
 
 // Drafts written before 2026-11-09 start with the check's internal id ("Risk scan 2026-11-09T09-46-…: "); a list
