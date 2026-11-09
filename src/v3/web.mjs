@@ -1574,7 +1574,7 @@ function routes(ctx) {
     try { config = loadConfig(dir); } catch { /* the page works without it */ }
     const vendor = org.partner_org_id ? getOrg(db, org.partner_org_id) : null;
     const base = `${depPath(org, params.name)}/questionnaire`;
-    return { dir, org, rows: buildQuestionnaire(dir, { now: ctx.now() }), preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: params.name,
+    return { dir, org, rows: buildQuestionnaire(dir, { now: ctx.now() }), preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: config.title || params.name,
       csrf: principal.csrf, canEdit: principalAllows(principal, role, 'deployments:write'), action: base, back: `${depPath(org, params.name)}/rollout`, ...extra };
   };
   r.add('GET', '/orgs/:org/deployments/:name/questionnaire', ({ principal, params, url }) => html(questionnairePage(qnView(principal, params, { saved: url.searchParams.get('notice') === 'saved' }))));
@@ -1599,7 +1599,7 @@ function routes(ctx) {
     let config = {};
     try { config = loadConfig(dir); } catch { /* the page works without it */ }
     const vendor = org.partner_org_id ? getOrg(db, org.partner_org_id) : null;
-    return html(handoverPage(handoverData(dir, { preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: params.name }), { back: `${depPath(org, params.name)}/rollout` }));
+    return html(handoverPage(handoverData(dir, { preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: config.title || params.name }), { back: `${depPath(org, params.name)}/rollout` }));
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/evidence.html', ({ principal, params, url }) => {
