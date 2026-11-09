@@ -592,7 +592,7 @@ html.asst-drag,html.asst-drag *{cursor:col-resize!important;user-select:none}htm
 .sl-alert{display:flex;gap:12px;align-items:flex-start;margin:12px 16px 16px;padding:12px 14px;border-radius:10px;border:1px solid color-mix(in srgb,var(--bad) 35%,transparent);background:var(--bad-weak)}.sl-alert p{margin-top:3px;color:var(--text-2);font-size:13px}.sl-alert .sc-cap{margin-top:6px}
 .lv-faq{padding-top:152px;text-align:center}.lv-faq h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600}.lv-faq .lp-faq{margin:36px auto 0;text-align:left}
 .lv-more{padding-top:152px;text-align:center}.lv-more h2{font-size:clamp(28px,3.6vw,42px);line-height:1.08;letter-spacing:-0.035em;font-weight:600;text-wrap:balance}
-.lv-mlist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin:44px 0 0;text-align:left}
+.lv-mlist{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px;margin:44px 0 0;text-align:left}.lv-mlist.six{grid-template-columns:repeat(3,minmax(0,1fr))}.lv-legal{padding-top:120px}@media (max-width:900px){.lv-mlist.six{grid-template-columns:1fr 1fr}.lv-legal{padding-top:96px}}@media (max-width:560px){.lv-mlist.six{grid-template-columns:1fr}}
 .lv-mlist>div{padding-top:16px;border-top:1px solid var(--line-strong)}.lv-mlist dt{font-weight:600;font-size:17px;letter-spacing:-0.015em}.lv-mlist dd{margin:6px 0 0;color:var(--text-2);font-size:15.5px;line-height:1.55}
 .lv-js [data-scene] .lb-bars i{height:4px}.lv-js [data-scene].on .lb-bars i{animation:lbBar .6s cubic-bezier(.2,.7,.2,1) var(--d) forwards}
 @keyframes lbBar{from{height:4px}to{height:var(--h)}}
@@ -919,8 +919,8 @@ ${form(`<div class="asst-form"><label class="sr" for="asst-page-q">Ask the assis
   return layout({ title: 'Assistant', user, csrf, nav, crumbs: [['Assistant']], body });
 }
 
-export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0 }) {
-  if (!user) return doc(title, `<main class="auth">${body.includes('class="auth-card') && /Sign in|Create your account|Check your email|sign-in key/.test(title) ? pipField('auth-field', 64, 40) : ''}${body}</main>`);
+export function layout({ title, user, csrf, nav, crumbs = [], body, refresh = 0, meta }) {
+  if (!user) return doc(title, `<main class="auth">${body.includes('class="auth-card') && /Sign in|Create your account|Check your email|sign-in key/.test(title) ? pipField('auth-field', 64, 40) : ''}${body}</main>`, '', 0, meta);
   const trail = crumbs.map(([label, href], i) => (i === crumbs.length - 1 || !href
     ? `<span class="here">${esc(label)}</span>`
     : `<a href="${esc(href)}">${esc(label)}</a><span class="sep">/</span>`)).join('');
@@ -942,6 +942,7 @@ export const SIGNUP_KINDS = [
 export function signupPage({ csrf, error, values = {} }) {
   return layout({
     title: 'Create your account',
+    meta: { path: '/signup', description: 'Start free: check your AI agent against a client’s own policies, fix what breaks and get the client’s sign-off. No card needed.' },
     body: `<div class="auth-card">
 <a class="brand" href="/login" aria-label="Grapim">${mark(26, 'm-auth')}<span>Grapim</span></a>
 <h1>Prove your AI agent keeps the rules</h1><p class="lede">Check it against each client’s own policies, fix what breaks, and get their sign-off. Free plan, no card.</p>
@@ -1083,33 +1084,49 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
   const body = `${lpTop(start, cta)}
 <main class="lv">
 <section class="lh">${pipField('lh-field')}
-<h1>Deploy your AI agent to every new client. <span>Hand them signed proof.</span></h1>
-<p class="lv-sub">Draft, test, fix, sign off and monitor every client rollout in one place.</p>
+<h1>Your client’s rules, tested and signed off. <span>Go&#8209;live never waits on their legal team.</span></h1>
+<p class="lv-sub">For AI agent vendors. Grapim checks your agent against each client’s own policies, drafts the fix, gets the client’s sign-off, and keeps the proof current after every change.</p>
 <div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div>
 </section>
 <section class="lb-wrap" aria-label="A rollout board with one sample client at each stage">${board}<p class="lv-note">Sample clients. Real Grapim screens.</p></section>
-<ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}SOC 2 in preparation</a></li></ul>
+<ul class="lv-trust" aria-label="How client data is handled">${['Never used to train models', 'Each client’s data kept apart', 'Tamper-evident audit log'].map(t => `<li>${icon('check', { size: 14 })}${t}</li>`).join('')}<li><a href="/security">${icon('shield', { size: 14 })}How we handle data</a></li></ul>
 <section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
 <figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds a broken rule, Grapim drafts a fix, the same messages run again and all eight rules are kept, and the bank signs off from a link"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false" aria-label="Sound"><span class="on">${icon('muted', { size: 15 })}Sound off</span><span class="off">${icon('sound', { size: 15 })}Sound on</span></button></figure>
 <p class="lv-note">Real product, sample client. Waiting sped up.</p></section>
 ${step('draft', 1, 'Drafted from <mark>the client’s docs</mark>.', 'Mapping, integration and tests. You approve each.', draft)}
-${step('check', 2, 'Every rule, <mark>tested</mark>.', 'What it says and does, judged against the exact clause.', grid, true)}
-${step('fix', 3, 'Fix it. <mark>Test it again</mark>.', 'One drafted change. You approve, the same messages rerun.', fix)}
-${step('signoff', 4, 'Signed by <mark>the client</mark>.', 'One link, no account. Saved to a tamper-evident log.', sign, true)}
-${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation checked. Broken rules alert you in Slack.', live)}
-<section class="lv-more"><h2>Built for the team that runs every rollout.</h2>
+${step('check', 2, 'Every rule, <mark>tested hard</mark>.', 'Up to 40 rules from the client’s own policies, three messages each, and a multi-turn pressure conversation for every high-risk rule. Tool calls are checked in code; words are judged against the exact clause.', grid, true)}
+${step('fix', 3, 'Fix it. <mark>Test it again</mark>.', 'One drafted change, tied to the rules it repairs. You approve, the same messages rerun, and a fix that makes things worse is undone.', fix)}
+${step('signoff', 4, 'Signed by <mark>the client</mark>.', 'The client reviews one rule at a time, asks about anything unclear, then accepts. One link, no account, kept in a tamper-evident log.', sign, true)}
+${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation checked against the same rules. Broken rules alert you in Slack, and one click turns a bad conversation into a test.', live)}
+<section class="lv-more lv-legal"><h2>What their legal team gets.</h2>
 <dl class="lv-mlist">
-<div><dt>One board for every client</dt><dd>Who needs you, at a glance.</dd></div>
-<div><dt>A playbook that compounds</dt><dd>Each rollout starts smarter.</dd></div>
-<div><dt>Guard API and MCP</dt><dd>From your code or Cursor.</dd></div>
-<div><dt>Rollout metrics</dt><dd>Hours and days per client.</dd></div>
+<div><dt>An evidence pack</dt><dd>Every check, fix and approver, with the client’s sign-off. Mapped to ISO/IEC 42001, NIST AI RMF, AIUC-1 and the EU AI Act, gaps named.</dd></div>
+<div><dt>Their security questionnaire</dt><dd>The AI questions answered from your test records, as a spreadsheet.</dd></div>
+<div><dt>A judge they can trust</dt><dd>People spot-check answers the judge marked kept, so the miss rate is measured, not assumed.</dd></div>
+<div><dt>A release gate</dt><dd>A broken high-risk rule blocks the sign-off link unless you write why, and the client sees the reason.</dd></div>
+</dl></section>
+<section class="lv-more"><h2>Proof that stays true.</h2>
+<dl class="lv-mlist">
+<div><dt>Policy changed</dt><dd>Upload the new version and every rule is checked again.</dd></div>
+<div><dt>Model or prompt changed</dt><dd>Scheduled re-checks, and a new model version reruns the tests.</dd></div>
+<div><dt>CI gate</dt><dd>A check in your pipeline fails the build on a broken high-risk rule.</dd></div>
+<div><dt>Live, every day</dt><dd>Real conversations judged against the same rules the client signed.</dd></div>
+</dl></section>
+<section class="lv-more"><h2>Built for the team that runs every rollout.</h2>
+<dl class="lv-mlist six">
+<div><dt>One board for every client</dt><dd>One status each, and days from added to signed off.</dd></div>
+<div><dt>A playbook that compounds</dt><dd>Each rollout starts from the last, with client consent.</dd></div>
+<div><dt>The client’s systems, connected</dt><dd>A connector drafted from their API docs or a recorded session.</dd></div>
+<div><dt>Their material, imported</dt><dd>Policies from a web page; tickets and articles from Zendesk, Intercom or Shopify.</dd></div>
+<div><dt>Guard API and MCP</dt><dd>Block a broken reply before it is sent, from your code or Cursor.</dd></div>
+<div><dt>Sales, billing and HR agents</dt><dd>Not only support: each kind is tested on its own risks.</dd></div>
 </dl></section>
 <section class="lv-faq" id="faq"><h2>Questions</h2><div class="lp-faq">${homeFaq(plans)}</div></section>
-<section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every new client, deployed <mark>with signed proof</mark>.</h2><p class="lv-sub">Free to start. Five design partner spots in our first cohort.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div></section>
+<section class="lv-close">${pipField('lh-field close', 44, 12)}<h2>Every client’s rules, <mark>signed off</mark>.</h2><p class="lv-sub">Free to start. Five design partner spots in our first cohort.</p><div class="lv-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/design-partners">Become a design partner</a></div></section>
 </main>
 ${lpFoot()}`;
-  return doc('', body, 'lp-page', 0, { fullTitle: 'Grapim: deploy your AI agent to every new client, with signed proof', path: '/',
-    description: 'Grapim runs each client rollout for AI agent vendors: it drafts the integration and tests, checks every policy rule, drafts the fix, gets the client’s sign-off and watches every conversation after launch.',
+  return doc('', body, 'lp-page', 0, { fullTitle: 'Grapim: your client’s rules, tested and signed off', path: '/',
+    description: 'For AI agent vendors: Grapim checks your agent against each client’s own policies, drafts the fix, gets the client’s sign-off and keeps the proof current, so go-live never waits on the client’s legal team.',
     jsonld: [{ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Grapim', url: SITE_URL + '/' },
       { '@context': 'https://schema.org', '@type': 'Organization', name: 'Grapim', url: SITE_URL + '/', logo: SITE_URL + '/favicon.svg', sameAs: ['https://www.linkedin.com/company/grapim/'] }] });
 }
@@ -1358,6 +1375,7 @@ const keyPanel = secret => (secret ? `<section class="panel keynote"><div class=
 export function loginPage({ csrf, error, signup = false, email = false, sentTo = '' }) {
   return layout({
     title: 'Sign in',
+    meta: { path: '/login', description: 'Sign in to Grapim with a one-time email link, your company’s single sign-on, or an API key.' },
     body: `<div class="auth-card">
 <a class="brand" href="/login" aria-label="Grapim">${mark(26, 'm-auth')}<span>Grapim</span></a>
 <h1>${sentTo ? 'Check your email' : 'Sign in'}</h1><p class="lede">${sentTo ? `If ${esc(sentTo)} has a Grapim account, a sign-in link is on its way. It works once, for 15 minutes.` : (email ? 'Continue with your work email or your company account.' : 'Continue with your company account.')}</p>
