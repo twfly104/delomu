@@ -9,7 +9,7 @@ Ranked by harm to a vendor's first 10 minutes or to their trust in showing Grapi
 
 | # | Gap (what the walk showed) | Principle | Status |
 |---|---|---|---|
-| 1 | With a real model the sample agent kept **all 8 rules** in both walks, so a new vendor never saw a broken rule, a drafted fix, approve or re-check: the core value never appears. | P1 real work in the first session | **Fixed** `69b05bb` — the sample agent runs on the store's previous policy (v3), so the 1-hour cancel and $1,000 hand-off rules break, and a drafted fix closes them |
+| 1 | With a real model the sample agent kept **all 8 rules** in both walks, so a new vendor never saw a broken rule, a drafted fix, approve or re-check: the core value never appears. | P1 real work in the first session | **Fixed** `69b05bb` — the sample agent runs on the store's previous policy (v3), so the 1-hour cancel and $1,000 hand-off rules break. After-walk: **3 of 8 broken** → Grapim drafted the fix → approve → re-check in 31 s → **all 8 kept**, "2 → 0 rules broken" |
 | 2 | The client's sign-off page put the decision **~1,800 px down**, under the full handover detail; it did not say who sent the link; "Northwind Agents**’s**". | P7 name the sender and the ask above the fold | **Fixed** `aad3916` — heading, verdict, Decide / report / handover buttons, then the decision; "Sent by …"; possessives fixed on sign-off, handover, questionnaire |
 | 3 | After sending the link the vendor could not tell whether the client had **opened** it; a revoked or expired link was a bare **404**. | P8 links never dead-end, P9 sender sees what happened | **Fixed** `28f4546` — Opened 5 min ago / Not opened yet (link-preview bots ignored); closed links answer 410 with what happened and who to ask |
 | 4 | A passing check page **ended with no next step**; the sign-off lived two tabs away, and the Rollout panel said "Send the client a link once the check passes" although it had passed. | P3 one "needs you" next action, P5 land on the result | **Fixed** `74f8144` + `28f4546` — "Ready for sign-off" panel on the check page; state-aware sign-off copy |
@@ -23,3 +23,10 @@ Ranked by harm to a vendor's first 10 minutes or to their trust in showing Grapi
 Also seen, smaller: the "Kept" list repeats the rule map directly above it; the sidebar shows the client
 ("Harbor Bank (sample)") while the agent header shows "Linden & Co. (sample)" for the sample; there is no
 command menu or keyboard shortcut list (P12), which matters less for a weekly-use tool.
+
+## After-walk (same script, fixes applied)
+
+First check 107 s, 3 of 8 rules broken (hand-off over $1,000, 1-hour cancel, 14-day damage), fix drafted
+automatically, approved and applied, re-check 31 s, all 8 kept, Ready for sign-off → link created (Copy) →
+client opened it (vendor sees "Opened just now") → link revoked → client sees who to ask. Side-by-side:
+`compare.html`. `npm test`: 319 pass.

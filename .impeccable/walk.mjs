@@ -73,8 +73,9 @@ for (;;) {
 log('first check done in', Math.round((Date.now() - started) / 1000), 's');
 await shot('check-result', `${dep}/scan`);
 // 5. Fix, when a rule broke.
-if (/fix\/draft/.test(page.text)) {
-  page = await post(`${dep}/fix/draft`, { csrf: csrfOf(page.text) });
+if (/fix\/(draft|approve)/.test(page.text)) {
+  // Grapim drafts the fix by itself after a check that breaks a rule; draft one only when it has not.
+  if (!/fix\/approve/.test(page.text)) page = await post(`${dep}/fix/draft`, { csrf: csrfOf(page.text) });
   log('fix drafted');
   await shot('fix-proposed', `${dep}/scan`);
   page = await get(`${dep}/scan`);
