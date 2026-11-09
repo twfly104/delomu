@@ -13,6 +13,7 @@ import { TOKENS } from '../theme.mjs';
 import { getFix } from '../v1/fix.mjs';
 import { listConversations, liveDir } from '../v1/live.mjs';
 import { listScans } from '../v1/risk.mjs';
+import { signoffs } from './signoff.mjs';
 
 const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 90;
@@ -169,10 +170,14 @@ export function buildEvidence(dir, { from, to, now = new Date() }) {
     files: files.length,
   };
 
+  // The client's decisions on sign-off links, and every rule text checked in the period (for the framework map).
+  const signed = signoffs(dir).filter(x => inRange(x.at)).map(x => ({ decision: x.decision, name: String(x.name ?? ''), note: String(x.note ?? ''), at: x.at, scanId: String(x.scanId ?? '') }));
+  const ruleTexts = [...new Set(scans.flatMap(sc => (sc.rules ?? []).map(r => `${r.title ?? ''} ${r.rule ?? ''}`)))];
+
   const last = audit.entries.at(-1);
   return {
     range: { from, to }, generatedAt: now.toISOString(),
-    checks, rechecks, fixes: fixEvents, timeToFix, live,
+    checks, rechecks, fixes: fixEvents, timeToFix, live, signoffs: signed, ruleTexts,
     audit: {
       ok: audit.verify.ok, brokenAt: audit.verify.brokenAt ?? null, reason: audit.verify.reason ?? '',
       count: audit.lines ?? audit.entries.length, inRange: audit.entries.filter(e => inRange(e.ts)).length,
@@ -221,20 +226,69 @@ const EMPTY = '<p class="empty">No records in this period.</p>';
 const src = text => `<p class="src">Source: ${text}</p>`;
 const ruleList = list => (list.length ? `<ul class="rules">${list.map(r => `<li>${esc(r.text)}${r.clause ? ` <span class="subtle">(${esc(cl(r.clause))})</span>` : ''}</li>`).join('')}</ul>` : '');
 
+function signoffSection(list, checkRef) {
+  if (!list.length) return '<p class="empty">No sign-off in this period. A sign-off link lets the client review a check and accept the agent or send it back, without an account.</p>';
+  return `<table><thead><tr><th>Date</th><th>Decision</th><th>By</th><th>For check</th></tr></thead><tbody>
+${list.map(x => `<tr><td class="nowrap">${esc(stamp(x.at))}</td><td><b>${x.decision === 'accepted' ? 'Accepted' : 'Sent back'}</b>${x.note ? `<br><span class="subtle">“${esc(x.note)}”</span>` : ''}</td><td>${esc(x.name)}</td><td>${checkRef(x.scanId)}</td></tr>`).join('\n')}
+</tbody></table>${src('<code>signoff.json</code>, one record per decision given on a sign-off link, also written to the audit log as <code>signoff.accepted</code> or <code>signoff.declined</code>.')}`;
+}
+
+// The questions common AI frameworks ask, and which records in this pack answer them. A map for the reader, not a
+// certification: each row says whether this period holds records for it, and names the section.
+const DISCLOSURE = /disclos|\b(?:is|are|it's|as) an? (?:AI|virtual|automated)\b|not a (?:human|person)|tell[^.]{0,40}\bAI\b|\bAI\b[^.]{0,30}(?:identify|disclose)/i;
+export function frameworkRows(data) {
+  const checks = data.checks.length;
+  const rechecks = data.rechecks.length;
+  const approvals = data.fixes.filter(f => f.action !== 'fix.revert').length;
+  const signed = (data.signoffs ?? []).length;
+  const disclosure = (data.ruleTexts ?? []).some(t => DISCLOSURE.test(t));
+  const has = (ok, yes, no) => ({ ok, text: ok ? yes : no });
+  const s = n => (n === 1 ? '' : 's');
+  return [
+    ['ISO/IEC 42001:2023, Annex A.6.2.4', 'AI system verification and validation', 'Checks run; Breaks found and fixed',
+      has(checks > 0, `${checks} check${s(checks)} against the written policies, ${rechecks} re-check${s(rechecks)} on the same messages.`, 'No check in this period.')],
+    ['ISO/IEC 42001:2023, Annex A.6.2.6', 'AI system operation and monitoring', 'Live monitoring',
+      has(data.live.checked > 0, `${data.live.checked} live conversation${s(data.live.checked)} judged against the same rules.`, 'No live conversations were checked in this period.')],
+    ['ISO/IEC 42001:2023, Annex A.6.2.8', 'Recording of event logs', 'Audit chain',
+      has(data.audit.count > 0 && data.audit.ok, 'Hash-linked audit log, verified intact when this pack was generated.', data.audit.count ? 'The audit log failed verification; see Audit chain.' : 'The audit log is empty.')],
+    ['NIST AI RMF 1.0, Measure', 'AI risks are tested and evaluated, before deployment and in operation', 'Checks run; Live monitoring',
+      has(checks > 0, 'Test messages written from each rule; every answer judged against the exact clause.', 'No check in this period.')],
+    ['NIST AI RMF 1.0, Manage', 'Identified risks are prioritized and responded to', 'Approved fixes; Mean time to fix',
+      has(approvals > 0, `${approvals} fix${approvals === 1 ? '' : 'es'} approved by a named person and re-tested.`, 'No fix approved in this period.')],
+    ['AIUC-1, Reliability and Accountability', 'The agent is tested for failures, and changes are owned by named people', 'Checks run; Approved fixes; Client sign-off',
+      has(checks > 0 && (approvals > 0 || signed > 0), 'Failures found by test, fixes approved by name, decisions recorded.', checks ? 'Checks ran, but no fix or sign-off is recorded in this period.' : 'No check in this period.')],
+    ['EU AI Act, Article 14 (human oversight, high-risk systems)', 'People can oversee and correct the system', 'Approved fixes; Client sign-off',
+      has(approvals > 0 || signed > 0, 'No change took effect without a named person approving it, and the client’s decision is recorded.', 'No approval or sign-off recorded in this period.')],
+    ['EU AI Act, Article 50 (transparency)', 'People are told when they are talking to an AI', 'Checks run',
+      has(disclosure, 'At least one checked rule covers telling the customer they are talking to an AI.', 'No checked rule covers this. Add the disclosure rule to the policies to have it tested.')],
+  ];
+}
+function frameworkSection(data) {
+  const rows = frameworkRows(data);
+  return `<p class="lede" style="margin:0 0 10px">For reviewers who work from a framework: each row names what it asks and the section of this pack that holds the records. This is a map, not a certification or an audit opinion.</p>
+<table><thead><tr><th>Framework</th><th>What it asks</th><th>In this pack</th><th>This period</th></tr></thead><tbody>
+${rows.map(([fw, asks, where, st]) => `<tr><td>${esc(fw)}</td><td>${esc(asks)}</td><td class="subtle">${esc(where)}</td><td><b>${st.ok ? 'Records' : 'Gap'}</b><br><span class="subtle">${esc(st.text)}</span></td></tr>`).join('\n')}
+</tbody></table>${src('the counts in the sections above. Framework names belong to their publishers; which controls apply to this AI is the reviewer’s decision.')}`;
+}
+
 // data: from buildEvidence; name: the AI agent; customer: whose AI (optional); org: the org name.
-export function renderEvidence(data, { name, customer, org } = {}) {
+export function renderEvidence(data, { name, title: agent, customer, org } = {}) {
   const { range, checks, rechecks, fixes, timeToFix, live, audit } = data;
-  const title = `Evidence pack: ${name}${customer ? ` for ${customer}` : ''}`;
+  const signed = data.signoffs ?? [];
+  const title = `Evidence pack: ${agent || name}${customer ? ` for ${customer}` : ''}`;
+  // People read "Check 2", not a timestamp id; the id stays beside it as the record reference.
+  const num = new Map(checks.map((c, i) => [c.id, i + 1]));
+  const checkRef = id => (num.has(id) ? `Check ${num.get(id)} <span class="hash subtle">${esc(id)}</span>` : `<span class="hash">${esc(id)}</span>`);
   const period = `${day(`${range.from}T00:00:00Z`)} to ${day(`${range.to}T00:00:00Z`)}`;
   const fixedRules = rechecks.reduce((n, r) => n + r.fixed.length, 0);
   const approvals = fixes.filter(f => f.action !== 'fix.revert').length;
 
   const checksTable = checks.length ? `<table><thead><tr><th>Date</th><th>Check</th><th>Rules</th><th>Broken</th><th>Re-check?</th></tr></thead><tbody>
-${checks.map(c => `<tr><td class="nowrap">${esc(stamp(c.createdAt))}</td><td class="hash">${esc(c.id)}</td><td class="num">${c.rules}</td><td class="num">${c.broken}</td><td>${c.recheckOf ? `Yes, of <span class="hash">${esc(c.recheckOf)}</span>` : 'No'}</td></tr>`).join('\n')}
+${checks.map(c => `<tr><td class="nowrap">${esc(stamp(c.createdAt))}</td><td>${checkRef(c.id)}</td><td class="num">${c.rules}</td><td class="num">${c.broken}</td><td>${c.recheckOf ? `Yes, of ${num.has(c.recheckOf) ? `check ${num.get(c.recheckOf)}` : `<span class="hash">${esc(c.recheckOf)}</span>`}` : 'No'}</td></tr>`).join('\n')}
 </tbody></table>${src(`${checks.length} check record${checks.length === 1 ? '' : 's'} in <code>scans/</code> created in this period. “Broken” counts rules with at least one test message judged as breaking them.`)}` : EMPTY;
 
   const recheckBlocks = rechecks.length ? rechecks.map(r => `<div class="recheck">
-<p><b>${esc(stamp(r.createdAt))}</b> · re-check <span class="hash">${esc(r.id)}</span> of <span class="hash">${esc(r.of)}</span></p>
+<p><b>${esc(stamp(r.createdAt))}</b> · ${checkRef(r.id)}, re-check of ${checkRef(r.of)}</p>
 <p class="num">Rules broken before: <b>${r.beforeBroken ?? 'unknown'}</b> → after: <b>${r.afterBroken}</b>, on the same ${r.messages} test messages.</p>
 ${r.ofFound ? '' : '<p class="src">The earlier check is no longer in scans/, so the before count is unknown.</p>'}
 ${r.fixed.length ? `<p style="margin-top:6px">Fixed (${r.fixed.length}):</p>${ruleList(r.fixed)}` : ''}
@@ -243,7 +297,7 @@ ${r.newlyBroken.length ? `<p style="margin-top:6px">Newly broken (${r.newlyBroke
 </div>`).join('') + src('each re-check record (its <code>recheckOf</code> field) compared rule by rule with the check it repeated; a re-check sends the exact same messages again.') : EMPTY;
 
   const fixesTable = fixes.length ? `<table><thead><tr><th>Date</th><th>What happened</th><th>By</th><th>For check</th><th>Record</th></tr></thead><tbody>
-${fixes.map(f => `<tr><td class="nowrap">${esc(stamp(f.at))}</td><td>${esc(FIX_ACTIONS[f.action])}${f.summary ? `<br><span class="subtle">${esc(f.summary)}</span>` : ''}${f.rules ? `<br><span class="subtle num">Covers ${f.rules} rule${f.rules === 1 ? '' : 's'}</span>` : ''}</td><td>${esc(f.actor)}</td><td class="hash">${esc(f.scanId)}</td><td>${f.source === 'audit' ? `Audit entry ${f.seq}` : '<b>fix.json only, no audit entry</b>'}</td></tr>`).join('\n')}
+${fixes.map(f => `<tr><td class="nowrap">${esc(stamp(f.at))}</td><td>${esc(FIX_ACTIONS[f.action])}${f.summary ? `<br><span class="subtle">${esc(f.summary)}</span>` : ''}${f.rules ? `<br><span class="subtle num">Covers ${f.rules} rule${f.rules === 1 ? '' : 's'}</span>` : ''}</td><td>${esc(f.actor.replace(/^human:/, ''))}</td><td>${checkRef(f.scanId)}</td><td>${f.source === 'audit' ? `Audit entry ${f.seq}` : '<b>fix.json only, no audit entry</b>'}</td></tr>`).join('\n')}
 </tbody></table>${src('audit log entries <code>fix.apply</code>, <code>fix.applied_manually</code> and <code>fix.revert</code> in this period; summaries from <code>fix.json</code>, which keeps only the latest fix.')}` : EMPTY;
 
   const ttf = timeToFix.meanMs === null
@@ -285,7 +339,9 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
 <h2>Approved fixes</h2>${fixesTable}
 <h2>Mean time to fix</h2>${ttfSection}
 <h2>Live monitoring</h2>${liveSection}
+<h2>Client sign-off</h2>${signoffSection(signed, checkRef)}
 <h2>Audit chain</h2>${chain}
+<h2>Where this fits common AI frameworks</h2>${frameworkSection(data)}
 <h2>How to read this</h2>
 <ul class="method">
 <li>A <b>check</b> sends test messages written from each policy rule to the AI and judges every answer against the exact clause. A rule is <b>broken</b> when at least one answer breaks it.</li>
@@ -295,7 +351,7 @@ ${src('<code>audit.jsonl</code>, re-verified when this pack was generated. Each 
 <li>The <b>audit chain</b> shows whether any record of these actions was changed after it was written.</li>
 <li>All times are UTC. The period includes both end dates.</li>
 </ul>
-<p class="foot">Grapim evidence pack · ${esc(name)} · period ${esc(range.from)} to ${esc(range.to)} · generated ${esc(stamp(data.generatedAt))}</p>
+<p class="foot">Grapim evidence pack · ${esc(agent || name)} · period ${esc(range.from)} to ${esc(range.to)} · generated ${esc(stamp(data.generatedAt))}</p>
 </main></body></html>
 `;
 }

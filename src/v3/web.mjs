@@ -30,7 +30,8 @@ import { renderScanReport } from './scan-report.mjs';
 import { buildEvidence, evidenceRange, renderEvidence } from './evidence.mjs';
 import { accessibleOrgs, addMember, createOrg, getOrg, getOrgBySlug, renameOrg } from './accounts.mjs';
 import { activeShares, createShare, deadShare, findShare, isPreviewBot, markOpened, revokeShares } from './shares.mjs';
-import { latestSignoff, recordSignoff, signoffGonePage, signoffPage, signoffs } from './signoff.mjs';
+import { checkHistory, latestSignoff, recordSignoff, signoffGonePage, signoffPage, signoffs } from './signoff.mjs';
+import { answerQuestion, askQuestion, listQuestions, openQuestions } from './questions.mjs';
 import { handoverData, handoverPage } from './handover.mjs';
 import { buildQuestionnaire, questionnaireCsv, questionnairePage, saveVendorAnswers } from './questionnaire.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
@@ -50,7 +51,7 @@ import {
   auditPage, billingPage, BUSY_SCRIPT_HASH, ASSISTANT_SCRIPT_HASH, LANDING_SCRIPT_HASH, clientsPage, landingPage, pricingPage, securityPage, integrationsPage, developersPage, designPartnersPage, applicationsPage, welcomePage, privacyPage, termsPage, deploymentOverviewPage, depPath, draftsPage, errorPage, homePage, inputsPage, loginPage,
   livePage, metricsPage, productizationPage, assistantPage, newDeploymentPage, orgPage, orgPath, riskScanPage, rolloutPage, runsPage, settingsPage, signupKeyPage, signupPage,
 } from './html.mjs';
-import { overview } from './insights.mjs';
+import { overview, policyOutline } from './insights.mjs';
 import { access, checkLiveConversation, deploymentAudits, deploymentFor, draftOf, event, reviewDeploymentDraft, startRun } from './operations.mjs';
 import { principalAllows, roleIn } from './rbac.mjs';
 import { createLoginLink, sendLoginEmail, useLoginLink } from './email-login.mjs';
@@ -105,6 +106,7 @@ const NOTICES = {
   sample: 'Sample ready: Tallyfox’s support assistant and its billing policy. Run the check to see which rules it breaks.',
   drafted: 'The agent drafted a proposal. Review it below.',
   uploaded: 'Files added.',
+  answered: 'Answer sent. The client sees it on their sign-off link.',
   policychange: 'Your policies changed, so the check is running again on the new wording.',
   policystale: 'Files added. Your policies changed since the last check; run the check again when you can.',
   checked: 'Conversation checked.',
@@ -416,12 +418,15 @@ function routes(ctx) {
     });
     const review = deployments.flatMap(d => d.ov.pending.map(draft => ({ org: d.org, name: d.name, title: d.config?.title, draft })))
       .sort((a, b) => a.draft.createdAt.localeCompare(b.draft.createdAt));
+    // Questions from clients on sign-off links wait on the vendor too; open links without a decision wait on the client.
+    const asks = deployments.flatMap(d => openQuestions(d.dir).map(q => ({ org: d.org, name: d.name, title: d.config?.title, q }))).sort((a, b) => a.q.at.localeCompare(b.q.at));
+    const waiting = deployments.filter(d => d.signoffOpen && !(d.signoff && d.signoff.at >= (d.ov.scans[0]?.createdAt ?? ''))).map(d => ({ org: d.org, name: d.name, title: d.config?.title }));
     const homeRole = roleIn(db, principal, principal.homeOrgId);
     const home = orgs.find(o => o.id === principal.homeOrgId);
     if (home?.kind === 'partner' && !deployments.length) return new Redirect(orgPath(home));
-    const nav = { orgs, pending: review.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), billingOrgs: billingOrgsOf(principal, orgs), org: orgs.length === 1 ? orgs[0] : undefined };
+    const nav = { orgs, pending: review.length + asks.length, canAudit: principalAllows(principal, homeRole, 'audit:read'), billingOrgs: billingOrgsOf(principal, orgs), org: orgs.length === 1 ? orgs[0] : undefined };
     const signinKey = freshKeys.get(principal.token); freshKeys.delete(principal.token);
-    return html(homePage({ ...base(principal), nav, deployments, review, signinKey, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
+    return html(homePage({ ...base(principal), nav, deployments, review, asks, waiting, signinKey, canWrite: principalAllows(principal, homeRole, 'deployments:write') }));
   }, { public: true });
 
   // Guided setup (/welcome): where a new account stands on its first rollout. A vendor: client, agent, policies,
@@ -767,7 +772,7 @@ function routes(ctx) {
     const ws = workspace(principal, params, 'runs:read', url);
     const job = scans.get(ws.dir);
     const fixArgs = { fix: getFix(ws.dir), fixTarget: instructionsTarget(ws.config) };
-    if (job?.status === 'running') return html(riskScanPage({ ...ws, ...fixArgs, job }));
+    if (job?.status === 'running') return html(riskScanPage({ ...ws, ...fixArgs, job, outline: job.progress?.phase === 'rules' ? policyOutline(ws.dir) : null }));
     if (job) scans.delete(ws.dir);
     if (job?.status === 'failed') return html(riskScanPage({ ...ws, ...fixArgs, flash: '', error: job.error }));
     return html(riskScanPage(job?.status === 'done' ? { ...ws, ...fixArgs, flash: job.autoFix ? NOTICES.autofix : job.recheck ? NOTICES.rechecked : NOTICES.scanned } : { ...ws, ...fixArgs }));
@@ -1015,7 +1020,7 @@ function routes(ctx) {
     const open = activeShares(db, ws.org.id, params.name, 'signoff', ctx.now());
     // The newest time any open link was opened by a person (preview bots are not counted).
     const opened = open.map(x => x.last_opened_at).filter(Boolean).sort().at(-1) ?? null;
-    const signoff = { latest: latestSignoff(ws.dir), active: open.length, opened, link: extra.link ?? fresh };
+    const signoff = { latest: latestSignoff(ws.dir), active: open.length, opened, link: extra.link ?? fresh, questions: listQuestions(ws.dir) };
     const owner = playbookOwner(ws.org);
     const playbook = { stats: playbookStats(ctx.deploymentsRoot, owner), consent: consentOf(ws.dir), contributed: contributed(ctx.deploymentsRoot, ctx.pepper, owner, ws.dir), vendor: ws.org.partner_org_id ? getOrg(db, ws.org.partner_org_id)?.name : ws.org.name };
     const tags = [...new Set(readInterventions(ws.dir).map(i => i.tag))].slice(0, 30);
@@ -1150,15 +1155,16 @@ function routes(ctx) {
     const done = signoffs(dir).find(s => s.shareId === share.id) ?? null;
     const scan = getScan(dir, share.subject);
     const sender = makerEmail(share);
-    const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment, sender };
-    return { share, org, dir, config, scan, launch, done, view: { ...view, handover: scan ? handoverData(dir, { scan, ...view }) : null } };
+    const view = { token, preparedBy: (vendor ?? org).name, client: vendor ? org.name : config.customer ?? org.name, name: share.deployment, title: config.title ?? '', sender };
+    const questions = listQuestions(dir).filter(q => q.shareId === share.id);
+    return { share, org, dir, config, scan, launch, done, view: { ...view, handover: scan ? handoverData(dir, { scan, ...view }) : null, history: checkHistory(dir, scan, { getScan, getFix }), questions } };
   }
 
-  r.add('GET', '/signoff/:token', ({ req, params }) => {
+  r.add('GET', '/signoff/:token', ({ req, params, url }) => {
     const c = signoffContext(params.token);
     if (!isPreviewBot(req.headers['user-agent'])) markOpened(db, c.share.id, ctx.now());
     const csrf = randomToken();
-    return html(signoffPage({ ...c.view, csrf, scan: c.scan, launch: c.launch, done: c.done }), 200, [cookie(SIGNOFF_CSRF, csrf, { maxAge: 3600, secure: ctx.secureCookies(req), path: '/signoff' })]);
+    return html(signoffPage({ ...c.view, csrf, scan: c.scan, launch: c.launch, done: c.done, asked: url.searchParams.get('asked') === '1' }), 200, [cookie(SIGNOFF_CSRF, csrf, { maxAge: 3600, secure: ctx.secureCookies(req), path: '/signoff' })]);
   }, { public: true });
 
   r.add('GET', '/signoff/:token/handover', ({ params }) => {
@@ -1193,6 +1199,33 @@ function routes(ctx) {
     }
     return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done }));
   }, { public: true });
+
+  // A question from the client's reviewer about one rule, answered by the vendor on the Rollout page.
+  r.add('POST', '/signoff/:token/question', async ({ req, params }) => {
+    const c = signoffContext(params.token);
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(parseCookies(req.headers.cookie)[SIGNOFF_CSRF] ?? '', form);
+    const qValues = { rule: String(form.rule ?? ''), text: String(form.text ?? ''), name: String(form.name ?? '') };
+    const page = (extra, status = 200) => html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done: c.done, ...extra }), status);
+    if (!c.scan) throw notFound('check');
+    if (!signoffLimit(ctx.clientIp(req)).ok) return page({ qValues, qError: 'Too many attempts from this network. Try again in a few minutes.' }, 429);
+    const rule = (c.scan.rules ?? []).find(x => String(x.id) === qValues.rule);
+    const res = askQuestion(c.dir, { rule: rule ? String(rule.id) : '', ruleTitle: rule ? String(rule.title || rule.rule || rule.id) : '', text: qValues.text, name: qValues.name, shareId: c.share.id, scanId: c.scan.id, ip: ctx.clientIp(req) }, ctx.now());
+    if (res.error) return page({ qValues, qError: res.error }, 400);
+    recordEvent(db, { orgId: c.share.org_id, actor: `client:${res.question.name}`, action: 'signoff.question', target: c.share.deployment, detail: { question: res.question.id, rule: res.question.rule }, ip: ctx.clientIp(req) }, ctx.now());
+    return new Redirect(`/signoff/${params.token}?asked=1#ask`);
+  }, { public: true });
+
+  r.add('POST', '/orgs/:org/deployments/:name/questions/:id/answer', async ({ req, principal, params }) => {
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(principal, form);
+    const { org } = access(ctx, principal, params.org, 'deployments:write');
+    const { dir } = deploymentFor(ctx, org.id, params.name);
+    const res = answerQuestion(dir, params.id, { answer: form.answer, by: principal.actor }, ctx.now());
+    if (res.error) throw new ApiError('invalid_request_error', res.error);
+    event(ctx, principal, org.id, 'signoff.answer', params.name, { question: params.id });
+    return new Redirect(`${depPath(org, params.name)}/rollout?notice=answered#signoff`);
+  });
 
   // The fix loop (src/v1/fix.mjs): the agent drafts one change to the AI's instructions for the broken rules,
   // a person edits and approves it, Grapim applies it where it can, and the same messages run again.
@@ -1457,7 +1490,9 @@ function routes(ctx) {
     let config = {};
     try { config = loadConfig(dir); } catch { /* the pack works without it */ }
     const data = buildEvidence(dir, { from: range.from, to: range.to, now });
-    return { status: 200, body: renderEvidence(data, { name: params.name, customer: config.customer, org: org.name }), csp: REPORT_CSP };
+    // Prepared by the vendor that runs the rollout; the client is the managed organization (as on the handover).
+    const vendor = org.partner_org_id ? getOrg(db, org.partner_org_id) : null;
+    return { status: 200, body: renderEvidence(data, { name: params.name, title: config.title, customer: vendor ? org.name : config.customer, org: (vendor ?? org).name }), csp: REPORT_CSP };
   });
 
   r.add('GET', '/orgs/:org/deployments/:name/runs/:run/report.html', ({ principal, params }) => {

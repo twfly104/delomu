@@ -31,8 +31,55 @@ export function recordSignoff(dir, { decision, name, note = '', scanId, shareId,
   return record;
 }
 
+// How the check on a link came about: when it is a re-check, the check it repeated, what broke there, and the fix a
+// named person approved in between. Null for a first check. Read from scans/ and fix.json; nothing estimated.
+export function checkHistory(dir, scan, { getScan, getFix }) {
+  if (!scan?.recheckOf) return null;
+  const before = getScan(dir, scan.recheckOf);
+  if (!before) return null;
+  const brokenRules = (before.rules ?? []).filter(r => (r.probes ?? []).some(p => p.status === 'broken'));
+  const fix = getFix(dir);
+  const approved = fix && fix.scanId === before.id && fix.approvedAt ? { by: String(fix.approvedBy ?? '').replace(/^human:/, ''), at: fix.approvedAt } : null;
+  return {
+    before: { at: before.createdAt, rules: (before.rules ?? []).length, broken: brokenRules.length, titles: brokenRules.map(r => String(r.title || r.rule || r.id)) },
+    fix: approved,
+    after: { at: scan.createdAt, rules: scan.summary?.rules ?? 0, broken: scan.summary?.broken ?? 0, messages: scan.summary?.probes ?? 0 },
+  };
+}
+
+function historySection(h, preparedBy) {
+  if (!h || !h.before.broken) return '';
+  const d = iso => esc(String(iso ?? '').slice(0, 10));
+  return `<section class="so-history" aria-label="How this check came about"><h2 style="margin:0 0 10px;font-size:15px">How it got here</h2><ol>
+<li><span class="so-dot bad"></span><div><p class="strong">First check, ${d(h.before.at)}: ${h.before.broken} of ${h.before.rules} rules broken</p><p class="subtle">${h.before.titles.map(esc).join(' · ')}</p></div></li>
+<li><span class="so-dot"></span><div><p class="strong">Fix approved${h.fix ? ` by ${esc(h.fix.by)}, ${d(h.fix.at)}` : ''}</p><p class="subtle">${esc(preparedBy)} changed the agent’s instructions for the broken rules. Nothing changed until a person approved it.</p></div></li>
+<li><span class="so-dot good"></span><div><p class="strong">Re-check, ${d(h.after.at)}: ${h.after.broken ? `${h.after.broken} of ${h.after.rules} rules still broken` : `all ${h.after.rules} rules kept`}</p><p class="subtle">The same ${h.after.messages} test messages, sent again.</p></div></li>
+</ol></section>`;
+}
+
+// Questions on this link, and a form to ask one about a rule. rules: [{ id, title }] from the check.
+function questionsSection({ token, csrf, preparedBy, rules, questions = [], qValues = {}, qError = '', asked = false }) {
+  const list = questions.length ? `<ul class="so-qs">${questions.map(q => `<li><p class="subtle" style="margin:0 0 2px">${esc(q.name)}${q.ruleTitle ? ` on <span class="strong">${esc(q.ruleTitle)}</span>` : ''} · ${esc(q.at.slice(0, 10))}</p><p style="margin:0">${esc(q.text)}</p>
+${q.answer ? `<div class="so-ans"><p class="subtle" style="margin:0 0 2px">${esc(q.answeredBy || preparedBy)} at ${esc(preparedBy)} · ${esc(q.answeredAt.slice(0, 10))}</p><p style="margin:0">${esc(q.answer)}</p></div>` : `<p class="subtle" style="margin:6px 0 0">Waiting for ${esc(possessive(preparedBy))} answer.</p>`}</li>`).join('')}</ul>` : '';
+  const opts = rules.map(r => `<option value="${esc(r.id)}"${qValues.rule === r.id ? ' selected' : ''}>${esc(r.title)}</option>`).join('');
+  return `<section id="ask" class="so-ask"><h2 style="margin:0 0 4px;font-size:15px">Questions for ${esc(preparedBy)}</h2>
+<p class="subtle" style="margin:0 0 12px">Ask about one rule before you decide. The answer appears here, on this link.</p>
+${asked ? `<div class="notice good" role="status"><span>Question sent to ${esc(preparedBy)}.</span></div>` : ''}${qError ? `<div class="notice" role="alert"><span>${esc(qError)}</span></div>` : ''}${list}
+<form method="post" action="/signoff/${esc(token)}/question" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
+<label class="field"><span>About</span><select name="rule"><option value="">The agent in general</option>${opts}</select></label>
+<label class="field"><span>Your question</span><textarea name="text" maxlength="1000" rows="3" required>${esc(qValues.text ?? '')}</textarea></label>
+<label class="field"><span>Your name</span><input type="text" name="name" required maxlength="120" autocomplete="name" value="${esc(qValues.name ?? '')}"></label>
+<button class="btn" data-busy="Sending…">Send question</button></form></section>`;
+}
+
+const SIGNOFF_STYLE = `.so-history{margin:0 0 24px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.so-history ol{list-style:none;margin:0;padding:0;display:grid;gap:12px}.so-history li{display:grid;grid-template-columns:14px 1fr;gap:10px;align-items:start}.so-history li p{margin:0}
+.so-dot{width:10px;height:10px;margin-top:6px;border-radius:50%;background:var(--accent)}.so-dot.bad{background:var(--bad)}.so-dot.good{background:var(--good)}
+.so-ask{margin-top:16px;padding:20px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);scroll-margin-top:16px}.so-ask textarea{min-height:76px}.so-qs{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:12px}
+.so-qs li{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r)}.so-ans{margin-top:10px;padding:10px 12px;border-radius:calc(var(--r) - 2px);background:var(--sunken)}`;
+
 // The page the client sees. scan: the check the link was made for; done: a decision already given on this link.
-export function signoffPage({ csrf, token, preparedBy, client, name, scan, launch, done, error, values = {}, handover = null, sender = '' }) {
+export function signoffPage({ csrf, token, preparedBy, client, name, title: agent = '', scan, launch, done, error, values = {}, handover = null, sender = '', history = null, questions = [], qValues, qError, asked }) {
   const s = scan?.summary;
   const verdict = !s ? '' : s.broken
     ? `<div class="notice" role="status"><span>The check found <span class="strong">${s.broken} of ${s.rules} policy rules broken</span>. Read the findings before you accept.</span></div>`
@@ -48,7 +95,7 @@ export function signoffPage({ csrf, token, preparedBy, client, name, scan, launc
 <button class="btn primary block" data-busy="Saving…">Record my decision</button></form>`;
   // The ask and the decision come first; the handover detail (what to keep) follows the form.
   return layout({
-    title: `Sign off ${name}`,
+    title: `Sign off ${agent || name}${client ? ` for ${client}` : ''}`,
     body: `<div class="auth-card" style="max-width:640px">
 <span class="brand">${mark(26, 'm-sign')}<span>Grapim</span></span>
 <h1>Accept ${esc(possessive(preparedBy))} AI agent${client ? ` for ${esc(client)}` : ''}?</h1>
@@ -56,8 +103,10 @@ export function signoffPage({ csrf, token, preparedBy, client, name, scan, launc
 ${sender ? `<p class="subtle" style="margin:-6px 0 16px">Sent by <a href="mailto:${esc(sender)}">${esc(sender)}</a> at ${esc(preparedBy)}</p>` : ''}
 ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : ''}
 ${scan ? `${verdict}<p class="subtle" style="margin:8px 0 12px">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>
-<div class="row-inline" style="gap:8px;flex-wrap:wrap;margin-bottom:24px">${form ? '<a class="btn primary" href="#decide">Decide</a>' : ''}<a class="btn" href="/signoff/${esc(token)}/report.html">Read the full check report</a>${handover ? `<a class="btn" href="/signoff/${esc(token)}/handover">Handover page</a>` : ''}</div>` : '<p>There is no check to review yet.</p>'}
+<div class="row-inline" style="gap:8px;flex-wrap:wrap;margin-bottom:24px">${form ? '<a class="btn primary" href="#decide">Decide</a>' : ''}<a class="btn" href="/signoff/${esc(token)}/report.html">Read the full check report</a>${handover ? `<a class="btn" href="/signoff/${esc(token)}/handover">Handover page</a>` : ''}<a class="btn" href="#ask">Ask a question</a></div>
+<style>${SIGNOFF_STYLE}</style>${historySection(history, preparedBy)}` : '<p>There is no check to review yet.</p>'}
 ${decided}${form ? `<section id="decide" class="signoff-decide"><h2 style="margin:0 0 12px">Your decision</h2>${form}<p class="subtle" style="margin-top:12px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p></section>` : ''}
+${scan ? questionsSection({ token, csrf, preparedBy, rules: (scan.rules ?? []).map(r => ({ id: String(r.id), title: String(r.title || r.rule || r.id).slice(0, 90) })), questions, qValues, qError, asked }) : ''}
 ${launch ? `<h2 style="margin:28px 0 6px">Launch summary</h2><div class="subtle" style="white-space:pre-wrap">${esc(launch)}</div>` : ''}
 ${handover && scan ? `<style>${HANDOVER_STYLE}</style><div style="margin-top:28px">${handoverSection(handover)}</div><p style="margin:16px 0 0"><a class="btn block" href="/signoff/${esc(token)}/handover">Open the handover page to keep</a></p>` : ''}
 </div>`,

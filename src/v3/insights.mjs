@@ -43,11 +43,25 @@ export function inputFiles(dir) {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// What a running check is reading: each policy file with its section headings (Markdown "#" lines or numbered
+// lines), so the first, longest step shows the material itself instead of a bare bar. Ticket exports are skipped.
+export function policyOutline(dir, { maxFiles = 6, maxSections = 10 } = {}) {
+  return inputFiles(dir).filter(f => !/\.csv$/i.test(f.name)).slice(0, maxFiles).map(f => {
+    let text = '';
+    try { text = fs.readFileSync(path.join(dir, 'inputs', f.name), 'utf8').slice(0, 200_000); } catch { /* unreadable: name only */ }
+    const heads = text.split(/\r?\n/).map(l => /^#{1,3}\s+(.+?)\s*#*$/.exec(l)?.[1] ?? /^(\d{1,2}\.\s+[A-Z].{2,70})$/.exec(l.trim())?.[1]).filter(Boolean);
+    return { name: f.name, sections: heads.length, headings: heads.slice(0, maxSections).map(h => h.replace(/[*_`]/g, '').slice(0, 80)) };
+  });
+}
+
 // state: done | review (a draft waits) | attention (tests failing) | todo
-export function stepStates(dir, { drafts, runs, config }) {
+export function stepStates(dir, { drafts, runs, config, scans = listScans(dir) }) {
   const pending = new Set(drafts.filter(d => d.status === 'pending').map(d => d.kind));
   const tests = readJson(paths(dir).tests)?.tests?.length ?? 0;
   const latest = runs.at(-1);
+  // Test and fix counts whichever ran last: a policy check (scans/) or a run of the saved test set (runs/).
+  const scan = scans[0];
+  const scanFirst = scan && (!latest || String(scan.createdAt ?? '') >= String(latest.generatedAt ?? ''));
   const has = file => fs.existsSync(path.join(dir, file));
   const s = (state, detail) => ({ state, detail });
 
@@ -56,6 +70,7 @@ export function stepStates(dir, { drafts, runs, config }) {
     integration: pending.has('integration') ? s('review', 'Draft waiting') : config?.target ? s('done', config.target.type === 'http' ? 'HTTP endpoint' : 'Command') : s('todo', 'Not connected'),
     cases: pending.has('cases') ? s('review', 'Draft waiting') : tests ? s('done', `${tests} cases`) : s('todo', 'No cases yet'),
     fixes: pending.has('fixes') ? s('review', 'Draft waiting')
+      : scanFirst ? (scan.summary.broken ? s('attention', `${scan.summary.broken} of ${scan.summary.rules} rules broken`) : s('done', `All ${scan.summary.rules} rules kept`))
       : !latest ? s('todo', 'Not run yet')
       : latest.summary.verdict === 'accepted' ? s('done', `${latest.summary.pass}/${latest.summary.total} passing`)
       : s('attention', `${latest.summary.pass}/${latest.summary.total} passing`),
@@ -83,6 +98,7 @@ export function nextAction(steps, { pending, runs, inputs, scans = 1 }) {
   if (inputs && !scans) return { text: 'Run the check.', action: 'scan' };
   if (step.key === 'mapping' && !inputs) return { text: 'Add your policies, and a ticket export if you have one, so Grapim can start.', action: 'inputs' };
   if (['mapping', 'integration', 'cases'].includes(step.key) && step.state === 'todo') return { text: `Ask the agent to draft the ${step.label.toLowerCase()}.`, action: 'agent', task: step.key };
+  if (step.key === 'fixes' && /rules broken$/.test(step.detail ?? '')) return { text: `The last check found ${step.detail}. Approve the drafted fix on Check results; the same messages run again.`, action: null };
   if (step.key === 'fixes' && !runs) return { text: 'Run the saved test set against your AI.', action: 'run' };
   if (step.key === 'fixes') return { text: 'Tests are below the agreed pass rate. Ask the agent to group the failures into fixes, then run again.', action: 'agent', task: 'fixes' };
   if (step.key === 'launch-report') return { text: 'Tests pass. Ask the agent to draft the launch report for sign-off.', action: 'agent', task: 'launch-report' };
@@ -94,9 +110,9 @@ export function overview(dir, config) {
   const drafts = listDrafts(dir);
   const runs = runHistory(dir);
   const inputs = inputFiles(dir);
-  const steps = stepStates(dir, { drafts, runs, config });
-  const pending = drafts.filter(d => d.status === 'pending');
   const scans = listScans(dir);
+  const steps = stepStates(dir, { drafts, runs, config, scans });
+  const pending = drafts.filter(d => d.status === 'pending');
   return {
     drafts, pending, runs, inputs, steps, scans, live: liveSummary(dir), policiesChanged: policiesChanged(dir, scans[0]),
     latest: runs.at(-1) ?? null,

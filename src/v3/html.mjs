@@ -307,6 +307,8 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 .stages.six li:nth-child(n+4){border-top:1px solid var(--line)}
 .stages.six .lbl,.stages.six .det{display:block}
 .stages .st svg{width:12px;height:12px}
+.scan-outline{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}.scan-outline p{margin:0 0 4px}.scan-outline ul{margin:0;padding-left:16px;font-size:13px;color:var(--text-2);line-height:1.55}
+.so-qlist{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);display:grid;gap:10px}.so-qlist h3{font-size:13.5px;margin:0;display:flex;gap:8px;align-items:center}.so-q{padding:10px 12px;border:1px solid var(--line);border-radius:var(--r)}.so-q.answered{background:var(--sunken)}.so-a{margin:6px 0 0;font-size:13.5px}
 .ro-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .ro-head h2{margin:0 0 4px;font-size:17px;letter-spacing:-0.015em}
 .ro-head p{margin:0}
@@ -934,7 +936,7 @@ export function signupPage({ csrf, error, values = {} }) {
     title: 'Create your account',
     body: `<div class="auth-card">
 <a class="brand" href="/login" aria-label="Grapim">${mark(26, 'm-auth')}<span>Grapim</span></a>
-<h1>Test your AI agent</h1><p class="lede">Find the policy rules your AI agent breaks, before your customers do. Free plan, no card.</p>
+<h1>Prove your AI agent keeps the rules</h1><p class="lede">Check it against each client’s own policies, fix what breaks, and get their sign-off. Free plan, no card.</p>
 ${notice(error)}
 <form method="post" action="/signup" novalidate><input type="hidden" name="csrf" value="${esc(csrf)}">
 <label class="field"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" value="${esc(values.email ?? '')}" placeholder="you@company.com"></label>
@@ -1426,7 +1428,7 @@ function onboarding(org, csrf) {
 ${EXAMPLE}</section>`;
 }
 
-export function homePage({ user, csrf, nav, now, deployments, review, canWrite, signinKey }) {
+export function homePage({ user, csrf, nav, now, deployments, review, asks = [], waiting = [], canWrite, signinKey }) {
   const orgs = nav.orgs ?? [];
   if (!deployments.length && canWrite && orgs.length === 1) {
     return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
@@ -1436,14 +1438,22 @@ export function homePage({ user, csrf, nav, now, deployments, review, canWrite, 
   const summary = deployments.length
     ? `${deployments.length} AI agent${deployments.length > 1 ? 's' : ''}${broken ? ` · ${broken} breaking policy rules` : ''}`
     : 'No AI agents yet.';
-  const queue = review.length ? `<section class="panel"><div class="panel-head"><h2>Waiting for your decision</h2><span class="badge accent plain num">${review.length}</span></div><div class="rows">${review.map(({ org, name, title, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
+  // Needs you, in a fixed order: client questions first (someone outside is waiting), then drafts to review.
+  const needs = asks.length + review.length;
+  const askRows = asks.map(({ org, name, title, q }) => `<a class="row" href="${esc(depPath(org, name))}/rollout#signoff">
+${icon('inbox')}<div class="what"><p class="strong">Question from ${esc(q.name)} about ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · asked ${esc(ago(q.at, now))}${q.ruleTitle ? ` · on ${esc(q.ruleTitle)}` : ''} · “${esc(q.text.length > 90 ? `${q.text.slice(0, 90)}…` : q.text)}”</p></div>
+<span class="btn">Answer</span></a>`).join('');
+  const draftRows = review.map(({ org, name, title, draft }) => `<a class="row" href="${esc(depPath(org, name))}/drafts">
 ${icon('inbox')}<div class="what"><p class="strong">${esc(draftLabel(draft))} for ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · drafted ${esc(ago(draft.createdAt, now))}${draft.rationale ? ` · ${esc(plainRationale(draft.rationale))}` : ''}</p></div>
-<span class="btn">Review</span></a>`).join('')}</div></section>` : '';
+<span class="btn">Review</span></a>`).join('');
+  const queue = needs ? `<section class="panel"><div class="panel-head"><h2>Waiting for your decision</h2><span class="badge accent plain num">${needs}</span></div><div class="rows">${askRows}${draftRows}</div></section>` : '';
+  const onClient = waiting.length ? `<section class="panel"><div class="panel-head"><h2>Waiting on the client</h2><span class="badge plain num">${waiting.length}</span></div><div class="rows">${waiting.map(({ org, name, title }) => `<a class="row" href="${esc(depPath(org, name))}/rollout#signoff">
+${icon('arrow')}<div class="what"><p class="strong">Sign-off for ${esc(title || name)}</p><p class="subtle">${esc(org.name)} · link sent, no decision yet</p></div><span class="btn">Open</span></a>`).join('')}</div></section>` : '';
   return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
 <div class="page-head"><div><h1>AI agents</h1><p class="sub num">${esc(summary)}</p></div>
 ${orgs.length === 1 && canWrite ? `<div class="actions"><a class="btn primary" href="${esc(orgPath(orgs[0]))}/new-deployment">${icon('plus')}Add AI agent</a></div>` : ''}</div>
 <section class="panel">${deployments.length ? agentsTable(deployments, { showOrg: orgs.length > 1, now }) : `<div class="emptystate"><span class="strong">No AI agents yet</span>Connect the AI agent you want to check.</div>`}</section>
-${queue}` });
+${queue}${onClient}` });
 }
 
 // Drafts written before 2026-11-09 start with the check's internal id ("Risk scan 2026-11-09T09-46-…: "); a list
@@ -1570,7 +1580,7 @@ ${who ? `<input type="hidden" name="customer" value="${who}">` : ''}<input type=
 <label class="wz-drop">${icon('upload', { size: 22 })}<b>Choose policy files</b><span>Markdown, text, HTML, CSV, JSON or YAML · up to 1 MB each</span><input type="file" name="files" multiple required accept=".md,.txt,.csv,.json,.yaml,.yml,.html"></label>
 <button class="btn primary wz-go" data-busy="Uploading…">Upload and continue ${icon('arrow', { size: 16 })}</button></form>`,
     check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. About two minutes.</p>
-${state.agent ? `<dl class="wz-ready"><div><dt>Agent</dt><dd><span class="strong">${esc(state.agent.title)}</span>${state.agent.customer ? ` <span class="subtle">· ${esc(state.agent.customer)}</span>` : ''}${state.agent.url ? `<span class="mono subtle wz-url">${esc(state.agent.url)}</span>` : ''}</dd></div>
+${state.agent ? `<dl class="wz-ready"><div><dt>Agent</dt><dd><span class="strong">${esc(state.agent.title)}</span>${state.agent.customer && !String(state.agent.title).startsWith(String(state.agent.customer).replace(/ \(sample\)$/, '')) ? ` <span class="subtle">· ${esc(state.agent.customer)}</span>` : ''}${state.agent.url ? `<span class="mono subtle wz-url">${esc(state.agent.url)}</span>` : ''}</dd></div>
 <div><dt>Files</dt><dd>${state.agent.files.length ? state.agent.files.map(f => `<span class="mono">${esc(f)}</span>`).join('<br>') : '<span class="subtle">None yet</span>'}</dd></div></dl>
 ${state.agent.sample ? `<p class="hint" style="margin:0 0 16px">A sample agent from a made-up store, Lia at Linden &amp; Co., built on an older version of its policy. ${who ? `Connect ${who}’s real agent later from its workspace.` : ''}</p>` : ''}` : ''}
 <div class="wz-pips" aria-hidden="true">${Array.from({ length: 16 }, (_, k) => `<i style="--d:${(k * 0.12).toFixed(2)}s"></i>`).join('')}</div>
@@ -1770,7 +1780,14 @@ function signoffPanel({ base, csrf, can, signoff, scan, now }) {
   const primary = !latest && !active && s && !s.broken;
   const actions = can.write && scan ? `<div class="row-inline" style="margin-top:12px"><form method="post" action="${esc(base)}/signoff/link">${hidden}<button class="btn${primary ? ' primary' : ''}" data-busy="Creating…">${icon('arrow')}${active ? 'Create a new link' : 'Create a sign-off link'}</button></form>
 ${active ? `<form method="post" action="${esc(base)}/signoff/revoke">${hidden}<button class="btn" data-busy="Revoking…">Revoke ${active} open link${active === 1 ? '' : 's'}</button></form>` : ''}</div>` : '';
-  return `<section class="panel" id="signoff"><div class="panel-head"><h2>Client sign-off</h2>${scan ? `<a class="btn sm aside" href="${esc(base)}/handover">${icon('file')}Handover for the client</a>` : ''}</div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}</div></section>`;
+  // The client's questions from the link: unanswered first, each with an answer box; answered ones after.
+  const qs = signoff.questions ?? [];
+  const open = qs.filter(q => !q.answer); const done = qs.filter(q => q.answer).slice(-5).reverse();
+  const qHead = q => `<p class="subtle" style="margin:0 0 2px">${esc(q.name)}${q.ruleTitle ? ` on <span class="strong">${esc(q.ruleTitle)}</span>` : ''} · ${esc(ago(q.at, now))}</p><p style="margin:0">${esc(q.text)}</p>`;
+  const questions = qs.length ? `<div class="so-qlist"><h3>Questions from the client${open.length ? ` <span class="badge accent plain num">${open.length}</span>` : ''}</h3>
+${open.map(q => `<div class="so-q">${qHead(q)}${can.write ? `<form method="post" action="${esc(base)}/questions/${esc(q.id)}/answer">${hidden}<label class="field" style="margin:8px 0"><textarea name="answer" aria-label="Answer to ${esc(q.name)}" rows="2" maxlength="1000" required placeholder="Your answer appears on the client’s sign-off link."></textarea></label><button class="btn sm primary" data-busy="Sending…">Send answer</button></form>` : ''}</div>`).join('')}
+${done.map(q => `<div class="so-q answered">${qHead(q)}<p class="so-a"><span class="subtle">${esc(q.answeredBy)}:</span> ${esc(q.answer)}</p></div>`).join('')}</div>` : '';
+  return `<section class="panel" id="signoff"><div class="panel-head"><h2>Client sign-off</h2>${scan ? `<a class="btn sm aside" href="${esc(base)}/handover">${icon('file')}Handover for the client</a>` : ''}</div><div class="panel-body"><p style="margin:0">${state}</p>${made}${actions}${questions}</div></section>`;
 }
 
 // The playbook on the Rollout page: what the vendor's library holds, whether this client agreed to reuse, and the
@@ -2121,6 +2138,12 @@ function actionList(actions) {
   return `<p class="acts-taken"><span class="cap">What it did</span>${actions.length ? actions.map(a => `<code>${esc(String(ACTION_LABEL(a ?? {})).slice(0, 120))}</code>`).join('') : '<span class="subtle">No actions</span>'}</p>`;
 }
 
+// The policy files a running check is reading, with their sections: real material, not a made-up step list.
+function outlineList(outline) {
+  if (!outline?.length) return '';
+  return `<div class="scan-outline">${outline.map(f => `<div><p class="mono-s strong">${esc(f.name)}${f.sections ? ` <span class="subtle">· ${f.sections} section${f.sections === 1 ? '' : 's'}</span>` : ''}</p>${f.headings.length ? `<ul>${f.headings.map(h => `<li>${esc(h)}</li>`).join('')}${f.sections > f.headings.length ? `<li class="subtle">and ${f.sections - f.headings.length} more</li>` : ''}</ul>` : ''}</div>`).join('')}</div>`;
+}
+
 export function riskScanPage(args) {
   const { org, name, ov, csrf, can, now } = args;
   const base = depPath(org, name);
@@ -2154,7 +2177,7 @@ export function riskScanPage(args) {
       ? `${meter}<div class="probegrid" role="img" aria-label="${p.done} of ${p.total} answers judged, ${count('broken')} broke a rule">${tiles}</div>
 <p class="legend muted num"><span><i class="pt broken"></i>${count('broken')} broke a rule</span><span><i class="pt kept"></i>${count('kept')} kept</span><span>${p.total - p.done} to go</span></p>`
       : `${meter}
-<p class="muted">Writing the messages most likely to break each rule${slow}.</p>`;
+<p class="muted">Writing the messages most likely to break each rule${slow}.</p>${outlineList(args.outline)}`;
     return shell(`<section class="panel scan-live" aria-live="polite">
 <div class="live-head"><p class="big">${probing ? `Judging ${p.total} answers` : 'Reading your policies'}</p><span class="subtle num" data-elapsed="${elapsedMs}">${secs} s</span></div>${body}</section>`, 2);
   }
