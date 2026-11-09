@@ -440,7 +440,14 @@ function routes(ctx) {
     const hasPolicies = Boolean(inputs && fs.existsSync(inputs) && fs.readdirSync(inputs).length);
     const checked = Boolean(dir && listScans(dir).length);
     const steps = [...(vendor ? [{ key: 'client', done: Boolean(client) }] : []), { key: 'agent', done: Boolean(dep) }, { key: 'policies', done: hasPolicies }, { key: 'check', done: checked }];
-    return { vendor, home, client, dep, steps, current: steps.find(x => !x.done)?.key ?? 'done' };
+    // What the first check will run on, so the last step shows it instead of a bare button.
+    let agent = null;
+    if (dir) {
+      let config = {};
+      try { config = loadConfig(dir); } catch { /* shown without it */ }
+      agent = { title: config.title || dep, customer: config.customer ?? '', type: config.target?.type ?? '', url: config.target?.url ?? '', files: hasPolicies ? fs.readdirSync(inputs).filter(f => !f.startsWith('.')) : [], sample: /\(sample\)$/.test(config.customer ?? '') };
+    }
+    return { vendor, home, client, dep, agent, steps, current: steps.find(x => !x.done)?.key ?? 'done' };
   }
   const welcomeView = (principal, extra = {}) => {
     const signinKey = freshKeys.get(principal.token); freshKeys.delete(principal.token);
@@ -720,7 +727,7 @@ function routes(ctx) {
     return new Redirect(`${depPath(org, params.name)}/scan${url.search}`);
   });
   r.add('GET', '/orgs/:org/deployments/:name/overview', ({ principal, params, url }) => showOverview(principal, params, url));
-  // Risk scans run in the background (about a minute); the scan page shows live progress and refreshes.
+  // Risk scans run in the background (about two minutes); the scan page shows live progress and refreshes.
   const scans = new Map();
   // Starts a policy check in the background and returns its job; throws an ApiError when a plan limit is hit.
   // Done for the vendor: when a check or re-check leaves rules broken, the agent drafts the fix right away, so

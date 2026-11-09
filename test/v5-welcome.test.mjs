@@ -56,6 +56,13 @@ test('a vendor is guided one step at a time: client, agent, policies, first chec
   page = await (await get('/welcome', cookie)).text();
   assert.match(page, /Run the first check\./, 'the sample agent comes with its policies');
   assert.match(page, /action="[^"]+\/scan"/);
+  // The last step shows what will be checked: the agent, its endpoint and the policy files.
+  assert.match(page, /class="wz-ready"/);
+  assert.match(page, /Linden &amp; Co\. · Lia/);
+  assert.match(page, /\/demo\/store-agent/);
+  assert.match(page, /returns-and-support-policy\.md/);
+  assert.match(page, /Connect Northwind Bank’s real agent later/);
+  assert.match(page, /About two minutes/);
   assert.doesNotMatch(page, /shown only once/, 'the key shows only once');
 });
 
