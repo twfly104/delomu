@@ -128,3 +128,20 @@ test('possessives read right for names ending in s', async () => {
   assert.equal(possessive('Northwind Agents'), 'Northwind Agents’');
   assert.equal(possessive('Linden'), 'Linden’s');
 });
+
+test('a check that kept every rule offers the client sign-off as the next step', async () => {
+  const { cookie, dep, dir } = await setup();
+  fs.mkdirSync(path.join(dir, 'scans'), { recursive: true });
+  const kept = { ...SCAN, summary: { ...SCAN.summary, broken: 0, kept: 2, failed: 0, highRiskBroken: 0 }, rules: SCAN.rules.map(r => ({ ...r, probes: r.probes.map(p => ({ ...p, status: 'kept' })) })) };
+  fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(kept));
+  let page = await (await get(`${dep}/scan`, cookie)).text();
+  assert.match(page, /Ready for .* sign-off/);
+  assert.match(page, /signoff\/link"/);
+  assert.equal((await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) })).status, 303);
+  page = await (await get(`${dep}/scan`, cookie)).text();
+  assert.match(page, /A sign-off link is out \(1 open\)/);
+  assert.doesNotMatch(page, /Create the sign-off link/);
+
+  fs.writeFileSync(path.join(dir, 'scans', `${SCAN.id}.json`), JSON.stringify(SCAN));
+  assert.doesNotMatch(await (await get(`${dep}/scan`, cookie)).text(), /Ready for .* sign-off/, 'not while a rule is broken');
+});

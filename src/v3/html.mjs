@@ -2215,6 +2215,13 @@ ${gaps(fix.gaps)}
 <label class="field" style="margin:0"><span>Extra instructions for your AI <span class="subtle" style="font-weight:400">(edit before approving)</span></span><textarea name="instructions" maxlength="4000" style="min-height:180px;font:13.5px/1.55 var(--font)">${esc(fix.instructions)}</textarea>
 <p class="hint">${target.canApply ? `Grapim puts these in ${esc(target.where || 'every request')} for this AI, so approving applies them right away. Your own instructions are left as they are, and a re-check that comes out worse is undone automatically.` : 'Grapim cannot change this AI directly. Paste these into its instructions (Intercom Fin: Fin, then Guidance; Zendesk: the AI agent\'s instructions), then re-check.'}</p></label>
 <div class="row-inline" style="gap:8px;flex-wrap:wrap">${target.canApply ? `<button class="btn primary" name="mode" value="apply" data-busy="Applying…">${icon('check')}Approve, apply and re-check</button>` : `<button class="btn primary" name="mode" value="manual" data-busy="Starting…">${icon('check')}I applied it, re-check</button>`}</div></form></section>`;
+  // After a check that kept every rule, the next step is the client's sign-off: say so and offer it here.
+  const so = args.signoff ?? {};
+  const forWho = args.config?.customer ?? '';
+  const readyPanel = broken.length || unsure.length || !can.write || so.latest?.decision === 'accepted' ? ''
+    : `<section class="panel fixit" style="margin-top:16px"><div class="panel-body"><div><h2>Ready for ${forWho ? esc(possessive(forWho)) : 'the client’s'} sign-off</h2>
+<p class="muted" style="margin-top:4px">${so.active ? `A sign-off link is out (${so.active} open). The client accepts or sends it back from the link, no account needed.` : 'Every rule kept. Send the client a link: they read these results and accept the agent or send it back, no account needed.'}</p></div>
+${so.active ? `<a class="btn" href="${esc(base)}/rollout#signoff">${icon('arrow')}See the sign-off</a>` : `<form method="post" action="${esc(base)}/signoff/link"><input type="hidden" name="csrf" value="${esc(csrf)}"><button class="btn primary" data-busy="Creating…">${icon('arrow')}Create the sign-off link</button></form>`}</div></section>`;
   const verdict = s.broken
     ? `<p class="verdict bad num"><b>${s.broken}</b> <span class="of">of ${s.rules}</span> policy rules broken</p>`
     : unsure.length
@@ -2230,7 +2237,7 @@ ${gaps(fix.gaps)}
 ${compare}</div><div class="head-acts"><a class="btn" href="${esc(base)}/scan/report.html" target="_blank" rel="noopener">${icon('file')}Customer report</a><a class="btn" href="${esc(base)}/evidence.html" target="_blank" rel="noopener">${icon('file')}Evidence pack</a></div></div>${map}</section>
 ${draft && draft.status === 'pending' ? `<div class="notice good" style="margin-top:16px">${icon('inbox')}<span>These ${draft.content.rows.length} test messages are drafted into your saved test set, so every rule stays tested after you fix the AI. <a href="${esc(base)}/drafts">Review the draft</a></span></div>` : ''}
 ${worseNotice}
-${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}
+${fixPanel ? `<div style="margin-top:16px">${fixPanel}</div>` : ''}${readyPanel}
 ${broken.length ? `<h2 style="margin:28px 0 12px">Broken rules</h2><div class="stack">${broken.map(ruleCard).join('')}</div>` : ''}
 ${unsure.length ? `<h2 style="margin:28px 0 4px">Needs a person to check</h2><p class="muted" style="margin-bottom:12px">Your AI gave no answer, or the judge gave no verdict. These rules are not counted as kept.</p><div class="stack">${unsure.map(ruleCard).join('')}</div>` : ''}
 ${kept.length ? `<h2 style="margin:28px 0 12px">Kept</h2><section class="panel"><ul class="rulelist">${kept.map(r => `<li id="r-${esc(r.id)}">${icon('check')}<span class="strong">${esc(ruleTitle(r))}</span><span class="c">${esc(cl(r.clause))} · ${r.probes.length} message${r.probes.length === 1 ? '' : 's'}</span>${r.probes.filter(p => p.override).map(p => verdictForm(r, p)).join('')}</li>`).join('')}</ul></section>` : ''}`);
