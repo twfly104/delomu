@@ -186,6 +186,24 @@ const MIGRATIONS = [
   `ALTER TABLE share_links ADD COLUMN first_opened_at TEXT;
    ALTER TABLE share_links ADD COLUMN last_opened_at TEXT;
    ALTER TABLE share_links ADD COLUMN opens INTEGER NOT NULL DEFAULT 0;`,
+  // The client's own record across AI vendors (src/v3/records.mjs): one book per work email (hashed), one entry
+  // per accepted sign-off, with a snapshot of the decision so it outlives the 30-day link.
+  `CREATE TABLE client_books (
+     id TEXT PRIMARY KEY,
+     email_hash TEXT NOT NULL UNIQUE,
+     token_hash TEXT NOT NULL UNIQUE,
+     created_at TEXT NOT NULL
+   );
+   CREATE TABLE client_book_entries (
+     id TEXT PRIMARY KEY,
+     book_id TEXT NOT NULL REFERENCES client_books(id),
+     share_id TEXT NOT NULL,
+     vendor TEXT NOT NULL, client TEXT NOT NULL DEFAULT '', agent TEXT NOT NULL,
+     decision TEXT NOT NULL, reviewer TEXT NOT NULL, decided_at TEXT NOT NULL,
+     rules INTEGER NOT NULL DEFAULT 0, kept INTEGER NOT NULL DEFAULT 0, broken INTEGER NOT NULL DEFAULT 0, high_broken INTEGER NOT NULL DEFAULT 0,
+     created_at TEXT NOT NULL,
+     UNIQUE (book_id, share_id)
+   );`,
 ];
 
 export function openDb(dataDir) {

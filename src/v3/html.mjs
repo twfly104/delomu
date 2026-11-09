@@ -1093,12 +1093,12 @@ ${col('live', 5, 'Live', 'Real conversations checked after launch', `<div class=
 <section class="lv-film"><h2>One client’s rollout, recorded live.</h2>
 <figure class="lv-shot lv-player"><video src="/media/real.mp4" poster="/media/real.jpg" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="A screen recording of Grapim: a check on a sample bank’s AI agent finds a broken rule, Grapim drafts a fix, the same messages run again and all eight rules are kept, and the bank signs off from a link"></video><button type="button" class="lv-sound" data-sound hidden aria-pressed="false" aria-label="Sound"><span class="on">${icon('muted', { size: 15 })}Sound off</span><span class="off">${icon('sound', { size: 15 })}Sound on</span></button></figure>
 <p class="lv-note">Real product, sample client. Waiting sped up.</p></section>
-${step('draft', 1, 'Drafted from <mark>the client’s docs</mark>.', 'Mapping, integration and tests. You approve each.', draft)}
+${step('draft', 1, 'Drafted from <mark>the client’s docs</mark>.', 'Mapping, integration and tests, each for you to approve. Where the client’s policies contradict each other or leave a case open, Grapim turns it into a question for the client.', draft)}
 ${step('check', 2, 'Every rule, <mark>tested hard</mark>.', 'Up to 40 rules from the client’s own policies, three messages each, and a multi-turn pressure conversation for every high-risk rule. Tool calls are checked in code; words are judged against the exact clause.', grid, true)}
 ${step('fix', 3, 'Fix it. <mark>Test it again</mark>.', 'One drafted change, tied to the rules it repairs. You approve, the same messages rerun, and a fix that makes things worse is undone.', fix)}
 ${step('signoff', 4, 'Signed by <mark>the client</mark>.', 'The client reviews one rule at a time, asks about anything unclear, then accepts. One link, no account, kept in a tamper-evident log.', sign, true)}
 ${step('live', 5, 'Watched <mark>after launch</mark>.', 'Every conversation checked against the same rules. Broken rules alert you in Slack, and one click turns a bad conversation into a test.', live)}
-<section class="lv-more lv-legal"><h2>What their legal team gets.</h2>
+<section class="lv-more lv-legal"><h2>What their legal team gets.</h2><p class="lv-sub" style="margin:12px auto 0;max-width:40em">An agent waiting on review earns nothing. This is what gets it through.</p>
 <dl class="lv-mlist">
 <div><dt>An evidence pack</dt><dd>Every check, fix and approver, with the client’s sign-off. Mapped to ISO/IEC 42001, NIST AI RMF, AIUC-1 and the EU AI Act, gaps named.</dd></div>
 <div><dt>Their security questionnaire</dt><dd>The AI questions answered from your test records, as a spreadsheet.</dd></div>

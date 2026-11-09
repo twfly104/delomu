@@ -165,3 +165,36 @@ test('a broken high-risk rule blocks the sign-off link unless the vendor writes 
   assert.match(client, /Acme legal wants to &lt;b&gt;see&lt;\/b&gt; the open finding first/);
   assert.ok(readAudit(dir).some(e => e.action === 'signoff.link' && e.detail.waiver));
 });
+
+test('the client keeps accepted sign-offs from every vendor on one private page', async () => {
+  const fsm = await import('node:fs');
+  const { openDb } = await import('../src/v3/db.mjs');
+  const { addToBook, openBook } = await import('../src/v3/records.mjs');
+  const { cookie, dep, dir } = await setup();
+  writeChecks(dir);
+  let page = await (await get(`${dep}/rollout`, cookie)).text();
+  await post(`${dep}/signoff/link`, cookie, { csrf: csrfOf(page) });
+  const token = /\/signoff\/([^"]+)"/.exec(await (await get(`${dep}/rollout`, cookie)).text())[1];
+  const open = await get(`/signoff/${token}`);
+  const c = cookiesOf(open)[0]; const csrf = csrfOf(await open.text());
+  for (const [i, rule] of ['refund', 'handoff'].entries()) await post(`/signoff/${token}/review/${i + 1}`, c, { csrf, rule, state: 'ok', name: 'Dana Lee' });
+  const accepted = await (await post(`/signoff/${token}`, c, { csrf, name: 'Dana Lee', decision: 'accepted' })).text();
+  assert.match(accepted, /Keep every AI vendor’s record in one place/);
+  assert.equal((await post(`/signoff/${token}/keep`, c, { csrf, email: 'nope' })).status, 400);
+  const kept = await (await post(`/signoff/${token}/keep`, c, { csrf, email: 'Dana@AcmeBank.example' })).text();
+  const link = /href="(http[^"]+\/records\/[^"]+)"/.exec(kept)[1];
+  const book = await (await get(link.replace(/^https?:\/\/[^/]+/, ''))).text();
+  assert.match(book, /Your AI vendors’ records/);
+  assert.match(book, /VendorCo · for Acme Bank/);
+  assert.match(book, /All 2 kept/);
+  assert.match(book, /Accepted by Dana Lee/);
+  // A second vendor's sign-off with the same email joins the same page; without email sending, no link is shown again.
+  const db = openDb(srv.dataDir);
+  try {
+    const again = addToBook(db, 'dana@acmebank.example', { shareId: 'share_other', vendor: 'OtherVendor', client: 'Acme Bank', agent: 'Voice agent', decision: 'accepted', reviewer: 'Dana Lee', decidedAt: '2026-11-05T00:00:00.000Z', rules: 5, kept: 5, broken: 0, highBroken: 0 });
+    assert.equal(again.token, null, 'an existing page is never revealed to whoever types the email');
+    const t = link.split('/records/')[1];
+    assert.deepEqual(openBook(db, t).entries.map(e => e.vendor).sort(), ['OtherVendor', 'VendorCo']);
+  } finally { db.close(); }
+  assert.equal((await get('/records/not-a-real-token-xxxxxxxxxxxx')).status, 404);
+});

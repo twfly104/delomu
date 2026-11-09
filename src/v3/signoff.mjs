@@ -75,7 +75,7 @@ ${asked ? `<div class="notice good" role="status"><span>Question sent to ${esc(p
 
 // After an accepted sign-off: what the client keeps, and how to ask its other AI vendors for the same record. The
 // client owns the record; the ask goes out by the client's own email, written here so it is one click to send.
-function afterAccept({ token, preparedBy, client }) {
+function afterAccept({ token, preparedBy, client, csrf, kept: keptBook }) {
   const subject = 'The policy record we got for our AI agent';
   const body = `Hello,
 
@@ -88,7 +88,11 @@ Thanks`;
 <ul><li><a href="/signoff/${esc(token)}/handover">The handover page</a>: the rules this agent keeps, and what happens when a policy changes.</li><li><a href="/signoff/${esc(token)}/report.html">The full check report</a>: every test message, answer and verdict. Print it or save it as a PDF.</li><li>This link stays readable for 30 days; your decision is in the agent’s audit log for good.</li></ul>
 <h2 style="margin:18px 0 6px;font-size:15px">Other AI vendors working for ${esc(client || 'you')}?</h2>
 <p class="subtle" style="margin:0 0 12px">Ask them for the same record: their agent checked against your policies, every fix approved by a named person, and your sign-off.</p>
-<a class="btn" href="mailto:?subject=${encodeURIComponent(subject)}&amp;body=${encodeURIComponent(body)}">Write to another vendor</a> <a class="btn" href="/?ref=signoff">How this works</a></section>`;
+<a class="btn" href="mailto:?subject=${encodeURIComponent(subject)}&amp;body=${encodeURIComponent(body)}">Write to another vendor</a> <a class="btn" href="/?ref=signoff">How this works</a>
+<h2 style="margin:22px 0 6px;font-size:15px">Keep every AI vendor’s record in one place</h2>
+${keptBook ? `<div class="notice good" role="status"><span>${keptBook.link ? `Kept. Your private page: <a href="${esc(keptBook.link)}">${esc(keptBook.link)}</a>. Save it; it is shown only once${keptBook.emailed ? ', and we emailed it to you' : ''}.` : keptBook.emailed ? 'Kept. We emailed you the link to your private page.' : 'Kept with your other records. Use the link you saved before.'}</span></div>`
+  : `<p class="subtle" style="margin:0 0 10px">Your work email puts this record on a private page. Every AI vendor that signs off with you on Grapim adds its record to the same page, so your team sees all of them together.</p>
+<form method="post" action="/signoff/${esc(token)}/keep" class="row-inline" style="gap:8px;align-items:flex-end;flex-wrap:wrap" novalidate><input type="hidden" name="csrf" value="${esc(csrf ?? '')}"><label class="field" style="margin:0;flex:1;min-width:220px"><span>Work email</span><input type="email" name="email" required maxlength="254" autocomplete="email" placeholder="you@company.com"></label><button class="btn" data-busy="Keeping…">Keep this record</button></form>`}</section>`;
 }
 
 const SIGNOFF_STYLE = `.so-history{margin:0 0 24px;padding:16px 18px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
@@ -98,7 +102,7 @@ const SIGNOFF_STYLE = `.so-history{margin:0 0 24px;padding:16px 18px;border:1px 
 .so-qs li{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r)}.so-ans{margin-top:10px;padding:10px 12px;border-radius:calc(var(--r) - 2px);background:var(--sunken)}`;
 
 // The page the client sees. scan: the check the link was made for; done: a decision already given on this link.
-export function signoffPage({ csrf, token, preparedBy, client, name, title: agent = '', scan, launch, done, error, values = {}, handover = null, sender = '', history = null, questions = [], qValues, qError, asked, review = { name: '', rules: {} }, waiver = null }) {
+export function signoffPage({ csrf, token, preparedBy, client, name, title: agent = '', scan, launch, done, error, values = {}, handover = null, sender = '', history = null, questions = [], qValues, qError, asked, review = { name: '', rules: {} }, waiver = null, keptBook = null }) {
   const s = scan?.summary;
   const verdict = !s ? '' : s.broken
     ? `<div class="notice" role="status"><span>The check found <span class="strong">${s.broken} of ${s.rules} policy rules broken</span>. Read the findings before you accept.</span></div>`
@@ -128,7 +132,7 @@ ${error ? `<div class="notice" role="alert"><span>${esc(error)}</span></div>` : 
 ${scan && waiver ? `<div class="notice" role="note" style="margin-bottom:10px"><span><span class="strong">Sent while ${waiver.rules.length} high-risk rule${waiver.rules.length === 1 ? ' was' : 's were'} still broken</span> (${esc(waiver.rules.join('; '))}). ${esc(String(waiver.by).replace(/^human:/, ''))} at ${esc(preparedBy)} wrote: “${esc(waiver.reason)}”</span></div>` : ''}${scan ? `${verdict}<p class="subtle" style="margin:8px 0 12px">Check from ${esc(scan.createdAt.slice(0, 10))} · ${s.rules} rules · ${s.probes} test messages</p>
 <div class="row-inline" style="gap:8px;flex-wrap:wrap;margin-bottom:24px">${form ? `<a class="btn${canAccept ? ' primary' : ''}" href="#decide">Decide</a>` : ''}<a class="btn" href="/signoff/${esc(token)}/report.html">Read the full check report</a>${handover ? `<a class="btn" href="/signoff/${esc(token)}/handover">Handover page</a>` : ''}<a class="btn" href="#ask">Ask a question</a></div>
 <style>${SIGNOFF_STYLE}</style>${done ? '' : reviewPanel({ token, scan, review })}${historySection(history, preparedBy)}` : '<p>There is no check to review yet.</p>'}
-${decided}${done?.decision === 'accepted' ? `<style>${SIGNOFF_STYLE}</style>${afterAccept({ token, preparedBy, client })}` : ''}${form ? `<section id="decide" class="signoff-decide"><h2 style="margin:0 0 12px">Your decision</h2>${form}<p class="subtle" style="margin-top:12px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p></section>` : ''}
+${decided}${done?.decision === 'accepted' ? `<style>${SIGNOFF_STYLE}</style>${afterAccept({ token, preparedBy, client, csrf, kept: keptBook })}` : ''}${form ? `<section id="decide" class="signoff-decide"><h2 style="margin:0 0 12px">Your decision</h2>${form}<p class="subtle" style="margin-top:12px">Your decision, name and note are recorded in this AI agent’s audit log and shown to ${esc(preparedBy)}.</p></section>` : ''}
 ${scan ? questionsSection({ token, csrf, preparedBy, rules: (scan.rules ?? []).map(r => ({ id: String(r.id), title: String(r.title || r.rule || r.id).slice(0, 90) })), questions, qValues, qError, asked }) : ''}
 ${launch ? `<h2 style="margin:28px 0 6px">Launch summary</h2><div class="subtle" style="white-space:pre-wrap">${esc(launch)}</div>` : ''}
 ${handover && scan ? `<style>${HANDOVER_STYLE}</style><div style="margin-top:28px">${handoverSection(handover)}</div><p style="margin:16px 0 0"><a class="btn block" href="/signoff/${esc(token)}/handover">Open the handover page to keep</a></p>` : ''}

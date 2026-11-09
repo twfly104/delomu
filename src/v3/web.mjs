@@ -37,6 +37,8 @@ import { answerQuestion, askQuestion, listQuestions, openQuestions } from './que
 import { markRule, reviewOf, reviewProgress, reviewStepPage } from './review.mjs';
 import { highRiskBroken, saveWaiver, waiverFor } from './waivers.mjs';
 import { recordSpot, spotSample, spotsFor } from './spotcheck.mjs';
+import { addToBook, openBook, sendBookEmail, validEmail } from './records.mjs';
+import { recordsPage } from './records-view.mjs';
 import { handoverData, handoverPage } from './handover.mjs';
 import { buildQuestionnaire, questionnaireCsv, questionnairePage, saveVendorAnswers } from './questionnaire.mjs';
 import { verifiedFacts, verifiedPage } from './verified.mjs';
@@ -240,7 +242,7 @@ function routes(ctx) {
   }
 
   const PUBLIC_PATHS = ['/', '/signup', '/login', '/pricing', '/design-partners', '/integrations', '/developers', '/security', '/privacy', '/terms'];
-  r.add('GET', '/robots.txt', () => ({ status: 200, body: `User-agent: *\nAllow: /\nDisallow: /orgs/\nDisallow: /operator/\nDisallow: /signoff/\nDisallow: /verified/\nDisallow: /v1/\nSitemap: https://grapim.com/sitemap.xml\n`, type: 'text/plain; charset=utf-8' }), { public: true });
+  r.add('GET', '/robots.txt', () => ({ status: 200, body: `User-agent: *\nAllow: /\nDisallow: /orgs/\nDisallow: /operator/\nDisallow: /signoff/\nDisallow: /verified/\nDisallow: /records/\nDisallow: /v1/\nSitemap: https://grapim.com/sitemap.xml\n`, type: 'text/plain; charset=utf-8' }), { public: true });
   r.add('GET', '/sitemap.xml', () => ({ status: 200, body: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${PUBLIC_PATHS.map(p => `<url><loc>https://grapim.com${p}</loc></url>`).join('')}</urlset>\n`, type: 'application/xml; charset=utf-8' }), { public: true });
   r.add('GET', '/favicon.svg', () => ({ status: 200, body: FAVICON, type: 'image/svg+xml', headers: { 'cache-control': 'public, max-age=86400' } }), { public: true });
 
@@ -1259,6 +1261,31 @@ function routes(ctx) {
     const ahead = ids.findIndex((id, i) => i >= n && !review.rules[id]);
     const to = next.complete ? `/signoff/${params.token}#decide` : `/signoff/${params.token}/review/${(ahead >= 0 ? ahead : ids.findIndex(id => !review.rules[id])) + 1}`;
     return new Redirect(to);
+  }, { public: true });
+
+  // The client keeps an accepted sign-off on its own cross-vendor page (src/v3/records.mjs).
+  r.add('POST', '/signoff/:token/keep', async ({ req, params }) => {
+    const c = signoffContext(params.token);
+    const form = await readForm(req, ctx.maxBodyBytes);
+    requireCsrf(parseCookies(req.headers.cookie)[SIGNOFF_CSRF] ?? '', form);
+    if (c.done?.decision !== 'accepted' || !c.scan) throw new ApiError('invalid_request_error', 'Only an accepted sign-off can be kept.');
+    if (!signoffLimit(ctx.clientIp(req)).ok) return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done: c.done, error: 'Too many attempts from this network. Try again in a few minutes.' }), 429);
+    const email = String(form.email ?? '').trim();
+    if (!validEmail(email)) return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done: c.done, error: 'Enter a work email address to keep this record.' }), 400);
+    const s = c.scan.summary ?? {};
+    const { token, isNew } = addToBook(db, email, { shareId: c.share.id, vendor: c.view.preparedBy, client: c.view.client, agent: c.view.title || c.share.deployment, decision: c.done.decision, reviewer: c.done.name, decidedAt: c.done.at,
+      rules: s.rules, kept: (s.rules ?? 0) - (s.broken ?? 0), broken: s.broken, highBroken: s.highRiskBroken }, ctx.now(), { rotate: Boolean(ctx.emailLogin) });
+    const link = token ? `${returnBase(req)}/records/${token}` : '';
+    let emailed = false;
+    if (ctx.emailLogin && token) { try { await sendBookEmail(ctx.emailLogin, { to: email, link, vendor: c.view.preparedBy }, ctx.sendEmail); emailed = true; } catch (e) { ctx.log(`records email failed: ${e.message}`); } }
+    appendAudit(c.dir, { actor: `client:${c.done.name}`, action: 'signoff.kept', target: c.scan.id, detail: { share: c.share.id } }, ctx.now());
+    return html(signoffPage({ ...c.view, csrf: form.csrf, scan: c.scan, launch: c.launch, done: c.done, keptBook: { link: isNew ? link : '', emailed } }));
+  }, { public: true });
+
+  r.add('GET', '/records/:token', ({ params }) => {
+    const found = openBook(db, params.token);
+    if (!found) throw notFound('record page');
+    return html(recordsPage(found));
   }, { public: true });
 
   // A question from the client's reviewer about one rule, answered by the vendor on the Rollout page.
