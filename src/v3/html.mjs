@@ -334,7 +334,7 @@ form:has(input[name=type][value=http]:checked) .conn-http,form:has(input[name=ty
 details.kept summary{list-style:none;cursor:pointer;padding:10px 16px;font-size:13px;color:var(--text-2);border-top:1px solid var(--line)}details.kept summary::-webkit-details-marker{display:none}
 details.kept summary:hover{background:var(--hover)}details.kept[open] summary{border-bottom:1px solid var(--line)}
 .agent-name{display:flex;gap:10px;align-items:center}.agent-name .av{flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--sunken);border:1px solid var(--line);color:var(--text-2)}
-@media (max-width:760px){.page-head .actions{margin-left:0}.rule-head{flex-direction:column}.rule-head .tags{flex-direction:row;align-items:center}.stages{grid-template-columns:1fr}.stages li+li{border-left:0;border-top:1px solid var(--line)}.verdict{font-size:24px}}
+@media (max-width:760px){.page-head .actions{margin-left:0}.rule-head{flex-direction:column}.rule-head .tags{flex-direction:row;align-items:center}.stages,.stages.six{grid-template-columns:1fr}.stages li+li{border-left:0;border-top:1px solid var(--line)}.verdict{font-size:24px}}
 .clause,.harm,.verdict-line,.convo .why p,.rule-title h3{overflow-wrap:anywhere}
 .verdict.warn b{color:var(--warn);font-weight:600}
 .draft-body .kv td{overflow-wrap:anywhere}

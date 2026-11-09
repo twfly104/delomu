@@ -10,3 +10,8 @@ test('the home review list names the agent and hides internal check ids', () => 
   assert.doesNotMatch(html, /Risk scan|2026-11-09T09-46|probes|for sample-linden-agent/);
   assert.match(html, /0 of 8 policy rules broken\. Adding these 16 test messages/);
 });
+
+test('on a phone the six rollout steps stack in one column', () => {
+  const html = homePage({ user: { email: 'a@b.test' }, csrf: 'x', nav: { orgs: [{ id: 'o1', name: 'A' }, { id: 'o2', name: 'B' }] }, now: new Date(), deployments: [], review: [], canWrite: false });
+  assert.match(html, /@media \(max-width:760px\)\{[^}]*\.stages,\.stages\.six\{grid-template-columns:1fr\}/);
+});
