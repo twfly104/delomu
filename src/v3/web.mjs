@@ -747,7 +747,7 @@ function routes(ctx) {
     return new Redirect(`${depPath(org, params.name)}/scan${url.search}`);
   });
   r.add('GET', '/orgs/:org/deployments/:name/overview', ({ principal, params, url }) => showOverview(principal, params, url));
-  // Risk scans run in the background (about two minutes); the scan page shows live progress and refreshes.
+  // Risk scans run in the background (about three minutes); the scan page shows live progress and refreshes.
   const scans = new Map();
   // Starts a policy check in the background and returns its job; throws an ApiError when a plan limit is hit.
   // Done for the vendor: when a check or re-check leaves rules broken, the agent drafts the fix right away, so

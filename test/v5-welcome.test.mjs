@@ -62,7 +62,7 @@ test('a vendor is guided one step at a time: client, agent, policies, first chec
   assert.match(page, /\/demo\/store-agent/);
   assert.match(page, /returns-and-support-policy\.md/);
   assert.match(page, /Connect Northwind Bank’s real agent later/);
-  assert.match(page, /About two minutes/);
+  assert.match(page, /About three minutes/);
   assert.doesNotMatch(page, /shown only once/, 'the key shows only once');
 });
 

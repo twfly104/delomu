@@ -1158,7 +1158,7 @@ ${t.act ? `<p class="lp-tier-act">${t.act}</p>` : '<p class="lp-tier-act subtle"
 <p>We run one real client rollout for you within 48 hours, free, and you use the Vendor plan free for 90 days. In return: a 30-minute call each week and honest feedback.</p></div>
 <div class="lp-dfy-buy"><p class="lp-price">Free for 90 days</p><p class="subtle">Then 50% off the Vendor plan for a year if it earned its place. No obligation to buy.</p>
 <p class="lp-tier-act"><a class="btn primary" href="/design-partners">Apply for a spot</a></p></div></section>
-<section class="lp-end"><h2>Run your first check in two minutes</h2>
+<section class="lp-end"><h2>Run your first check in minutes</h2>
 <p>Start on a sample agent. No card needed.</p>
 <div class="lp-acts"><a class="btn primary" href="${start}">${cta}</a><a class="btn" href="/">See how it works</a></div></section>
 </main>
@@ -1462,7 +1462,7 @@ const EXAMPLE = `<figure class="example" aria-label="Example finding from the Ta
 function onboarding(org, csrf) {
   return `<section class="panel onboard"><div>
 <h2>Find the rules your AI agent breaks, before your customers do</h2>
-<p class="lede">About two minutes, and every finding cites its clause.</p>
+<p class="lede">About three minutes, and every finding cites its clause.</p>
 <div class="acts"><form method="post" action="${esc(orgPath(org))}/sample"><input type="hidden" name="csrf" value="${esc(csrf)}">
 <button class="btn primary" data-busy="Setting up…">Try it on a sample support bot</button></form>
 <a class="btn" href="${esc(orgPath(org))}/new-deployment">${icon('plus')}Connect your AI agent</a></div></div>
@@ -1473,7 +1473,7 @@ export function homePage({ user, csrf, nav, now, deployments, review, asks = [],
   const orgs = nav.orgs ?? [];
   if (!deployments.length && canWrite && orgs.length === 1) {
     return layout({ title: 'Home', user, csrf, nav: { ...nav, active: 'home' }, crumbs: [['Home']], body: `
-<div class="page-head"><div><h1>Welcome to Grapim</h1><p class="sub">Run your first check in about two minutes.</p></div></div>${keyPanel(signinKey)}${onboarding(orgs[0], csrf)}` });
+<div class="page-head"><div><h1>Welcome to Grapim</h1><p class="sub">Run your first check in about three minutes.</p></div></div>${keyPanel(signinKey)}${onboarding(orgs[0], csrf)}` });
   }
   const broken = deployments.filter(d => d.ov.scans[0]?.summary.broken).length;
   // The outcome a deployment lead is measured on: days from adding a client to the client's sign-off.
@@ -1630,7 +1630,7 @@ ${who ? `<input type="hidden" name="customer" value="${who}">` : ''}<input type=
 <form method="post" action="${esc(depPath(client, dep))}/inputs/url" class="wz-form wz-url-form" novalidate>${hidden}<input type="hidden" name="next" value="welcome">
 <label class="field"><span>Or paste the address of ${who ? `${esc(who)}’s` : 'the'} public policy page</span><input type="url" name="url" required placeholder="https://www.example.com/returns-policy" inputmode="url" autocomplete="off"></label>
 <button class="btn" data-busy="Reading the page…">Read the page and continue</button><p class="hint" style="margin:0">A refund policy, terms of service or help-center article. Grapim saves the text and where it came from.</p></form>`,
-    check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. ${state.agent?.sample ? 'About two minutes on the sample.' : 'Every rule in the policies, up to 40, with 3 messages each: usually 5 to 10 minutes.'}</p>
+    check: () => `<h1>Run the first check.</h1><p class="lede">Grapim writes the customer messages most likely to break each rule, sends them to the agent and judges every reply. ${state.agent?.sample ? 'About three minutes on the sample.' : 'Every rule in the policies, up to 40, with 3 messages each: usually 5 to 10 minutes.'}</p>
 ${state.agent ? `<dl class="wz-ready"><div><dt>Agent</dt><dd><span class="strong">${esc(state.agent.title)}</span>${state.agent.customer && !String(state.agent.title).startsWith(String(state.agent.customer).replace(/ \(sample\)$/, '')) ? ` <span class="subtle">· ${esc(state.agent.customer)}</span>` : ''}${state.agent.url ? `<span class="mono subtle wz-url">${esc(state.agent.url)}</span>` : ''}</dd></div>
 <div><dt>Files</dt><dd>${state.agent.files.length ? state.agent.files.map(f => `<span class="mono">${esc(f)}</span>`).join('<br>') : '<span class="subtle">None yet</span>'}</dd></div></dl>
 ${state.agent.sample ? `<p class="hint" style="margin:0 0 16px">A sample agent from a made-up store, Lia at Linden &amp; Co., built on an older version of its policy. ${who ? `Connect ${who}’s real agent later from its workspace.` : ''}</p>` : ''}` : ''}
