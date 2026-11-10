@@ -1,283 +1,307 @@
 {
  "fps": 30,
- "total": 1116,
+ "total": 1170,
  "introLen": 0,
  "outroLen": 96,
+ "rec": {
+  "w": 1024,
+  "h": 720
+ },
  "cues": [
   {
-   "from": 201.559,
-   "to": 204.37,
-   "speed": 1.004,
-   "caption": "First check on the sample agent: 2 of 8 rules broken.",
+   "from": 198.753,
+   "to": 202.13899999999998,
+   "speed": 1.302,
+   "caption": "First check on the sample agent: 3 of 9 rules broken.",
    "role": "results",
    "start": 0,
-   "len": 84,
+   "len": 78,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 320,
-      "y": 215,
-      "w": 600,
-      "h": 80
+      "x": 293,
+      "y": 220,
+      "w": 352,
+      "h": 63
      }
     },
     {
-     "at": 39,
+     "at": 35,
      "box": {
-      "x": 329,
+      "x": 293,
       "y": 220,
-      "w": 610,
-      "h": 165
+      "w": 669,
+      "h": 174
      }
     }
    ]
   },
   {
-   "from": 204.37,
-   "to": 207.979,
-   "speed": 1.289,
+   "from": 202.13899999999998,
+   "to": 205.618,
+   "speed": 1.338,
    "caption": "Each break shows the exact reply.",
    "role": "broken",
-   "start": 84,
-   "len": 84,
+   "start": 78,
+   "len": 78,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 329,
+      "x": 289,
       "y": 160,
-      "w": 505,
-      "h": 447
+      "w": 337,
+      "h": 354
      }
     },
     {
-     "at": 31,
+     "at": 29,
      "box": {
-      "x": 846,
-      "y": 351,
-      "w": 505,
+      "x": 638,
+      "y": 389,
+      "w": 337,
       "h": 256
      }
     }
    ]
   },
   {
-   "from": 207.979,
-   "to": 213.617,
-   "speed": 1.484,
-   "caption": "Under pressure, it gave in on message 2.",
+   "from": 205.618,
+   "to": 211.134,
+   "speed": 1.532,
+   "caption": "Under pressure, it gave in on message 3.",
    "role": "pressure",
-   "start": 168,
-   "len": 114,
+   "start": 156,
+   "len": 108,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 329,
+      "x": 289,
       "y": 110,
-      "w": 1022,
-      "h": 218
+      "w": 686,
+      "h": 575
      }
     },
     {
-     "at": 54,
+     "at": 51,
      "box": {
-      "x": 329,
-      "y": 338,
-      "w": 1022,
-      "h": 222
+      "x": 289,
+      "y": 354,
+      "w": 686,
+      "h": 306
      }
     }
    ]
   },
   {
-   "from": 213.617,
-   "to": 220.036,
-   "speed": 2.469,
-   "caption": "Grapim drafts the fix and names the 2 rules it repairs.",
+   "from": 211.134,
+   "to": 213.54899999999998,
+   "speed": 1,
+   "caption": "Grapim drafts the fix and names the 3 rules it repairs.",
    "role": "fix",
-   "start": 282,
-   "len": 78,
-   "cams": [
-    {
-     "at": 0,
-     "box": {
-      "x": 329,
-      "y": 200,
-      "w": 1022,
-      "h": 123
-     }
-    }
-   ]
-  },
-  {
-   "from": 220.036,
-   "to": 300.512,
-   "speed": 44.709,
-   "caption": "You approve. The same messages run again.",
-   "role": "recheck",
-   "start": 360,
-   "len": 54,
-   "cams": [
-    {
-     "at": 0,
-     "box": {
-      "x": 337,
-      "y": 259,
-      "w": 600,
-      "h": 110
-     }
-    }
-   ]
-  },
-  {
-   "from": 300.512,
-   "to": 303.946,
-   "speed": 1.431,
-   "caption": "Broken → kept. All 8 rules kept.",
-   "role": "kept",
-   "start": 414,
+   "start": 264,
    "len": 72,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 333,
+      "x": 289,
       "y": 200,
-      "w": 531,
-      "h": 123
+      "w": 686,
+      "h": 150
      }
     }
    ]
   },
   {
-   "from": 303.946,
-   "to": 310.503,
-   "speed": 2.732,
+   "from": 215.786,
+   "to": 295.401,
+   "speed": 33.173,
+   "caption": "Approved. Every rule, judged live.",
+   "role": "recheck",
+   "start": 336,
+   "len": 72,
+   "cams": [
+    {
+     "at": 0,
+     "box": {
+      "x": 297,
+      "y": 205,
+      "w": 669,
+      "h": 372
+     }
+    }
+   ]
+  },
+  {
+   "from": 388.166,
+   "to": 391.443,
+   "speed": 1.365,
+   "caption": "Broken → kept for 2 rules. 1 left to fix.",
+   "role": "kept",
+   "start": 408,
+   "len": 72,
+   "cams": [
+    {
+     "at": 0,
+     "box": {
+      "x": 293,
+      "y": 200,
+      "w": 678,
+      "h": 192
+     }
+    }
+   ]
+  },
+  {
+   "from": 476.077,
+   "to": 479.385,
+   "speed": 1.654,
+   "caption": "After a second fix, every rule is kept.",
+   "role": "kept",
+   "start": 480,
+   "len": 60,
+   "cams": [
+    {
+     "at": 0,
+     "box": {
+      "x": 293,
+      "y": 200,
+      "w": 525,
+      "h": 91
+     }
+    }
+   ]
+  },
+  {
+   "from": 479.385,
+   "to": 483.676,
+   "speed": 1.788,
    "caption": "One link for the client.",
    "role": "link",
-   "start": 486,
+   "start": 540,
    "len": 72,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 312,
+      "x": 273,
       "y": 300,
-      "w": 1056,
-      "h": 80
+      "w": 718,
+      "h": 99
      }
     },
     {
-     "at": 31,
+     "at": 33,
      "box": {
-      "x": 342,
-      "y": 600,
-      "w": 600,
-      "h": 62
+      "x": 302,
+      "y": 416,
+      "w": 649,
+      "h": 59
      }
     }
    ],
    "mask": {
-    "x": 342,
-    "y": 626,
-    "w": 913,
+    "x": 302,
+    "y": 441,
+    "w": 577,
     "h": 34,
-    "text": "https://grapim.com/signoff/IeAK5MI8lncdY_w9RRsKO7AZvaGHR9Dn5H54O1ArFfY"
+    "text": "https://grapim.com/signoff/DsXjL0Jy2NDOOazd9a2EeJN4BTNoNwHwb_H4Tn7ivCk"
    },
-   "maskFrom": 28
+   "maskFrom": 30
   },
   {
-   "from": 310.503,
-   "to": 319.837,
-   "speed": 3.111,
+   "from": 484.683,
+   "to": 493.21299999999997,
+   "speed": 2.843,
    "caption": "The client reviews one rule per screen.",
    "role": "review",
-   "start": 558,
+   "start": 612,
    "len": 90,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 400,
+      "x": 211,
       "y": 70,
-      "w": 640,
-      "h": 410
+      "w": 602,
+      "h": 394
      }
     },
     {
      "at": 31,
      "box": {
-      "x": 400,
+      "x": 192,
       "y": 60,
       "w": 640,
       "h": 263
      }
     },
     {
-     "at": 43,
+     "at": 46,
      "box": {
-      "x": 423,
-      "y": 447,
+      "x": 215,
+      "y": 258,
       "w": 594,
-      "h": 421
-     }
-    },
-    {
-     "at": 70,
-     "box": {
-      "x": 423,
-      "y": 731,
-      "w": 152,
-      "h": 32
+      "h": 326
      }
     }
    ]
   },
   {
-   "from": 319.837,
-   "to": 329.269,
-   "speed": 3.628,
+   "from": 493.21299999999997,
+   "to": 501.412,
+   "speed": 3.153,
    "caption": "They can ask about any rule.",
    "role": "review",
-   "start": 648,
+   "start": 702,
    "len": 78,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 400,
-      "y": 144,
+      "x": 192,
+      "y": 60,
       "w": 640,
       "h": 263
      }
     },
     {
-     "at": 22,
+     "at": 11,
      "box": {
-      "x": 423,
-      "y": 190,
+      "x": 215,
+      "y": 551,
       "w": 594,
-      "h": 666
+      "h": 234
+     }
+    },
+    {
+     "at": 26,
+     "box": {
+      "x": 215,
+      "y": 551,
+      "w": 594,
+      "h": 234
      }
     }
    ]
   },
   {
-   "from": 329.269,
-   "to": 344.14,
-   "speed": 9.294,
+   "from": 501.412,
+   "to": 513.541,
+   "speed": 7.581,
    "caption": "All 8 rules reviewed.",
    "role": "review",
-   "start": 726,
+   "start": 780,
    "len": 48,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 400,
-      "y": 144,
+      "x": 192,
+      "y": 60,
       "w": 640,
       "h": 263
      }
@@ -285,8 +309,8 @@
     {
      "at": 10,
      "box": {
-      "x": 400,
-      "y": 117,
+      "x": 192,
+      "y": 60,
       "w": 640,
       "h": 263
      }
@@ -294,35 +318,35 @@
     {
      "at": 18,
      "box": {
-      "x": 400,
-      "y": 154,
+      "x": 192,
+      "y": 60,
       "w": 640,
-      "h": 285
+      "h": 286
      }
     },
     {
-     "at": 26,
+     "at": 25,
      "box": {
-      "x": 400,
+      "x": 192,
       "y": 60,
       "w": 640,
       "h": 263
      }
     },
     {
-     "at": 33,
+     "at": 32,
      "box": {
-      "x": 400,
-      "y": 84,
+      "x": 192,
+      "y": 61,
       "w": 640,
       "h": 263
      }
     },
     {
-     "at": 40,
+     "at": 39,
      "box": {
-      "x": 400,
-      "y": 97,
+      "x": 192,
+      "y": 60,
       "w": 640,
       "h": 263
      }
@@ -330,70 +354,70 @@
    ]
   },
   {
-   "from": 344.14,
-   "to": 350.576,
-   "speed": 2.145,
+   "from": 513.541,
+   "to": 519.894,
+   "speed": 2.118,
    "caption": "Then they accept. No account needed.",
    "role": "review",
-   "start": 774,
+   "start": 828,
    "len": 90,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 421,
+      "x": 213,
       "y": 200,
       "w": 598,
-      "h": 422
+      "h": 412
      }
     },
     {
-     "at": 51,
+     "at": 50,
      "box": {
-      "x": 400,
+      "x": 207,
       "y": 160,
-      "w": 640,
-      "h": 303
+      "w": 606,
+      "h": 275
      }
     }
    ]
   },
   {
-   "from": 351.743,
-   "to": 354.612,
-   "speed": 1.195,
+   "from": 521.176,
+   "to": 524.0600000000001,
+   "speed": 1.202,
    "caption": "The sign-off goes into the evidence pack.",
    "role": "evidence",
-   "start": 864,
+   "start": 918,
    "len": 72,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 322,
+      "x": 40,
       "y": 200,
-      "w": 796,
-      "h": 112
+      "w": 943,
+      "h": 137
      }
     }
    ]
   },
   {
-   "from": 354.612,
-   "to": 357.826,
-   "speed": 1.148,
+   "from": 524.0600000000001,
+   "to": 527.273,
+   "speed": 1.147,
    "caption": "Mapped to common AI frameworks.",
    "role": "evidence",
-   "start": 936,
+   "start": 990,
    "len": 84,
    "cams": [
     {
      "at": 0,
      "box": {
-      "x": 322,
+      "x": 40,
       "y": 160,
-      "w": 796,
-      "h": 363
+      "w": 943,
+      "h": 452
      }
     }
    ]

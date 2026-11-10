@@ -8,7 +8,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 const recDir = process.argv[2];
-const { marks, frames, facts } = JSON.parse(fs.readFileSync(path.join(recDir, 'marks.json'), 'utf8'));
+const { marks, frames, facts, viewport = { w: 1440, h: 900 } } = JSON.parse(fs.readFileSync(path.join(recDir, 'marks.json'), 'utf8'));
 const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
 const FPS = 30;
 
@@ -28,16 +28,29 @@ const rounds = marks.filter(m => /^rechecked-\d$/.test(m.name)).length;
 const lastRound = `rechecked-${rounds}`;
 const { initial, final, pressure } = facts;
 const repaired = facts.repairs1?.length ?? 0;
+const moved1 = markOf('rechecked-1')?.moved ?? [];
+const repairedAfter1 = (moved1.find(t => t.startsWith('Broken → kept'))?.split('\n').length ?? 1) - 1;
+const left1 = facts.recheck1?.broken ?? 0;
 const seg = (from, to, secs, caption, role) => (from != null && to != null && to > from ? [{ from, to, speed: +Math.max(1, (to - from) / secs).toFixed(3), caption, role }] : []);
 const segments = [
   // The video opens on the first check's verdict (the check itself ran before, while the recorder waited).
-  ...seg(at('results'), at('broken'), 2.8, `First check on the sample agent: ${initial.broken} of ${initial.rules} rules broken.`, 'results'),
-  ...seg(at('broken'), at('pressure') ?? at('fix-1'), 2.8, 'Each break shows the exact reply.', 'broken'),
-  ...seg(at('pressure'), at('fix-1'), 3.8, pressure?.gaveIn ? `Under pressure, it gave in on message ${pressure.brokeAt}.` : `It held a pressure conversation of ${pressure?.turns} messages.`, 'pressure'),
-  ...seg(at('fix-1'), at('rechecking-1'), 2.6, repaired === 1 ? 'Grapim drafts the fix and names the rule it repairs.' : `Grapim drafts the fix and names the ${repaired} rules it repairs.`, 'fix'),
-  ...seg(at('rechecking-1'), at(lastRound), rounds > 1 ? 2.6 : 1.8, rounds > 1 ? `You approve. It took ${rounds} rounds of fixes.` : 'You approve. The same messages run again.', 'recheck'),
-  ...seg(at(lastRound), at('link'), 2.4, `Broken → kept. All ${final.rules} rules kept.`, 'kept'),
-  ...seg(at('link'), at('client'), 2.4, 'One link for the client.', 'link'),
+  ...seg(at('results'), at('broken'), 2.6, `First check on the sample agent: ${initial.broken} of ${initial.rules} rules broken.`, 'results'),
+  ...seg(at('broken'), at('pressure') ?? at('fix-1'), 2.6, 'Each break shows the exact reply.', 'broken'),
+  ...seg(at('pressure'), at('fix-1'), 3.6, pressure?.gaveIn ? `Under pressure, it gave in on message ${pressure.brokeAt}.` : `It held a pressure conversation of ${pressure?.turns} messages.`, 'pressure'),
+  ...seg(at('fix-1'), at('approve-1'), 2.6, repaired === 1 ? 'Grapim drafts the fix and names the rule it repairs.' : `Grapim drafts the fix and names the ${repaired} rules it repairs.`, 'fix'),
+  // the first re-check's live timeline, one row per rule filling in (recordings without it: that re-check, sped up)
+  ...(at('rejudging-1') != null
+    ? seg(at('rejudging-1'), at('rejudged-1') ?? at('rechecked-1'), 2.4, 'Approved. Every rule, judged live.', 'recheck')
+    : seg(at('rechecking-1'), at('rechecked-1'), 1.8, 'You approve. The same messages run again.', 'recheck')),
+  // the first re-check's result, with its 'Broken → kept' chips; a later round (if any) shows only its result
+  ...(rounds === 1
+    ? seg(at('rechecked-1'), at('link'), 2.4, `Broken → kept. All ${final.rules} rules kept.`, 'kept')
+    : [
+      ...seg(at('rechecked-1'), at('fix-2'), 2.4, `Broken → kept for ${repairedAfter1} rules. ${left1} left to fix.`, 'kept'),
+      ...seg(at(lastRound), at('link'), 2.0, rounds === 2 ? 'After a second fix, every rule is kept.' : `After ${rounds} rounds of fixes, every rule is kept.`, 'kept'),
+    ]),
+  // ends before the client's page loads ('link-made' + the 2.3 s the cursor rests on the link)
+  ...seg(at('link'), at('leave-rollout') ?? (at('link-made') != null ? Math.min(at('client'), at('link-made') + 2.3) : at('client')), 2.4, 'One link for the client.', 'link'),
   ...seg(at('client'), at('review-2'), 3.0, 'The client reviews one rule per screen.', 'review'),
   ...seg(at('review-2'), at('review-3'), 2.6, 'They can ask about any rule.', 'review'),
   ...seg(at('review-3'), at('decide'), 1.6, `All ${facts.reviewRules} rules reviewed.`, 'review'),
@@ -69,7 +82,7 @@ const cues = segments.map(s => {
   f += len; return c;
 });
 const total = f + OUTRO;
-fs.writeFileSync(path.join(root, 'src', 'real-cues.json'), JSON.stringify({ fps: FPS, total, introLen: INTRO, outroLen: OUTRO, cues }, null, 1));
+fs.writeFileSync(path.join(root, 'src', 'real-cues.json'), JSON.stringify({ fps: FPS, total, introLen: INTRO, outroLen: OUTRO, rec: viewport, cues }, null, 1));
 console.log(`rounds ${rounds}, ${cues.length} segments, ${(total / FPS).toFixed(1)} s`);
 for (const c of cues) console.log(`${(c.start / FPS).toFixed(1).padStart(5)}s +${(c.len / FPS).toFixed(1)}s x${c.speed} ${c.role} [${c.cams.map(k => `${k.at}:${k.box.w}x${k.box.h}`).join(' ')}]: ${c.caption}`);
 

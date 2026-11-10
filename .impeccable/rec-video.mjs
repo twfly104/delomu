@@ -13,12 +13,13 @@
 import fs from 'node:fs'; import os from 'node:os'; import path from 'node:path'; import { spawn } from 'node:child_process';
 const [out, DATA, base = 'http://localhost:8810'] = process.argv.slice(2);
 if (!out || !DATA) { console.error('usage: node .impeccable/rec-video.mjs <out-dir> <server data dir> [base-url]'); process.exit(1); }
-const W = 1440, H = 900;
+// A narrow window, so long blocks (the fix, a conversation turn) wrap and one block can be framed close.
+const W = 1024, H = 720;
 fs.rmSync(path.join(out, 'frames'), { recursive: true, force: true }); fs.mkdirSync(path.join(out, 'frames'), { recursive: true });
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'rec-'));
 const port = 9400 + Math.floor(Math.random() * 400);
-const chrome = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--hide-scrollbars', '--lang=en-US', `--window-size=${W},${H}`, 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${prof}`, '--hide-scrollbars', '--lang=en-US', '--force-device-scale-factor=2', `--window-size=${W},${H}`, 'about:blank'], { stdio: 'ignore' });
 let t; for (let i = 0; i < 50 && !t; i++) { await wait(200); try { t = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(x => x.type === 'page'); } catch {} }
 const ws = new WebSocket(t.webSocketDebuggerUrl); await new Promise(r => ws.addEventListener('open', r, { once: true }));
 let id = 0; const pend = new Map(); const frames = []; const marks = []; const facts = {};
@@ -45,7 +46,8 @@ const CURSOR = `(() => { const add = () => { if (document.getElementById('rec-cu
   document.documentElement.appendChild(c); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add); else add(); })();`;
 await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable'); await send('Page.setBypassCSP', { enabled: true });
-// Rendered at 2x pixel density for crisper text (headless Chrome still sends 1440x900 screencast frames). Boxes are CSS pixels.
+// 2x pixel density (with --force-device-scale-factor=2 the screencast frames really are 2x), so the video can zoom
+// into one element and stay sharp. Boxes are CSS pixels.
 const DPR = 2;
 await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: DPR, mobile: false });
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
@@ -62,18 +64,17 @@ const boxOf = els => ev(`${UNION}(${els})`).catch(e => { console.log('no box:', 
 const focus = async (name, els, { top = 120, extra = {}, settle = 250 } = {}) => {
   const b0 = await boxOf(els);
   if (!b0) { console.log('nothing to frame for', name); mark(name, extra); return; }
-  await ev(`scrollTo({ top: Math.max(0, scrollY + ${b0.y} - ${top}), behavior: 'instant' }); true`);
+  await ev(`scrollBy({ top: ${b0.y} - ${top}, behavior: 'instant' }); true`);
   await wait(settle);
   mark(name, { box: await boxOf(els), ...extra });
 };
 // Moves the camera within a shot, without scrolling.
 const look = async els => { const box = await boxOf(els); if (box) mark('cam', { box }); };
 const glide = async (x, y) => { await ev(`(() => { const c = document.getElementById('rec-cur'); c.style.left = '${x}px'; c.style.top = '${y}px'; sessionStorage.setItem('rec-cur', JSON.stringify({ x: ${x}, y: ${y} })); })()`); };
-// Glides the cursor to the element (jumping the page first if it is off screen, and framing it), presses and clicks.
+// Glides the cursor to the element (jumping the page first if it is off screen), presses and clicks. The camera stays.
 const point = async (sel, { click = true, pause = 450 } = {}) => {
-  const r = await ev(`(() => { const e = ${sel}; if (!e) return null; const b0 = e.getBoundingClientRect(); let moved = false; if (b0.top < 60 || b0.bottom > innerHeight - 40) { scrollTo({ top: scrollY + b0.top - innerHeight / 2, behavior: 'instant' }); moved = true; } const b = e.getBoundingClientRect(); return { x: b.left + Math.min(b.width * 0.5, 60), y: b.top + Math.min(b.height * 0.55, 20), moved }; })()`);
+  const r = await ev(`(() => { const e = ${sel}; if (!e) return null; const b0 = e.getBoundingClientRect(); let moved = false; if (b0.top < 60 || b0.bottom > innerHeight - 40) { scrollBy({ top: b0.top - innerHeight / 2, behavior: 'instant' }); moved = true; } const b = e.getBoundingClientRect(); return { x: b.left + Math.min(b.width * 0.5, 60), y: b.top + Math.min(b.height * 0.55, 20), moved }; })()`);
   if (!r) throw new Error('not found: ' + sel);
-  if (r.moved) await look(`[${sel}]`);
   await glide(r.x, r.y);
   await wait(800 + pause);
   if (click) { await ev(`(() => { const c = document.getElementById('rec-cur'); c.style.transform = 'scale(.82)'; setTimeout(() => c.style.transform = '', 140); })()`); await wait(160); await ev(`(${sel}).click()`); }
@@ -118,13 +119,16 @@ await wait(1200);
 mark('run'); await point(RUN, { pause: 600 });
 await until(`!!document.querySelector('.scan-live')`, 20000, 300); await loaded();
 const LIVE = `[${q('.scan-live .live-head .big')}, ${q('.scan-live p.muted')}, ${q('.scan-live .probegrid')}, ${q('.scan-live .legend')}]`;
+// while answers are judged: the live timeline, one row per rule (older builds: the grid of answer tiles)
+const RUNLINE = `[${q('.scan-live .live-head .big')}, ${q('.scan-live .runline')} || ${q('.scan-live .probegrid')}]`;
 await focus('checking', LIVE, { top: 240 });
 await cast(8);
 // A full check says 'Found N rules' while it writes the messages; the quick sample check goes straight to judging.
 for (let k = 0; k < 900; k++) {
   const tx = await text().catch(() => '');
   if (!marks.some(m => m.name === 'found') && /Found (\d+) rules/.test(tx)) await focus('found', LIVE, { top: 240, extra: { found: Number(/Found (\d+) rules/.exec(tx)[1]) } });
-  if (!marks.some(m => m.name === 'judging') && /Judging (\d+) answers/.test(tx)) await focus('judging', LIVE, { top: 240, extra: { total: Number(/Judging (\d+) answers/.exec(tx)[1]) } });
+  if (!marks.some(m => m.name === 'judging') && /Judging (\d+) answers/.test(tx)) await focus('judging', RUNLINE, { top: 150, extra: { total: Number(/Judging (\d+) answers/.exec(tx)[1]) } });
+  if (marks.some(m => m.name === 'judging') && !marks.some(m => m.name === 'drafting') && /Drafting the fix/.test(tx)) mark('drafting');
   if (!(await ev(`!!document.querySelector('.scan-live')`).catch(() => true))) break;
   await wait(500);
 }
@@ -172,13 +176,19 @@ for (let round = 1; round <= 4; round++) {
   }
   const repairs = await ev(`${qa('.fix-covers a')}.map(a => a.innerText.trim())`);
   facts['repairs' + round] = repairs;
-  await focus('fix-' + round, `[${q('form[action$="/fix/approve"] h2')}, ${qa('.fix-covers > *')}]`, { top: 200, extra: { repairs } });
+  await focus('fix-' + round, `[${q('form[action$="/fix/approve"] h2')}, ${q('form[action$="/fix/approve"] h2')}.nextElementSibling, ${qa('.fix-covers > *')}]`, { top: 200, extra: { repairs } });
   await point(`document.querySelector('.fix-covers a') || document.querySelector('form[action$="/fix/approve"] h2')`, { click: false, pause: 1600 });
   const before = scans().length;
   mark('approve-' + round); await point(`document.querySelector('form[action$="/fix/approve"] button[name=mode]')`, { pause: 400 });
   await until(`!!document.querySelector('.scan-live')`, 20000, 300); await loaded();
   await focus('rechecking-' + round, LIVE, { top: 240 });
   await cast(8);
+  // the re-check's live timeline filling in, rule by rule
+  if (await until(`!!document.querySelector('.scan-live .runline') || !document.querySelector('.scan-live')`, 200000, 500) && await ev(`!!document.querySelector('.scan-live .runline')`)) {
+    await focus('rejudging-' + round, RUNLINE, { top: 150 });
+    await until(`!document.querySelector('.scan-live .runline')`, 200000, 400);
+    mark('rejudged-' + round);
+  }
   for (let k = 0; k < 200 && scans().length <= before; k++) await wait(2000);
   await until(`!document.querySelector('.scan-live')`, 120000); await wait(1200);
   const last = scans().at(-1);
@@ -187,6 +197,9 @@ for (let round = 1; round <= 4; round++) {
   const moved = await ev(`${qa('.moved p')}.map(p => p.innerText.trim())`);
   await focus('rechecked-' + round, `[${q('.scan-head > div')}]`, { top: 200, extra: { summary: last.summary, moved } });
   await point(`document.querySelector('.moved .mv.good') || document.querySelector('.verdict')`, { click: false, pause: 2200 });
+  // The story needs a clean re-check: every rule kept, none left for a person (otherwise run again).
+  // (A re-check can have one rule fewer: 'No invented policy' only exists while some answer invents a term.)
+  if (last.summary.broken === 0 && last.summary.unjudged) { console.log('NOT CLEAN: re-check left answers unjudged'); await send('Page.stopScreencast'); await send('Browser.close'); chrome.kill(); process.exit(4); }
   if (last.summary.broken === 0) break;
   if (round === 4) { console.log('NOT ALL KEPT'); await send('Page.stopScreencast'); await send('Browser.close'); process.exit(2); }
 }
@@ -203,6 +216,7 @@ const lm = marks.at(-1);
 lm.mask = await boxOf(`[${COPY}]`);
 lm.token = new URL(await ev(`${COPY}.value || ${COPY}.innerText`)).pathname.split('/').pop();
 await point(COPY, { click: false, pause: 1500 });
+mark('leave-rollout');
 await go(`/signoff/${lm.token}`);
 await focus('client', `[${q('h1')}, ${q('.rv-panel')}]`, { top: 70 });
 await wait(1000);
@@ -217,13 +231,14 @@ for (let n = 1; n <= nRules; n++) {
   if (n === 1) {
     await wait(1200);
     // the reply the client reads, their name and the 'Looks right' button
-    await look(`[${q('.rv-ex > div:last-child')}, ${q('.rv-acts form')}]`);
+    await focus('cam', `[${q('.rv-ex > div:last-child')}, ${q('.rv-acts form')}]`, { top: 120 });
     await typeInto(`document.querySelector('form input[name=name]')`, 'Dana Lee, Linden & Co.'); await wait(300);
     await point(`${qa('.rv-acts form button.primary')}[0]`, { pause: 300 });
   } else if (n === 2) {
     await wait(900);
-    mark('ask'); await point(`document.querySelector('details.rv-ask summary')`, { pause: 200 }); await wait(400);
-    await look(`[${q('.rv-card h1')}, ${q('details.rv-ask')}]`);
+    await focus('ask', `[${q('.rv-acts form')}, ${q('details.rv-ask')}]`, { top: 160 });
+    await point(`document.querySelector('details.rv-ask summary')`, { pause: 200 }); await wait(400);
+    await look(`[${q('.rv-acts form')}, ${q('details.rv-ask')}]`);
     await typeInto(`document.querySelector('details.rv-ask textarea')`, 'Does this also cover orders placed by phone?');
     await wait(400);
     await point(`document.querySelector('details.rv-ask button')`, { pause: 300 });
@@ -245,12 +260,14 @@ await point(ACCEPTED, { click: false, pause: 2000 });
 
 // --- 4. the evidence pack: the client's sign-off, then the framework table's first rows
 mark('evidence'); await go(dep + '/evidence.html');
+// the pack is a printable document (860 px wide): read at 125% browser zoom, as on a laptop
+await ev(`document.documentElement.style.zoom = '1.25'; true`); await wait(300);
 const SECTION = re => `(() => { const h = ${byText('h2', re)}; const out = [h]; for (let e = h.nextElementSibling; e && e.tagName !== 'H2'; e = e.nextElementSibling) out.push(e); return out; })()`;
 await focus('ev-signoff', `${SECTION(/^Client sign-off$/)}.slice(0, 2)`, { top: 200 });
 await wait(2600);
 await focus('ev-frameworks', `(() => { const s = ${SECTION(/common AI frameworks/)}; const t = s.map(e => e.matches('table') ? e : e.querySelector('table')).find(Boolean); return [s[0], s[1], ...[...t.querySelectorAll('tr')].slice(0, 4)]; })()`, { top: 160 });
 await wait(3200);
 await send('Page.stopScreencast'); mark('end');
-fs.writeFileSync(path.join(out, 'marks.json'), JSON.stringify({ marks, frames, facts, initial: facts.initial, dpr: DPR }, null, 1));
+fs.writeFileSync(path.join(out, 'marks.json'), JSON.stringify({ marks, frames, facts, initial: facts.initial, dpr: DPR, viewport: { w: W, h: H } }, null, 1));
 console.log('frames', frames.length, 'facts', JSON.stringify(facts));
 await send('Browser.close'); chrome.kill(); process.exit(0);

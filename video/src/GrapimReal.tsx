@@ -17,19 +17,21 @@ const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 const BAND = 112;
 const CARD = { x: 60, y: BAND + 4, w: 1320, h: 900 - BAND - 4 - 44 };
 const ASPECT = CARD.w / CARD.h;
-// The recording is 1440x900 CSS pixels (captured at 2x density). A crop is at least MINW wide, so a small element
+// The recording is REC CSS pixels (the recorder's window, captured at 2x density). A crop is at least MINW wide, so a small element
 // keeps some context and is never blown up past the 2x capture.
-const REC = { w: 1440, h: 900 };
+const REC = (cues as { rec?: { w: number; h: number } }).rec ?? { w: 1440, h: 900 };
 const PAD = 30;
-const MINW = 660;
+const MINW = 600;
 
 type Box = { x: number; y: number; w: number; h: number };
 type Crop = { x: number; y: number; w: number };
-const MAXW = 900; // a tall box may widen the crop only this far (text stays readable at 960 px wide)
-const cropOf = (b: Box): Crop => {
+const MAXW = 780; // a tall box may widen the crop only this far (text stays readable at 960 px wide)
+// In the vendor's app the sidebar (240 px) is never what a shot is about: crops start right of it when they fit.
+const APP_LEFT = 250;
+const cropOf = (b: Box, app = false): Crop => {
   const w = Math.min(REC.w, Math.max(MINW, b.w + 2 * PAD, Math.min((b.h + 2 * PAD) * ASPECT, Math.max(MAXW, b.w + 2 * PAD))));
   const h = w / ASPECT;
-  const x = Math.max(0, Math.min(REC.w - w, b.x + b.w / 2 - w / 2));
+  const x = Math.max(app && APP_LEFT + w <= REC.w ? APP_LEFT : 0, Math.min(REC.w - w, b.x + b.w / 2 - w / 2));
   // a box taller than the crop keeps its end in frame: that is where the reply, the question or the button is
   const y = Math.max(0, Math.min(REC.h - h, b.h + 2 * PAD > h ? b.y + b.h + PAD - h : b.y + b.h / 2 - h / 2));
   return { x, y, w };
@@ -64,10 +66,11 @@ const Segment: React.FC<{ c: Cue; caption: string; newCaption: boolean }> = ({ c
   const f = useCurrentFrame();
   // The camera cuts to the shot's first framing, then eases to each later one (a look within the same page).
   const keys = c.cams.length ? c.cams : [{ at: 0, box: { x: 0, y: 0, w: REC.w, h: REC.h } }];
-  let cam = cropOf(keys[0].box) ?? FULL;
+  const app = APP.has(c.role);
+  let cam = cropOf(keys[0].box, app) ?? FULL;
   for (const k of keys.slice(1)) {
     if (f < k.at) break;
-    const to = cropOf(k.box);
+    const to = cropOf(k.box, app);
     const e = spring({ frame: f - k.at, fps: 30, config: { damping: 200, stiffness: 110 } });
     cam = { x: cam.x + (to.x - cam.x) * e, y: cam.y + (to.y - cam.y) * e, w: cam.w + (to.w - cam.w) * e };
   }
@@ -84,8 +87,8 @@ const Segment: React.FC<{ c: Cue; caption: string; newCaption: boolean }> = ({ c
         <div style={{ position: 'absolute', left: 0, top: 0, width: REC.w, height: REC.h, transformOrigin: '0 0', transform: `scale(${s}) translate(${-cam.x}px, ${-cam.y}px)` }}>
           <OffthreadVideo src={staticFile('rec.mp4')} startFrom={Math.round(c.from * 30)} playbackRate={c.speed} muted style={{ width: REC.w, height: REC.h }} />
           {/* The sidebar's account footer and the assistant button are not part of the story. */}
-          {APP.has(c.role) ? <div style={{ position: 'absolute', left: 0, top: 840, width: 239, height: 60, background: '#fafafa' }} /> : null}
-          {APP.has(c.role) ? <div style={{ position: 'absolute', left: 1364, top: 824, width: 76, height: 76, background: '#fafafa' }} /> : null}
+          {APP.has(c.role) ? <div style={{ position: 'absolute', left: 0, top: REC.h - 60, width: 239, height: 60, background: '#fafafa' }} /> : null}
+          {APP.has(c.role) ? <div style={{ position: 'absolute', left: REC.w - 76, top: REC.h - 76, width: 76, height: 76, background: '#fafafa' }} /> : null}
           {mask ? (
             <div style={{ position: 'absolute', left: m!.x, top: m!.y, width: m!.w, height: m!.h, background: '#fff', display: 'flex', alignItems: 'center', paddingLeft: 10, fontSize: 13.5, color: '#171717', letterSpacing: 0.1, overflow: 'hidden', whiteSpace: 'nowrap', boxSizing: 'border-box', border: '1px solid #e5e5e5', borderRadius: 6, fontFamily: 'Consolas, ui-monospace, monospace' }}>{m!.text}</div>
           ) : null}
